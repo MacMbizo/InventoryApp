@@ -1,0 +1,67 @@
+# Visual Studio / .NET
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build artifacts
+bin/
+obj/
+[Bb]uild/
+[Ll]og/
+[Ll]ogs/
+artifacts/
+publish/
+
+# Test results
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# Rider / JetBrains
+.idea/
+
+# VS Code workspace settings (optional to commit)
+.vscode/
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+.nuget/packages/
+
+# Local .NET SDK installed in repo
+.dotnet/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# SQLite databases (runtime artifacts)
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.sqlite-shm
+*.sqlite-wal
+
+# Logs
+logs/
+*.log
+Log*.txt
+
+# Tooling caches
+*.cache
+*.pdb
+*.ilk
+
+# Resharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+
+# Others
+.localhistory/

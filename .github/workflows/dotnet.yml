@@ -1,0 +1,31 @@
+name: .NET CI
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK (global.json)
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: ./global.json
+
+      - name: Restore
+        run: |
+          dotnet restore ./InventoryApp.sln
+
+      - name: Build
+        run: |
+          dotnet build ./InventoryApp.sln --configuration Release --no-restore
+
+      - name: Test
+        run: |
+          dotnet test ./tests/QAAgentRunner.Tests/QAAgentRunner.Tests.csproj --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"

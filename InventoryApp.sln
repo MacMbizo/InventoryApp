@@ -1,0 +1,57 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{706DB976-C92E-4792-A479-FD8DAEC9A811}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QAAgentRunner", "src\QAAgentRunner\QAAgentRunner.csproj", "{A0A38079-9A8A-46A6-8B8C-B36A82E0C047}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0D03624B-A920-41C8-B6B6-67CDC021416D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QAAgentRunner.Tests", "tests\QAAgentRunner.Tests\QAAgentRunner.Tests.csproj", "{693CFD4D-42D9-4D8D-B703-E730F123257A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KitchenInventory.Desktop", "src\KitchenInventory.Desktop\KitchenInventory.Desktop.csproj", "{C2284B96-3CE5-4647-8345-27BBC4E8177A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KitchenInventory.Domain", "src\KitchenInventory.Domain\KitchenInventory.Domain.csproj", "{B6CBE365-9806-419A-B728-E52B02C1983B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KitchenInventory.Data", "src\KitchenInventory.Data\KitchenInventory.Data.csproj", "{C0A5FF9B-2477-4D56-9C22-82B1600AB081}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A0A38079-9A8A-46A6-8B8C-B36A82E0C047}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A0A38079-9A8A-46A6-8B8C-B36A82E0C047}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A0A38079-9A8A-46A6-8B8C-B36A82E0C047}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A0A38079-9A8A-46A6-8B8C-B36A82E0C047}.Release|Any CPU.Build.0 = Release|Any CPU
+		{693CFD4D-42D9-4D8D-B703-E730F123257A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{693CFD4D-42D9-4D8D-B703-E730F123257A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{693CFD4D-42D9-4D8D-B703-E730F123257A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{693CFD4D-42D9-4D8D-B703-E730F123257A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C2284B96-3CE5-4647-8345-27BBC4E8177A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C2284B96-3CE5-4647-8345-27BBC4E8177A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C2284B96-3CE5-4647-8345-27BBC4E8177A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C2284B96-3CE5-4647-8345-27BBC4E8177A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B6CBE365-9806-419A-B728-E52B02C1983B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B6CBE365-9806-419A-B728-E52B02C1983B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B6CBE365-9806-419A-B728-E52B02C1983B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B6CBE365-9806-419A-B728-E52B02C1983B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C0A5FF9B-2477-4D56-9C22-82B1600AB081}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C0A5FF9B-2477-4D56-9C22-82B1600AB081}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C0A5FF9B-2477-4D56-9C22-82B1600AB081}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C0A5FF9B-2477-4D56-9C22-82B1600AB081}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{A0A38079-9A8A-46A6-8B8C-B36A82E0C047} = {706DB976-C92E-4792-A479-FD8DAEC9A811}
+		{693CFD4D-42D9-4D8D-B703-E730F123257A} = {0D03624B-A920-41C8-B6B6-67CDC021416D}
+		{C2284B96-3CE5-4647-8345-27BBC4E8177A} = {706DB976-C92E-4792-A479-FD8DAEC9A811}
+		{B6CBE365-9806-419A-B728-E52B02C1983B} = {706DB976-C92E-4792-A479-FD8DAEC9A811}
+		{C0A5FF9B-2477-4D56-9C22-82B1600AB081} = {706DB976-C92E-4792-A479-FD8DAEC9A811}
+	EndGlobalSection
+EndGlobal
