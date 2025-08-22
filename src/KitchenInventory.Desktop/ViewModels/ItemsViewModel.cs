@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
+using System.Windows.Data;
 using System.Windows.Input;
 using KitchenInventory.Data;
 using KitchenInventory.Domain.Entities;
@@ -18,6 +19,41 @@ public class ItemsViewModel : INotifyPropertyChanged
     private readonly ILogger<ItemsViewModel> _logger;
 
     public ObservableCollection<Item> Items { get; } = new();
+
+    private ICollectionView? _itemsView;
+    public ICollectionView? ItemsView
+    {
+        get => _itemsView;
+        private set { _itemsView = value; OnPropertyChanged(); }
+    }
+
+    private string _filterText = string.Empty;
+    public string FilterText
+    {
+        get => _filterText;
+        set { if (_filterText != value) { _filterText = value; OnPropertyChanged(); ApplyFilter(); } }
+    }
+
+    private int _totalCount;
+    public int TotalCount
+    {
+        get => _totalCount;
+        private set { _totalCount = value; OnPropertyChanged(); UpdateStatus(); }
+    }
+
+    private int _filteredCount;
+    public int FilteredCount
+    {
+        get => _filteredCount;
+        private set { _filteredCount = value; OnPropertyChanged(); UpdateStatus(); }
+    }
+
+    private string _statusText = string.Empty;
+    public string StatusText
+    {
+        get => _statusText;
+        private set { _statusText = value; OnPropertyChanged(); }
+    }
 
     private Item? _selectedItem;
     public Item? SelectedItem
@@ -40,6 +76,48 @@ public class ItemsViewModel : INotifyPropertyChanged
         AddItemCommand = new RelayCommand(AddItem);
         DeleteItemCommand = new AsyncRelayCommand(DeleteSelectedAsync, () => SelectedItem != null);
         SaveChangesCommand = new AsyncRelayCommand(SaveChangesAsync, () => Items.Count > 0);
+
+        // Initialize view
+        ItemsView = CollectionViewSource.GetDefaultView(Items);
+        if (ItemsView != null)
+        {
+            ItemsView.Filter = FilterPredicate;
+            using (ItemsView.DeferRefresh())
+            {
+                ItemsView.SortDescriptions.Clear();
+                ItemsView.SortDescriptions.Add(new SortDescription(nameof(Item.Name), ListSortDirection.Ascending));
+            }
+        }
+        UpdateCounts();
+    }
+
+    private bool FilterPredicate(object obj)
+    {
+        if (obj is not Item it) return false;
+        if (string.IsNullOrWhiteSpace(FilterText)) return true;
+        var term = FilterText.Trim();
+        return (it.Name?.IndexOf(term, StringComparison.CurrentCultureIgnoreCase) >= 0)
+               || (it.Unit?.IndexOf(term, StringComparison.CurrentCultureIgnoreCase) >= 0);
+    }
+
+    private void ApplyFilter()
+    {
+        ItemsView?.Refresh();
+        UpdateCounts();
+        _logger.LogDebug("Applied filter '{FilterText}' -> {FilteredCount}/{TotalCount}", FilterText, FilteredCount, TotalCount);
+    }
+
+    private void UpdateCounts()
+    {
+        TotalCount = Items.Count;
+        FilteredCount = ItemsView?.Cast<object>().Count() ?? Items.Count;
+    }
+
+    private void UpdateStatus()
+    {
+        StatusText = string.IsNullOrWhiteSpace(FilterText)
+            ? $"Items: {TotalCount}"
+            : $"Items: {FilteredCount}/{TotalCount} (filter: '{FilterText}')";
     }
 
     public async Task LoadAsync()
@@ -53,6 +131,8 @@ public class ItemsViewModel : INotifyPropertyChanged
             foreach (var it in items)
                 Items.Add(it);
             OnPropertyChanged(nameof(Items));
+            ItemsView?.Refresh();
+            UpdateCounts();
             _logger.LogInformation("Loaded {Count} items", Items.Count);
         }
         catch (Exception ex)
@@ -67,6 +147,8 @@ public class ItemsViewModel : INotifyPropertyChanged
         var newItem = new Item { Name = "New Item", Quantity = 1, Unit = "pcs" };
         Items.Add(newItem);
         SelectedItem = newItem;
+        ItemsView?.Refresh();
+        UpdateCounts();
     }
 
     private async Task DeleteSelectedAsync()
@@ -75,6 +157,8 @@ public class ItemsViewModel : INotifyPropertyChanged
         var toDelete = SelectedItem;
         Items.Remove(toDelete);
         SelectedItem = null;
+        ItemsView?.Refresh();
+        UpdateCounts();
 
         if (toDelete.Id > 0)
         {
@@ -113,6 +197,7 @@ public class ItemsViewModel : INotifyPropertyChanged
             _logger.LogInformation("Save successful");
 
             await LoadAsync();
+            ApplyFilter();
         }
         catch (Exception ex)
         {

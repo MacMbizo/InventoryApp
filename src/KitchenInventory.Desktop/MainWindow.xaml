@@ -3,25 +3,23 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:KitchenInventory.Desktop"
         xmlns:vm="clr-namespace:KitchenInventory.Desktop.ViewModels"
         xmlns:val="clr-namespace:KitchenInventory.Desktop.Validations"
         mc:Ignorable="d"
-        d:DataContext="{d:DesignInstance Type=vm:ItemsViewModel, IsDesignTimeCreatable=False}"
-        Title="Kitchen Inventory" Height="600" Width="900">
+        Title="Kitchen Inventory" Height="480" Width="800">
     <DockPanel>
         <ToolBar DockPanel.Dock="Top">
-            <Button Content="Refresh" Margin="0,0,8,0" Command="{Binding RefreshCommand}" />
-            <Separator/>
-            <Button Content="Add" Margin="0,0,8,0" Command="{Binding AddItemCommand}" />
-            <Button Content="Delete" Margin="0,0,8,0" Command="{Binding DeleteItemCommand}" />
-            <Separator/>
+            <Button Content="Refresh" Command="{Binding RefreshCommand}" Margin="0,0,8,0" />
+            <Button Content="Add" Command="{Binding AddItemCommand}" Margin="0,0,8,0" />
+            <Button Content="Delete" Command="{Binding DeleteItemCommand}" Margin="0,0,8,0" />
             <Button Content="Save" Command="{Binding SaveChangesCommand}" />
+            <Separator />
+            <TextBlock Text="Search:" VerticalAlignment="Center" Margin="8,0,4,0" />
+            <TextBox Width="200" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" />
         </ToolBar>
 
-        <DataGrid ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
-                  AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="False"
-                  Margin="8" SelectionMode="Single" HeadersVisibility="Column"
+        <DataGrid ItemsSource="{Binding ItemsView}" AutoGenerateColumns="False" CanUserAddRows="False"
+                  SelectionMode="Single" SelectedItem="{Binding SelectedItem, Mode=TwoWay}" Margin="8"
                   SelectionChanged="DataGrid_SelectionChanged">
             <DataGrid.Resources>
                 <Style TargetType="TextBox">
@@ -46,7 +44,7 @@
 
             <DataGrid.Columns>
                 <!-- Name: required -->
-                <DataGridTextColumn Header="Name" Width="2*">
+                <DataGridTextColumn Header="Name">
                     <DataGridTextColumn.Binding>
                         <Binding Path="Name" UpdateSourceTrigger="PropertyChanged" NotifyOnValidationError="True">
                             <Binding.ValidationRules>
@@ -57,10 +55,10 @@
                 </DataGridTextColumn>
 
                 <!-- Quantity: numeric with range validation -->
-                <DataGridTemplateColumn Header="Quantity" Width="*">
+                <DataGridTemplateColumn Header="Quantity">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding Quantity}" TextAlignment="Right"/>
+                            <TextBlock Text="{Binding Quantity}" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                     <DataGridTemplateColumn.CellEditingTemplate>
@@ -81,22 +79,28 @@
                 </DataGridTemplateColumn>
 
                 <!-- Unit: optional free text -->
-                <DataGridTextColumn Header="Unit" Binding="{Binding Unit, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
+                <DataGridTextColumn Header="Unit" Binding="{Binding Unit, UpdateSourceTrigger=PropertyChanged}" />
 
                 <!-- Expiry Date: DatePicker editor -->
-                <DataGridTemplateColumn Header="Expiry Date" Width="*">
+                <DataGridTemplateColumn Header="Expiry Date">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding ExpiryDate, StringFormat=yyyy-MM-dd}"/>
+                            <TextBlock Text="{Binding ExpiryDate, StringFormat=yyyy-MM-dd}" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                     <DataGridTemplateColumn.CellEditingTemplate>
                         <DataTemplate>
-                            <DatePicker SelectedDate="{Binding ExpiryDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                            <DatePicker SelectedDate="{Binding ExpiryDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellEditingTemplate>
                 </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>
+
+        <StatusBar DockPanel.Dock="Bottom">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusText}" />
+            </StatusBarItem>
+        </StatusBar>
     </DockPanel>
 </Window>

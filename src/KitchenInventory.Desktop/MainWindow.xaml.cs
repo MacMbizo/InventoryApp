@@ -9,48 +9,58 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Text.RegularExpressions;
-
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
 using KitchenInventory.Desktop.ViewModels;
 
 namespace KitchenInventory.Desktop;
 
-/// <summary>
-/// Interaction logic for MainWindow.xaml
-/// </summary>
 public partial class MainWindow : Window
 {
     private static readonly Regex QuantityRegex = new("^\\d*(\\.\\d{0,3})?$");
 
-    public MainWindow(ItemsViewModel vm)
+    public MainWindow(ItemsViewModel viewModel)
     {
         InitializeComponent();
-        DataContext = vm;
-        Loaded += async (_, __) => await vm.LoadAsync();
+        // If DI constructs this, DataContext is provided via XAML now. If created by DI, keep DI-provided vm.
+        if (DataContext is null)
+        {
+            DataContext = viewModel;
+        }
+        Loaded += async (_, __) =>
+        {
+            if (DataContext is ItemsViewModel vm)
+            {
+                await vm.LoadAsync();
+            }
+        };
     }
 
     private void DataGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        // Let WPF re-evaluate CanExecute for commands that depend on SelectedItem
         CommandManager.InvalidateRequerySuggested();
     }
 
     private void Quantity_PreviewTextInput(object sender, TextCompositionEventArgs e)
     {
-        if (sender is not TextBox tb) return;
+        var tb = (TextBox)sender;
         var proposed = tb.Text.Remove(tb.SelectionStart, tb.SelectionLength).Insert(tb.SelectionStart, e.Text);
         e.Handled = !QuantityRegex.IsMatch(proposed);
     }
 
     private void Quantity_Pasting(object sender, DataObjectPastingEventArgs e)
     {
-        if (sender is not TextBox tb) return;
         if (e.DataObject.GetDataPresent(DataFormats.Text))
         {
-            var pasteText = e.DataObject.GetData(DataFormats.Text) as string ?? string.Empty;
-            var proposed = tb.Text.Remove(tb.SelectionStart, tb.SelectionLength).Insert(tb.SelectionStart, pasteText);
-            if (!QuantityRegex.IsMatch(proposed))
+            var paste = (string)e.DataObject.GetData(DataFormats.Text)!;
+            e.CancelCommand();
+            var tb = (TextBox)sender;
+            var proposed = tb.Text.Remove(tb.SelectionStart, tb.SelectionLength).Insert(tb.SelectionStart, paste);
+            if (QuantityRegex.IsMatch(proposed))
             {
-                e.CancelCommand();
+                tb.Text = proposed;
+                tb.CaretIndex = proposed.Length;
             }
         }
         else
