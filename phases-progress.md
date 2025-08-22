@@ -11,7 +11,7 @@ This document tracks the implementation phases for the Kitchen Inventory Desktop
 - ✅ **Status Bar**: Item counts, filter status, last saved timestamp
 - ⚠️ **Save Validation**: Disable Save when validation errors exist (PARTIAL - needs validation check)
 - ⚠️ **Culture-Aware Numeric Input**: Quantity input with regex validation (PARTIAL - needs culture formatting)
-- ❌ **Transactional Stock Movements**: Audit ledger for add/consume/adjust operations
+- 🚧 **Transactional Stock Movements**: Audit ledger model added and EF migration applied; UI exposure pending
 - ❌ **DbContext Interceptors**: Enforce Created/Updated timestamps via SaveChanges override
 - ❌ **Testing Suite**: Unit tests for ViewModels; integration tests with SQLite in-memory; UI smoke tests
 
@@ -21,7 +21,7 @@ This document tracks the implementation phases for the Kitchen Inventory Desktop
 - [x] Status bar shows item counts and filter status
 - [ ] Save button disabled when validation errors exist
 - [ ] Last saved timestamp displayed in status bar
-- [ ] Add/consume/adjust operations create movement records with timestamp/user/reason
+- [ ] Add/consume/adjust operations create movement records with timestamp/user/reason (model + migration done; runtime logic added; verify via DB)
 - [ ] Current stock derived or kept consistent with audit trail
 - [ ] Audit trail visible per item
 

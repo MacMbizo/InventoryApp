@@ -10,6 +10,7 @@ using KitchenInventory.Data;
 using KitchenInventory.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Collections.Generic;
 
 namespace KitchenInventory.Desktop.ViewModels;
 
@@ -187,9 +188,26 @@ public class ItemsViewModel : INotifyPropertyChanged
         if (toDelete.Id > 0)
         {
             using var db = await _dbFactory.CreateDbContextAsync();
+            // Get existing quantity before deletion
+            var existing = await db.Items.AsNoTracking().FirstOrDefaultAsync(i => i.Id == toDelete.Id);
+            using var tx = await db.Database.BeginTransactionAsync();
+            if (existing != null && existing.Quantity != 0)
+            {
+                var adj = new StockMovement
+                {
+                    ItemId = existing.Id,
+                    Type = MovementType.Adjust,
+                    Quantity = Math.Abs(existing.Quantity),
+                    Reason = "Delete item",
+                    User = Environment.UserName,
+                    TimestampUtc = DateTime.UtcNow
+                };
+                await db.AddAsync(adj);
+            }
             db.Attach(toDelete);
             db.Remove(toDelete);
             await db.SaveChangesAsync();
+            await tx.CommitAsync();
         }
         CommandManager.InvalidateRequerySuggested();
     }
@@ -206,6 +224,14 @@ public class ItemsViewModel : INotifyPropertyChanged
         try
         {
             using var db = await _dbFactory.CreateDbContextAsync();
+            using var tx = await db.Database.BeginTransactionAsync();
+
+            // Map of existing quantities for delta computation
+            var existingMap = await db.Items.AsNoTracking()
+                .Where(i => Items.Where(x => x.Id != 0).Select(x => x.Id).Contains(i.Id))
+                .ToDictionaryAsync(i => i.Id, i => i.Quantity);
+
+            var movements = new List<StockMovement>();
 
             foreach (var it in Items)
             {
@@ -215,16 +241,48 @@ public class ItemsViewModel : INotifyPropertyChanged
                     it.CreatedAtUtc = now;
                     it.UpdatedAtUtc = now;
                     await db.AddAsync(it);
+
+                    if (it.Quantity != 0)
+                    {
+                        movements.Add(new StockMovement
+                        {
+                            Item = it,
+                            Type = MovementType.Add,
+                            Quantity = Math.Abs(it.Quantity),
+                            Reason = "Initial add",
+                            User = Environment.UserName,
+                            TimestampUtc = DateTime.UtcNow
+                        });
+                    }
                 }
                 else
                 {
+                    var oldQty = existingMap.TryGetValue(it.Id, out var q) ? q : 0m;
+                    var delta = it.Quantity - oldQty;
                     it.UpdatedAtUtc = DateTime.UtcNow;
                     db.Attach(it);
                     db.Entry(it).State = EntityState.Modified;
+
+                    if (delta != 0)
+                    {
+                        movements.Add(new StockMovement
+                        {
+                            ItemId = it.Id,
+                            Type = delta > 0 ? MovementType.Add : MovementType.Consume,
+                            Quantity = Math.Abs(delta),
+                            Reason = "Manual edit",
+                            User = Environment.UserName,
+                            TimestampUtc = DateTime.UtcNow
+                        });
+                    }
                 }
             }
 
+            if (movements.Count > 0)
+                await db.AddRangeAsync(movements);
+
             await db.SaveChangesAsync();
+            await tx.CommitAsync();
             _logger.LogInformation("Save successful");
 
             LastSavedAtLocal = DateTime.Now;
