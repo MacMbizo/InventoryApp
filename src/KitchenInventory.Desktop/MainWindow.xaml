@@ -7,20 +7,51 @@
         xmlns:val="clr-namespace:KitchenInventory.Desktop.Validations"
         mc:Ignorable="d"
         Title="Kitchen Inventory" Height="480" Width="800">
-    <DockPanel>
-        <ToolBar DockPanel.Dock="Top">
-            <Button Content="Refresh" Command="{Binding RefreshCommand}" Margin="0,0,8,0" />
-            <Button Content="Add" Command="{Binding AddItemCommand}" Margin="0,0,8,0" />
-            <Button Content="Delete" Command="{Binding DeleteItemCommand}" Margin="0,0,8,0" />
-            <Button Content="Save" Command="{Binding SaveChangesCommand}" />
-            <Separator />
-            <TextBlock Text="Search:" VerticalAlignment="Center" Margin="8,0,4,0" />
-            <TextBox Width="200" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" />
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Toolbar with two columns: left = actions; right = search -->
+        <ToolBar Grid.Row="0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Left actions group -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="Refresh" Command="{Binding RefreshCommand}" Margin="0,0,8,0" />
+                    <Button Content="Add" Command="{Binding AddItemCommand}" Margin="0,0,8,0" />
+                    <Button Content="Delete" Command="{Binding DeleteItemCommand}" Margin="0,0,8,0" />
+                    <Button Content="Save" Command="{Binding SaveChangesCommand}"/>
+                </StackPanel>
+
+                <!-- Right search group -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Search:" VerticalAlignment="Center" Margin="8,0,4,0" />
+                    <TextBox Width="320" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"/>
+                </StackPanel>
+            </Grid>
         </ToolBar>
 
-        <DataGrid ItemsSource="{Binding ItemsView}" AutoGenerateColumns="False" CanUserAddRows="False"
-                  SelectionMode="Single" SelectedItem="{Binding SelectedItem, Mode=TwoWay}" Margin="8"
-                  SelectionChanged="DataGrid_SelectionChanged">
+        <!-- Main content -->
+        <DataGrid Grid.Row="1"
+                  ItemsSource="{Binding ItemsView}"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False"
+                  SelectionMode="Single"
+                  SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                  Margin="8"
+                  SelectionChanged="DataGrid_SelectionChanged"
+                  HorizontalAlignment="Stretch"
+                  VerticalAlignment="Stretch"
+                  MinWidth="600"
+                  MinColumnWidth="100"
+                  ColumnWidth="*">
             <DataGrid.Resources>
                 <Style TargetType="TextBox">
                     <Setter Property="Validation.ErrorTemplate">
@@ -43,8 +74,8 @@
             </DataGrid.Resources>
 
             <DataGrid.Columns>
-                <!-- Name: required -->
-                <DataGridTextColumn Header="Name">
+                <!-- Name: required, wider column -->
+                <DataGridTextColumn Header="Name" Width="2*">
                     <DataGridTextColumn.Binding>
                         <Binding Path="Name" UpdateSourceTrigger="PropertyChanged" NotifyOnValidationError="True">
                             <Binding.ValidationRules>
@@ -55,7 +86,7 @@
                 </DataGridTextColumn>
 
                 <!-- Quantity: numeric with range validation -->
-                <DataGridTemplateColumn Header="Quantity">
+                <DataGridTemplateColumn Header="Quantity" Width="*">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding Quantity}" />
@@ -79,10 +110,10 @@
                 </DataGridTemplateColumn>
 
                 <!-- Unit: optional free text -->
-                <DataGridTextColumn Header="Unit" Binding="{Binding Unit, UpdateSourceTrigger=PropertyChanged}" />
+                <DataGridTextColumn Header="Unit" Binding="{Binding Unit, UpdateSourceTrigger=PropertyChanged}" Width="*" />
 
                 <!-- Expiry Date: DatePicker editor -->
-                <DataGridTemplateColumn Header="Expiry Date">
+                <DataGridTemplateColumn Header="Expiry Date" Width="*">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding ExpiryDate, StringFormat=yyyy-MM-dd}" />
@@ -97,10 +128,10 @@
             </DataGrid.Columns>
         </DataGrid>
 
-        <StatusBar DockPanel.Dock="Bottom">
+        <StatusBar Grid.Row="2">
             <StatusBarItem>
                 <TextBlock Text="{Binding StatusText}" />
             </StatusBarItem>
         </StatusBar>
-    </DockPanel>
+    </Grid>
 </Window>
