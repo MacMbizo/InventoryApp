@@ -47,6 +47,7 @@
                   SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
                   Margin="8"
                   SelectionChanged="DataGrid_SelectionChanged"
+                  CurrentCellChanged="DataGrid_CurrentCellChanged"
                   HorizontalAlignment="Stretch"
                   VerticalAlignment="Stretch"
                   MinWidth="600"
@@ -86,7 +87,7 @@
                 </DataGridTextColumn>
 
                 <!-- Quantity: numeric with range validation -->
-                <DataGridTemplateColumn Header="Quantity" Width="*">
+                <DataGridTemplateColumn Header="Quantity" Width="*" SortMemberPath="Quantity">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding Quantity}" />
@@ -113,7 +114,7 @@
                 <DataGridTextColumn Header="Unit" Binding="{Binding Unit, UpdateSourceTrigger=PropertyChanged}" Width="*" />
 
                 <!-- Expiry Date: DatePicker editor -->
-                <DataGridTemplateColumn Header="Expiry Date" Width="*">
+                <DataGridTemplateColumn Header="Expiry Date" Width="*" SortMemberPath="ExpiryDate">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding ExpiryDate, StringFormat=yyyy-MM-dd}" />

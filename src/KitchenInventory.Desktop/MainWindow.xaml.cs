@@ -10,12 +10,14 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Text.RegularExpressions;
 using KitchenInventory.Desktop.ViewModels;
+using System.Globalization;
 
 namespace KitchenInventory.Desktop;
 
 public partial class MainWindow : Window
 {
-    private static readonly Regex QuantityRegex = new("^\\d*(\\.\\d{0,3})?$");
+    private static readonly string DecimalSeparator = CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator;
+    private static readonly Regex QuantityRegex = new($"^\\d*(?:{Regex.Escape(DecimalSeparator)}\\d{{0,3}})?$");
 
     public MainWindow(ItemsViewModel viewModel)
     {
@@ -35,6 +37,11 @@ public partial class MainWindow : Window
     }
 
     private void DataGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        CommandManager.InvalidateRequerySuggested();
+    }
+
+    private void DataGrid_CurrentCellChanged(object? sender, EventArgs e)
     {
         CommandManager.InvalidateRequerySuggested();
     }

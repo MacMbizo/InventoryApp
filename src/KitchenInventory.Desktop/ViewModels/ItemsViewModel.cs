@@ -55,11 +55,18 @@ public class ItemsViewModel : INotifyPropertyChanged
         private set { _statusText = value; OnPropertyChanged(); }
     }
 
+    private DateTime? _lastSavedAtLocal;
+    public DateTime? LastSavedAtLocal
+    {
+        get => _lastSavedAtLocal;
+        private set { _lastSavedAtLocal = value; OnPropertyChanged(); UpdateStatus(); }
+    }
+
     private Item? _selectedItem;
     public Item? SelectedItem
     {
         get => _selectedItem;
-        set { _selectedItem = value; OnPropertyChanged(); }
+        set { _selectedItem = value; OnPropertyChanged(); CommandManager.InvalidateRequerySuggested(); }
     }
 
     public ICommand RefreshCommand { get; }
@@ -75,7 +82,7 @@ public class ItemsViewModel : INotifyPropertyChanged
         RefreshCommand = new AsyncRelayCommand(LoadAsync);
         AddItemCommand = new RelayCommand(AddItem);
         DeleteItemCommand = new AsyncRelayCommand(DeleteSelectedAsync, () => SelectedItem != null);
-        SaveChangesCommand = new AsyncRelayCommand(SaveChangesAsync, () => Items.Count > 0);
+        SaveChangesCommand = new AsyncRelayCommand(SaveChangesAsync, () => Items.Count > 0 && AreItemsValid());
 
         // Initialize view
         ItemsView = CollectionViewSource.GetDefaultView(Items);
@@ -88,6 +95,8 @@ public class ItemsViewModel : INotifyPropertyChanged
                 ItemsView.SortDescriptions.Add(new SortDescription(nameof(Item.Name), ListSortDirection.Ascending));
             }
         }
+
+        Items.CollectionChanged += (_, __) => { UpdateCounts(); CommandManager.InvalidateRequerySuggested(); };
         UpdateCounts();
     }
 
@@ -105,6 +114,7 @@ public class ItemsViewModel : INotifyPropertyChanged
         ItemsView?.Refresh();
         UpdateCounts();
         _logger.LogDebug("Applied filter '{FilterText}' -> {FilteredCount}/{TotalCount}", FilterText, FilteredCount, TotalCount);
+        CommandManager.InvalidateRequerySuggested();
     }
 
     private void UpdateCounts()
@@ -115,9 +125,21 @@ public class ItemsViewModel : INotifyPropertyChanged
 
     private void UpdateStatus()
     {
-        StatusText = string.IsNullOrWhiteSpace(FilterText)
+        var baseText = string.IsNullOrWhiteSpace(FilterText)
             ? $"Items: {TotalCount}"
             : $"Items: {FilteredCount}/{TotalCount} (filter: '{FilterText}')";
+        var savedText = LastSavedAtLocal.HasValue ? $" | Last saved: {LastSavedAtLocal:yyyy-MM-dd HH:mm}" : string.Empty;
+        StatusText = baseText + savedText;
+    }
+
+    private bool AreItemsValid()
+    {
+        foreach (var it in Items)
+        {
+            if (string.IsNullOrWhiteSpace(it.Name)) return false;
+            if (it.Quantity < 0m || it.Quantity > 1000000m) return false;
+        }
+        return true;
     }
 
     public async Task LoadAsync()
@@ -134,6 +156,7 @@ public class ItemsViewModel : INotifyPropertyChanged
             ItemsView?.Refresh();
             UpdateCounts();
             _logger.LogInformation("Loaded {Count} items", Items.Count);
+            CommandManager.InvalidateRequerySuggested();
         }
         catch (Exception ex)
         {
@@ -149,6 +172,7 @@ public class ItemsViewModel : INotifyPropertyChanged
         SelectedItem = newItem;
         ItemsView?.Refresh();
         UpdateCounts();
+        CommandManager.InvalidateRequerySuggested();
     }
 
     private async Task DeleteSelectedAsync()
@@ -167,10 +191,17 @@ public class ItemsViewModel : INotifyPropertyChanged
             db.Remove(toDelete);
             await db.SaveChangesAsync();
         }
+        CommandManager.InvalidateRequerySuggested();
     }
 
     private async Task SaveChangesAsync()
     {
+        if (!AreItemsValid())
+        {
+            _logger.LogWarning("Save aborted due to validation errors");
+            return;
+        }
+
         _logger.LogInformation("Saving {Count} items", Items.Count);
         try
         {
@@ -196,8 +227,11 @@ public class ItemsViewModel : INotifyPropertyChanged
             await db.SaveChangesAsync();
             _logger.LogInformation("Save successful");
 
+            LastSavedAtLocal = DateTime.Now;
+
             await LoadAsync();
             ApplyFilter();
+            CommandManager.InvalidateRequerySuggested();
         }
         catch (Exception ex)
         {
