@@ -46,8 +46,10 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $exe = "${{ github.workspace }}\src\KitchenInventory.Desktop\bin\Release\net8.0-windows\KitchenInventory.Desktop.exe"
           if (!(Test-Path $exe)) { throw "Desktop exe not found at $exe" }
-          & $exe --headless
-          if ($LASTEXITCODE -ne 0) { throw "Desktop headless run failed with exit code $LASTEXITCODE" }
+          $proc = Start-Process -FilePath $exe -ArgumentList '--headless' -PassThru -Wait -NoNewWindow
+          $code = $proc.ExitCode
+          Write-Host "Headless exit code: $code"
+          if ($code -ne 0) { throw "Desktop headless run failed with exit code $code" }
 
       - name: Test (all non-UI)
         run: |
