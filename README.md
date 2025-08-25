@@ -1,71 +1,43 @@
 # InventoryApp
 
-[![.NET CI](https://github.com/MacMbizo/InventoryApp/actions/workflows/dotnet.yml/badge.svg)](https://github.com/MacMbizo/InventoryApp/actions/workflows/dotnet.yml)
+[![.NET CI](https://github.com/MacMbizo/InventoryApp/actions/workflows/dotnet.yml/badge.svg?branch=main)](https://github.com/MacMbizo/InventoryApp/actions/workflows/dotnet.yml)
 
-Production-grade Windows desktop application (WPF, .NET) with CI/CD, diagnostics, and observability baked-in.
+Production-grade Windows desktop app (WPF, .NET 8) for managing kitchen inventory with reliable CI, diagnostics, and crash observability.
 
-## CI/CD Overview
+What you get
+- Automated CI on push/PR (Windows runner)
+- Restore, build (Release), smoke checks (DB migrate + query), headless desktop startup
+- Tests: non-UI (all) + UI smoke (non-blocking)
+- Portable publish (win-x64) zipped and uploaded as an artifact
+- Diagnostics bundle export and runtime logs/dumps collection
+- Sentry crash/error reporting (DSN via secret)
 
-The repository includes a complete .NET CI workflow that runs on Windows runners and delivers:
+Workflows
+- build-test (push/PR): full build + tests + artifacts
+- crash-test (manual): workflow_dispatch; runs synthetic Sentry crash and hard dump, then uploads logs/dumps
 
-- Automated restore, build, and tests (unit/integration)
-- Headless desktop startup and DB migration smoke
-- UI smoke tests (xUnit + FlaUI) with continue-on-error to reduce flakiness on CI
-- Diagnostics export bundle
-- Runtime logs and crash dumps collection and upload as artifacts
-- Portable publish (zip) artifact for Desktop app
-- Sentry integration via environment variable `SENTRY_DSN`
+Setup (one time)
+1) Add repository secret SENTRY_DSN in GitHub Settings → Secrets and variables → Actions → New repository secret.
+2) Push changes to main to trigger build-test automatically.
+3) To run crash-test: Actions → .NET CI → Run workflow → select main → Run.
 
-Workflow: .github/workflows/dotnet.yml
+Local development
+- Restore: dotnet restore ./InventoryApp.sln
+- Build: dotnet build ./InventoryApp.sln -c Release --no-restore
+- Tests (non-UI): dotnet test ./InventoryApp.sln -c Release --no-build --filter "Category!=UI"
+- Smoke: dotnet run --project ./src/KitchenInventory.Smoke/KitchenInventory.Smoke.csproj -c Release --no-build
+- Headless Desktop: set INVENTORY_HEADLESS=1 and run the Desktop exe with --headless
 
-### Jobs
-- build-test (default on push/PR)
-  - Build and test solution
-  - Run smoke tools and desktop headless verification
-  - Publish portable desktop zip
-  - Export diagnostics bundle
-  - Upload logs, dumps, and test results artifacts
-- crash-test (manual, workflow_dispatch)
-  - Publishes Desktop
-  - Triggers two synthetic crash paths in the app:
-    - `--crash-test=sentry` (captures exception to Sentry)
-    - `--crash-test=dump` (Environment.FailFast to produce a minidump)
-  - Collects logs and dumps as artifacts
+Artifacts (CI)
+- KitchenInventory.Desktop-win-x64.zip
+- diagnostics-bundle/*.zip
+- InventoryApp-logs/
+- crash-dumps/
+- test-results/*.trx
 
-## Sentry DSN Setup
-To enable Sentry ingestion in CI:
-1. In GitHub → Repository Settings → Secrets and variables → Actions → New repository secret
-2. Name: `SENTRY_DSN`
-3. Value: Sentry Project DSN (do not commit secrets)
-
-The workflow automatically exposes `SENTRY_DSN` to both jobs. If not set, Sentry is skipped and only logs/dumps are produced.
-
-## Manual Crash Test Run
-To validate end-to-end crash handling:
-1. Go to Actions → ".NET CI" → "Run workflow"
-2. Select branch → Run
-3. Wait for `crash-test` job to run and finish
-4. Verify in Sentry that an event was captured (synthetic crash)
-5. Download artifacts:
-   - crash-test-logs
-   - crash-test-dumps (minidumps)
-
-## Artifacts
-- KitchenInventory.Desktop-win-x64.zip: Published portable app
-- diagnostics-bundle: Exported diagnostics zip
-- InventoryApp-logs / crash-test-logs: Serilog logs collected from the runner
-- crash-dumps / crash-test-dumps: Any *.dmp/*.mdmp found on the runner
-- test-results: TRX reports
-
-## Local Development
-- Restore and build: `dotnet build InventoryApp.sln`
-- Run smoke tool: `dotnet run --project ./src/KitchenInventory.Smoke`
-- Run desktop (UI): run `KitchenInventory.Desktop` project or its EXE in `bin/Debug|Release/net8.0-windows`
-- Headless check: set `INVENTORY_HEADLESS=1` and invoke the desktop with `--headless`
-
-## Project Structure
-- src/KitchenInventory.Desktop: WPF application
-- src/KitchenInventory.Data: EF Core data access + migrations
-- src/KitchenInventory.Smoke: CLI smoke for DB and basic checks
-- tests/KitchenInventory.Desktop.Tests: xUnit tests (unit/integration/UI-smoke)
-- .github/workflows/dotnet.yml: CI pipeline
+Project layout
+- src/KitchenInventory.Desktop: WPF app (Sentry, diagnostics, headless)
+- src/KitchenInventory.Data: EF Core + migrations (SQLite)
+- src/KitchenInventory.Smoke: DB migration + basic query
+- tests/*: unit + UI smoke tests
+- .github/workflows/dotnet.yml: CI jobs (build-test, crash-test)
