@@ -53,7 +53,7 @@ jobs:
 
       - name: Test (all non-UI)
         run: |
-          dotnet test ./tests --configuration Release --no-build --logger "trx;LogFileName=test-results.trx" --filter "Category!=UI"
+          dotnet test ./InventoryApp.sln --configuration Release --no-build --logger "trx;LogFileName=test-results.trx" --filter "Category!=UI"
 
       - name: UI Smoke Tests (xUnit + FlaUI)
         continue-on-error: true
