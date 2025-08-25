@@ -1,10 +1,10 @@
 # QA Agent Output — TDD Run
 
 ## Inputs Processed
-- Architecture: c:\InventoryApp\project-documentation\architecture-output.md
-- Product Manager: c:\InventoryApp\project-documentation\product-manager-output.md
-- Features: c:\InventoryApp\Features.md
-- Features v1: c:\InventoryApp\Featuresv1.md
+- Architecture: C:\InventoryApp\project-documentation\architecture-output.md
+- Product Manager: C:\InventoryApp\project-documentation\product-manager-output.md
+- Features: C:\InventoryApp\Features.md
+- Features v1: C:\InventoryApp\Featuresv1.md
 
 ## Extracted Decisions & Signals
 - LowStockThreshold default to 5: FOUND

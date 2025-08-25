@@ -3,6 +3,7 @@ using System;
 using KitchenInventory.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace KitchenInventory.Data.Migrations
 {
     [DbContext(typeof(KitchenInventoryDbContext))]
-    partial class KitchenInventoryDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250822212620_StockMovementItemIdNullable_SetNull")]
+    partial class StockMovementItemIdNullable_SetNull
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.8");

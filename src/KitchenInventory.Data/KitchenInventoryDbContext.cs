@@ -1,5 +1,8 @@
 using KitchenInventory.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace KitchenInventory.Data;
 
@@ -32,9 +35,54 @@ public class KitchenInventoryDbContext : DbContext
             b.HasOne(x => x.Item)
              .WithMany()
              .HasForeignKey(x => x.ItemId)
-             .OnDelete(DeleteBehavior.Cascade);
+             .OnDelete(DeleteBehavior.SetNull);
 
             b.HasIndex(x => new { x.ItemId, x.TimestampUtc });
         });
+    }
+
+    // Apply auditing timestamps for entities
+    private void ApplyAuditTimestamps()
+    {
+        var nowUtc = DateTime.UtcNow;
+
+        foreach (var entry in ChangeTracker.Entries<Item>())
+        {
+            if (entry.State == EntityState.Added)
+            {
+                if (entry.Entity.CreatedAtUtc == default)
+                {
+                    entry.Entity.CreatedAtUtc = nowUtc;
+                }
+                entry.Entity.UpdatedAtUtc = nowUtc;
+            }
+            else if (entry.State == EntityState.Modified)
+            {
+                entry.Entity.UpdatedAtUtc = nowUtc;
+            }
+        }
+
+        foreach (var entry in ChangeTracker.Entries<StockMovement>())
+        {
+            if (entry.State == EntityState.Added)
+            {
+                if (entry.Entity.TimestampUtc == default)
+                {
+                    entry.Entity.TimestampUtc = nowUtc;
+                }
+            }
+        }
+    }
+
+    public override int SaveChanges()
+    {
+        ApplyAuditTimestamps();
+        return base.SaveChanges();
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        ApplyAuditTimestamps();
+        return base.SaveChangesAsync(cancellationToken);
     }
 }

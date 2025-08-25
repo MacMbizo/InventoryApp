@@ -1,0 +1,60 @@
+<Window x:Class="KitchenInventory.Desktop.DiagnosticsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Diagnostics" Height="360" Width="560"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanMinimize">
+    <DockPanel Margin="10">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="Copy" Width="100" Margin="0,0,8,0" Click="Copy_Click"/>
+            <Button Content="Open Logs" Width="100" Margin="0,0,8,0" Click="OpenLogs_Click"/>
+            <Button Content="Open DB Folder" Width="120" Margin="0,0,8,0" Click="OpenDbFolder_Click"/>
+            <!-- New: Export diagnostics bundle button -->
+            <Button Content="Export Bundle..." Width="130" Margin="0,0,8,0" Click="Export_Click"/>
+            <Button Content="Close" Width="100" IsCancel="True"/>
+        </StackPanel>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Text="Database Diagnostics" FontWeight="Bold" Margin="0,0,0,8"/>
+            <Grid Grid.Row="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="180"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Provider:" FontWeight="SemiBold"/>
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Provider}"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Target:" FontWeight="SemiBold"/>
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Target}" TextWrapping="Wrap"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Provider Version:" FontWeight="SemiBold"/>
+                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ProviderVersion}"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="Applied Migrations:" FontWeight="SemiBold"/>
+                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding AppliedMigrations}"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="Pending Migrations:" FontWeight="SemiBold"/>
+                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding PendingMigrations}"/>
+
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="Health:" FontWeight="SemiBold"/>
+                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding Health.Status}"/>
+
+                <TextBlock Grid.Row="6" Grid.Column="0" Text="Details:" FontWeight="SemiBold"/>
+                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding Health.Message}" TextWrapping="Wrap"/>
+            </Grid>
+        </Grid>
+    </DockPanel>
+</Window>

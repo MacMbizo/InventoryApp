@@ -5,133 +5,244 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:KitchenInventory.Desktop.ViewModels"
         xmlns:val="clr-namespace:KitchenInventory.Desktop.Validations"
+        xmlns:conv="clr-namespace:KitchenInventory.Desktop.Converters"
         mc:Ignorable="d"
-        Title="Kitchen Inventory" Height="480" Width="800">
+        Title="Kitchen Inventory" Height="480" Width="800"
+        Validation.Error="OnValidationError">
+    <!-- Converters -->
+    <Window.Resources>
+        <conv:NeedsAttentionConverter x:Key="NeedsAttentionConverter"/>
+    </Window.Resources>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
+        <!-- Top: Menu + Toolbar stacked -->
+        <DockPanel Grid.Row="0">
+            <Menu DockPanel.Dock="Top">
+                <MenuItem Header="_Settings" Click="Open_Settings_Click" />
+                <MenuItem Header="_Help">
+                    <MenuItem Header="_About"/>
+                    <Separator/>
+                    <MenuItem Header="_Diagnostics" Click="Help_Diagnostics_Click"/>
+                </MenuItem>
+            </Menu>
+            <!-- Toolbar with two columns: left = actions; right = search -->
+            <ToolBar>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-        <!-- Toolbar with two columns: left = actions; right = search -->
-        <ToolBar Grid.Row="0">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+                    <!-- Left actions group -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Content="Refresh" Command="{Binding RefreshCommand}" Margin="0,0,8,0" />
+                        <Button Content="Add" Command="{Binding AddItemCommand}" Margin="0,0,8,0" />
+                        <Button Content="Delete" Command="{Binding DeleteItemCommand}" Margin="0,0,8,0" />
+                        <Button Content="Save" Command="{Binding SaveChangesCommand}"/>
+                        <Button Content="Import Items (CSV)" Command="{Binding ImportItemsCsvCommand}" Margin="8,0,0,0" />
+                        <Button Content="Export Items (CSV)" Command="{Binding ExportItemsCsvCommand}" Margin="8,0,0,0" />
+                    </StackPanel>
 
-                <!-- Left actions group -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="Refresh" Command="{Binding RefreshCommand}" Margin="0,0,8,0" />
-                    <Button Content="Add" Command="{Binding AddItemCommand}" Margin="0,0,8,0" />
-                    <Button Content="Delete" Command="{Binding DeleteItemCommand}" Margin="0,0,8,0" />
-                    <Button Content="Save" Command="{Binding SaveChangesCommand}"/>
-                </StackPanel>
-
-                <!-- Right search group -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="Search:" VerticalAlignment="Center" Margin="8,0,4,0" />
-                    <TextBox Width="320" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"/>
-                </StackPanel>
-            </Grid>
-        </ToolBar>
+                    <!-- Right search group -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="Search:" VerticalAlignment="Center" Margin="8,0,4,0" />
+                        <TextBox Width="320" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"/>
+                        <CheckBox Content="Needs Attention only" Margin="8,0,0,0" IsChecked="{Binding ShowNeedsAttentionOnly}"/>
+                    </StackPanel>
+                </Grid>
+            </ToolBar>
+        </DockPanel>
 
         <!-- Main content -->
-        <DataGrid Grid.Row="1"
-                  ItemsSource="{Binding ItemsView}"
-                  AutoGenerateColumns="False"
-                  CanUserAddRows="False"
-                  SelectionMode="Single"
-                  SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
-                  Margin="8"
-                  SelectionChanged="DataGrid_SelectionChanged"
-                  CurrentCellChanged="DataGrid_CurrentCellChanged"
-                  HorizontalAlignment="Stretch"
-                  VerticalAlignment="Stretch"
-                  MinWidth="600"
-                  MinColumnWidth="100"
-                  ColumnWidth="*">
-            <DataGrid.Resources>
-                <Style TargetType="TextBox">
-                    <Setter Property="Validation.ErrorTemplate">
-                        <Setter.Value>
-                            <ControlTemplate>
-                                <DockPanel LastChildFill="True">
-                                    <TextBlock Foreground="Red" Margin="5,0,0,0"
-                                               Text="{Binding ElementName=adornedElementPlaceholder, Path=AdornedElement.(Validation.Errors)[0].ErrorContent}"/>
-                                    <AdornedElementPlaceholder Name="adornedElementPlaceholder"/>
-                                </DockPanel>
-                            </ControlTemplate>
-                        </Setter.Value>
-                    </Setter>
-                    <Style.Triggers>
-                        <Trigger Property="Validation.HasError" Value="True">
-                            <Setter Property="ToolTip" Value="{Binding RelativeSource={RelativeSource Self}, Path=(Validation.Errors)[0].ErrorContent}"/>
-                        </Trigger>
-                    </Style.Triggers>
-                </Style>
-            </DataGrid.Resources>
+        <Grid Grid.Row="1" Margin="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
-            <DataGrid.Columns>
-                <!-- Name: required, wider column -->
-                <DataGridTextColumn Header="Name" Width="2*">
-                    <DataGridTextColumn.Binding>
-                        <Binding Path="Name" UpdateSourceTrigger="PropertyChanged" NotifyOnValidationError="True">
-                            <Binding.ValidationRules>
-                                <val:NotEmptyValidationRule/>
-                            </Binding.ValidationRules>
-                        </Binding>
-                    </DataGridTextColumn.Binding>
-                </DataGridTextColumn>
+            <!-- Items grid -->
+            <DataGrid Grid.Column="0"
+                      ItemsSource="{Binding ItemsView}"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False"
+                      SelectionMode="Single"
+                      SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                      Margin="8,8,4,8"
+                      SelectionChanged="DataGrid_SelectionChanged"
+                      CurrentCellChanged="DataGrid_CurrentCellChanged"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch"
+                      MinWidth="600"
+                      MinColumnWidth="100"
+                      ColumnWidth="*">
+                <DataGrid.RowStyle>
+                    <Style TargetType="DataGridRow">
+                        <Style.Triggers>
+                            <DataTrigger Value="True">
+                                <DataTrigger.Binding>
+                                    <MultiBinding Converter="{StaticResource NeedsAttentionConverter}">
+                                        <Binding Path="Quantity"/>
+                                        <Binding Path="ExpiryDate"/>
+                                        <Binding RelativeSource="{RelativeSource AncestorType=DataGrid}" Path="DataContext.LowStockThreshold"/>
+                                        <Binding RelativeSource="{RelativeSource AncestorType=DataGrid}" Path="DataContext.ExpiringSoonDays"/>
+                                    </MultiBinding>
+                                </DataTrigger.Binding>
+                                <Setter Property="Background" Value="#FFFDECC8"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.RowStyle>
+                <DataGrid.Resources>
+                    <Style TargetType="TextBox">
+                        <Setter Property="Validation.ErrorTemplate">
+                            <Setter.Value>
+                                <ControlTemplate>
+                                    <DockPanel LastChildFill="True">
+                                        <TextBlock Foreground="Red" Margin="5,0,0,0"
+                                                   Text="{Binding ElementName=adornedElementPlaceholder, Path=AdornedElement.(Validation.Errors)[0].ErrorContent}"/>
+                                        <AdornedElementPlaceholder Name="adornedElementPlaceholder"/>
+                                    </DockPanel>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                        <Style.Triggers>
+                            <Trigger Property="Validation.HasError" Value="True">
+                                <Setter Property="ToolTip" Value="{Binding RelativeSource={RelativeSource Self}, Path=(Validation.Errors)[0].ErrorContent}"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.Resources>
 
-                <!-- Quantity: numeric with range validation -->
-                <DataGridTemplateColumn Header="Quantity" Width="*" SortMemberPath="Quantity">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding Quantity}" />
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                    <DataGridTemplateColumn.CellEditingTemplate>
-                        <DataTemplate>
-                            <TextBox TextAlignment="Right"
-                                     PreviewTextInput="Quantity_PreviewTextInput"
-                                     DataObject.Pasting="Quantity_Pasting">
-                                <TextBox.Text>
-                                    <Binding Path="Quantity" Mode="TwoWay" UpdateSourceTrigger="PropertyChanged" NotifyOnValidationError="True" ValidatesOnExceptions="True">
-                                        <Binding.ValidationRules>
-                                            <val:DoubleRangeValidationRule Min="0" Max="1000000" AllowEmpty="False"/>
-                                        </Binding.ValidationRules>
-                                    </Binding>
-                                </TextBox.Text>
-                            </TextBox>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellEditingTemplate>
-                </DataGridTemplateColumn>
+                <DataGrid.Columns>
+                    <!-- Name: required, wider column -->
+                    <DataGridTextColumn Header="Name" Width="2*">
+                        <DataGridTextColumn.Binding>
+                            <Binding Path="Name" UpdateSourceTrigger="PropertyChanged" NotifyOnValidationError="True">
+                                <Binding.ValidationRules>
+                                    <val:NotEmptyValidationRule/>
+                                </Binding.ValidationRules>
+                            </Binding>
+                        </DataGridTextColumn.Binding>
+                    </DataGridTextColumn>
 
-                <!-- Unit: optional free text -->
-                <DataGridTextColumn Header="Unit" Binding="{Binding Unit, UpdateSourceTrigger=PropertyChanged}" Width="*" />
+                    <!-- Quantity: numeric with range validation -->
+                    <DataGridTemplateColumn Header="Quantity" Width="*" SortMemberPath="Quantity">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Quantity, StringFormat='#,0.###'}" TextAlignment="Right" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                        <DataGridTemplateColumn.CellEditingTemplate>
+                            <DataTemplate>
+                                <TextBox TextAlignment="Right"
+                                         PreviewTextInput="Quantity_PreviewTextInput"
+                                         DataObject.Pasting="Quantity_Pasting">
+                                    <TextBox.Text>
+                                        <Binding Path="Quantity" Mode="TwoWay" UpdateSourceTrigger="PropertyChanged" NotifyOnValidationError="True" ValidatesOnExceptions="True">
+                                            <Binding.ValidationRules>
+                                                <val:DoubleRangeValidationRule Min="0" Max="1000000" AllowEmpty="False"/>
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </TextBox.Text>
+                                </TextBox>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellEditingTemplate>
+                    </DataGridTemplateColumn>
 
-                <!-- Expiry Date: DatePicker editor -->
-                <DataGridTemplateColumn Header="Expiry Date" Width="*" SortMemberPath="ExpiryDate">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding ExpiryDate, StringFormat=yyyy-MM-dd}" />
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                    <DataGridTemplateColumn.CellEditingTemplate>
-                        <DataTemplate>
-                            <DatePicker SelectedDate="{Binding ExpiryDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellEditingTemplate>
-                </DataGridTemplateColumn>
-            </DataGrid.Columns>
-        </DataGrid>
+                    <!-- Unit: optional free text -->
+                    <DataGridTextColumn Header="Unit" Binding="{Binding Unit, UpdateSourceTrigger=PropertyChanged}" Width="*" />
 
+                    <!-- Expiry Date: DatePicker editor -->
+                    <DataGridTemplateColumn Header="Expiry Date" Width="*" SortMemberPath="ExpiryDate">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding ExpiryDate, StringFormat=yyyy-MM-dd}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                        <DataGridTemplateColumn.CellEditingTemplate>
+                            <DataTemplate>
+                                <DatePicker SelectedDate="{Binding ExpiryDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellEditingTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <!-- Audit/Movements side panel -->
+            <Border Grid.Column="1" Margin="4,8,8,8" Padding="8" BorderBrush="#DDD" BorderThickness="1" CornerRadius="4" Background="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}">
+                <DockPanel>
+                    <TextBlock Text="Activity" FontWeight="Bold" Margin="0,0,0,8" />
+                    <TabControl>
+                        <TabItem Header="Audit Trail">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <Grid Grid.Row="0" Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Per-item movements" FontStyle="Italic" />
+                                    <Button Grid.Column="1" Content="Export CSV" Command="{Binding ExportSelectedMovementsCsvCommand}" />
+                                </Grid>
+                                <ListView Grid.Row="1" ItemsSource="{Binding SelectedMovements}">
+                                    <ListView.View>
+                                        <GridView>
+                                            <GridViewColumn Header="When" Width="120" DisplayMemberBinding="{Binding TimestampUtc, StringFormat=yyyy-MM-dd HH:mm}" />
+                                            <GridViewColumn Header="Type" Width="80" DisplayMemberBinding="{Binding Type}" />
+                                            <GridViewColumn Header="Qty" Width="60" DisplayMemberBinding="{Binding Quantity, StringFormat='#,0.###'}" />
+                                            <GridViewColumn Header="Reason" Width="140" DisplayMemberBinding="{Binding Reason}" />
+                                            <GridViewColumn Header="User" Width="100" DisplayMemberBinding="{Binding User}" />
+                                        </GridView>
+                                    </ListView.View>
+                                </ListView>
+                            </Grid>
+                        </TabItem>
+                        <TabItem Header="Recent Movements">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <Grid Grid.Row="0" Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Most recent 50 movements" FontStyle="Italic" />
+                                    <Button Grid.Column="1" Content="Export CSV" Command="{Binding ExportRecentMovementsCsvCommand}" />
+                                </Grid>
+                                <ListView Grid.Row="1" ItemsSource="{Binding RecentMovements}">
+                                    <ListView.View>
+                                        <GridView>
+                                            <GridViewColumn Header="When" Width="120" DisplayMemberBinding="{Binding TimestampUtc, StringFormat=yyyy-MM-dd HH:mm}" />
+                                            <GridViewColumn Header="ItemId" Width="60" DisplayMemberBinding="{Binding ItemId}" />
+                                            <GridViewColumn Header="Type" Width="80" DisplayMemberBinding="{Binding Type}" />
+                                            <GridViewColumn Header="Qty" Width="60" DisplayMemberBinding="{Binding Quantity, StringFormat='#,0.###'}" />
+                                            <GridViewColumn Header="Reason" Width="140" DisplayMemberBinding="{Binding Reason}" />
+                                            <GridViewColumn Header="User" Width="100" DisplayMemberBinding="{Binding User}" />
+                                        </GridView>
+                                    </ListView.View>
+                                </ListView>
+                            </Grid>
+                        </TabItem>
+                    </TabControl>
+                </DockPanel>
+            </Border>
+        </Grid>
+        <!-- End main content -->
         <StatusBar Grid.Row="2">
             <StatusBarItem>
                 <TextBlock Text="{Binding StatusText}" />
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right">
+                <TextBlock Text="{Binding NeedsAttentionCount, StringFormat=Needs: {0}}"/>
             </StatusBarItem>
         </StatusBar>
     </Grid>

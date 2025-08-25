@@ -5,10 +5,19 @@ on:
     branches: [ "**" ]
   pull_request:
     branches: [ "**" ]
+  workflow_dispatch:
 
 jobs:
   build-test:
     runs-on: windows-latest
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+      DOTNET_DbgEnableMiniDump: "1"
+      DOTNET_DbgMiniDumpType: "2" # 2=Heap dump
+      COMPlus_DbgEnableMiniDump: "1"
+      COMPlus_DbgMiniDumpType: "2"
+      SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,6 +35,207 @@ jobs:
         run: |
           dotnet build ./InventoryApp.sln --configuration Release --no-restore
 
-      - name: Test
+      - name: Smoke (DB migrate + basic query)
         run: |
-          dotnet test ./tests/QAAgentRunner.Tests/QAAgentRunner.Tests.csproj --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
+          dotnet run --project ./src/KitchenInventory.Smoke/KitchenInventory.Smoke.csproj --configuration Release --no-build
+
+      - name: Desktop Headless (startup + migrations)
+        env:
+          INVENTORY_HEADLESS: "1"
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = "${{ github.workspace }}\src\KitchenInventory.Desktop\bin\Release\net8.0-windows\KitchenInventory.Desktop.exe"
+          if (!(Test-Path $exe)) { throw "Desktop exe not found at $exe" }
+          & $exe --headless
+          if ($LASTEXITCODE -ne 0) { throw "Desktop headless run failed with exit code $LASTEXITCODE" }
+
+      - name: Test (all non-UI)
+        run: |
+          dotnet test ./tests --configuration Release --no-build --logger "trx;LogFileName=test-results.trx" --filter "Category!=UI"
+
+      - name: UI Smoke Tests (xUnit + FlaUI)
+        continue-on-error: true
+        run: |
+          dotnet test ./tests/KitchenInventory.Desktop.Tests/KitchenInventory.Desktop.Tests.csproj --configuration Release --no-build --logger "trx;LogFileName=ui-smoke.trx" --filter "Category=UI"
+
+      - name: Publish Desktop (portable)
+        shell: pwsh
+        run: |
+          $dest = "${{ github.workspace }}\artifacts\publish\desktop"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          dotnet publish ./src/KitchenInventory.Desktop/KitchenInventory.Desktop.csproj `
+            -c Release -r win-x64 --no-build -o $dest `
+            -p:PublishSingleFile=false -p:IncludeNativeLibrariesForSelfExtract=false
+
+      - name: Package Portable Zip
+        shell: pwsh
+        run: |
+          $src = "${{ github.workspace }}\artifacts\publish\desktop"
+          $zip = "${{ github.workspace }}\artifacts\KitchenInventory.Desktop-win-x64.zip"
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Compress-Archive -Path (Join-Path $src '*') -DestinationPath $zip -Force
+
+      - name: Upload Portable Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KitchenInventory.Desktop-win-x64
+          path: artifacts/KitchenInventory.Desktop-win-x64.zip
+
+      - name: Export Diagnostics Bundle
+        shell: pwsh
+        run: |
+          $destDir = "${{ github.workspace }}\artifacts\diagnostics"
+          New-Item -ItemType Directory -Force -Path $destDir | Out-Null
+          $zip = Join-Path $destDir "diagnostics-${{ github.run_id }}-${{ github.run_attempt }}.zip"
+          $exe = "${{ github.workspace }}\src\KitchenInventory.Desktop\bin\Release\net8.0-windows\KitchenInventory.Desktop.exe"
+          if (!(Test-Path $exe)) { throw "Desktop exe not found at $exe" }
+          & $exe --export-diagnostics="$zip"
+          if ($LASTEXITCODE -ne 0) { throw "Diagnostics export failed with exit code $LASTEXITCODE" }
+
+      - name: Upload diagnostics artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostics-bundle
+          path: artifacts/diagnostics/*.zip
+
+      - name: Collect runtime logs
+        if: always()
+        shell: pwsh
+        run: |
+          $dest = "${{ github.workspace }}\artifacts\logs"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          $src = "$env:LOCALAPPDATA\InventoryApp\logs"
+          if (Test-Path $src) { Copy-Item -Path (Join-Path $src '*') -Destination $dest -Force -ErrorAction SilentlyContinue }
+
+      - name: Collect crash dumps
+        if: always()
+        shell: pwsh
+        run: |
+          $dest = "${{ github.workspace }}\artifacts\dumps"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          $roots = @("${{ github.workspace }}","$env:USERPROFILE","$env:LOCALAPPDATA","$env:TEMP","$env:TMP")
+          foreach ($root in $roots) {
+            if (Test-Path $root) {
+              Get-ChildItem -Path $root -Recurse -Include *.dmp,*.mdmp -ErrorAction SilentlyContinue | ForEach-Object {
+                $target = Join-Path $dest $_.Name
+                Copy-Item -Path $_.FullName -Destination $target -Force -ErrorAction SilentlyContinue
+              }
+            }
+          }
+
+      - name: Upload logs artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: InventoryApp-logs
+          path: artifacts/logs
+
+      - name: Upload crash dumps artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crash-dumps
+          path: artifacts/dumps
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            tests/**/TestResults/*.trx
+            **/TestResults/*.trx
+
+  crash-test:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+      DOTNET_DbgEnableMiniDump: "1"
+      DOTNET_DbgMiniDumpType: "2"
+      COMPlus_DbgEnableMiniDump: "1"
+      COMPlus_DbgMiniDumpType: "2"
+      SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK (global.json)
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: ./global.json
+
+      - name: Restore
+        run: |
+          dotnet restore ./InventoryApp.sln
+
+      - name: Build
+        run: |
+          dotnet build ./InventoryApp.sln --configuration Release --no-restore
+
+      - name: Publish Desktop (portable)
+        shell: pwsh
+        run: |
+          $dest = "${{ github.workspace }}\artifacts\publish\desktop"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          dotnet publish ./src/KitchenInventory.Desktop/KitchenInventory.Desktop.csproj `
+            -c Release -r win-x64 --no-build -o $dest `
+            -p:PublishSingleFile=false -p:IncludeNativeLibrariesForSelfExtract=false
+
+      - name: Trigger synthetic Sentry crash
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $exe = "${{ github.workspace }}\src\KitchenInventory.Desktop\bin\Release\net8.0-windows\KitchenInventory.Desktop.exe"
+          if (!(Test-Path $exe)) { throw "Desktop exe not found at $exe" }
+          & $exe --crash-test=sentry
+          Write-Host "Exit code: $LASTEXITCODE"
+
+      - name: Trigger synthetic hard dump crash
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $exe = "${{ github.workspace }}\src\KitchenInventory.Desktop\bin\Release\net8.0-windows\KitchenInventory.Desktop.exe"
+          if (!(Test-Path $exe)) { throw "Desktop exe not found at $exe" }
+          & $exe --crash-test=dump
+          Write-Host "Exit code: $LASTEXITCODE"
+
+      - name: Collect runtime logs
+        if: always()
+        shell: pwsh
+        run: |
+          $dest = "${{ github.workspace }}\artifacts\logs"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          $src = "$env:LOCALAPPDATA\InventoryApp\logs"
+          if (Test-Path $src) { Copy-Item -Path (Join-Path $src '*') -Destination $dest -Force -ErrorAction SilentlyContinue }
+
+      - name: Collect crash dumps
+        if: always()
+        shell: pwsh
+        run: |
+          $dest = "${{ github.workspace }}\artifacts\dumps"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          $roots = @("${{ github.workspace }}","$env:USERPROFILE","$env:LOCALAPPDATA","$env:TEMP","$env:TMP")
+          foreach ($root in $roots) {
+            if (Test-Path $root) {
+              Get-ChildItem -Path $root -Recurse -Include *.dmp,*.mdmp -ErrorAction SilentlyContinue | ForEach-Object {
+                $target = Join-Path $dest $_.Name
+                Copy-Item -Path $_.FullName -Destination $target -Force -ErrorAction SilentlyContinue
+              }
+            }
+          }
+
+      - name: Upload logs artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crash-test-logs
+          path: artifacts/logs
+
+      - name: Upload crash dumps artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crash-test-dumps
+          path: artifacts/dumps
