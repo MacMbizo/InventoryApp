@@ -66,7 +66,7 @@ jobs:
           $dest = "${{ github.workspace }}\artifacts\publish\desktop"
           New-Item -ItemType Directory -Force -Path $dest | Out-Null
           dotnet publish ./src/KitchenInventory.Desktop/KitchenInventory.Desktop.csproj `
-            -c Release -r win-x64 --no-build -o $dest `
+            -c Release -r win-x64 -o $dest `
             -p:PublishSingleFile=false -p:IncludeNativeLibrariesForSelfExtract=false
 
       - name: Package Portable Zip
@@ -182,7 +182,7 @@ jobs:
           $dest = "${{ github.workspace }}\artifacts\publish\desktop"
           New-Item -ItemType Directory -Force -Path $dest | Out-Null
           dotnet publish ./src/KitchenInventory.Desktop/KitchenInventory.Desktop.csproj `
-            -c Release -r win-x64 --no-build -o $dest `
+            -c Release -r win-x64 -o $dest `
             -p:PublishSingleFile=false -p:IncludeNativeLibrariesForSelfExtract=false
 
       - name: Trigger synthetic Sentry crash
