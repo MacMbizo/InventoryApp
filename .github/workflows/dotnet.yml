@@ -91,8 +91,10 @@ jobs:
           $zip = Join-Path $destDir "diagnostics-${{ github.run_id }}-${{ github.run_attempt }}.zip"
           $exe = "${{ github.workspace }}\src\KitchenInventory.Desktop\bin\Release\net8.0-windows\KitchenInventory.Desktop.exe"
           if (!(Test-Path $exe)) { throw "Desktop exe not found at $exe" }
-          & $exe --export-diagnostics="$zip"
-          if ($LASTEXITCODE -ne 0) { throw "Diagnostics export failed with exit code $LASTEXITCODE" }
+          $proc = Start-Process -FilePath $exe -ArgumentList "--export-diagnostics=`"$zip`"" -PassThru -Wait -NoNewWindow
+          $code = $proc.ExitCode
+          Write-Host "Diagnostics export exit code: $code"
+          if ($code -ne 0) { throw "Diagnostics export failed with exit code $code" }
 
       - name: Upload diagnostics artifact
         uses: actions/upload-artifact@v4
