@@ -40,10 +40,21 @@ public partial class App : Application
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
         // Ensure bindings/validation use current culture for numbers and dates
-        var lang = XmlLanguage.GetLanguage(CultureInfo.CurrentCulture.IetfLanguageTag);
-        FrameworkElement.LanguageProperty.OverrideMetadata(typeof(FrameworkElement), new FrameworkPropertyMetadata(lang));
-        FrameworkContentElement.LanguageProperty.OverrideMetadata(typeof(FrameworkContentElement), new FrameworkPropertyMetadata(lang));
-
+        CultureInfo.DefaultThreadCurrentCulture = CultureInfo.CurrentCulture;
+        CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.CurrentUICulture;
+        try
+        {
+            var lang = XmlLanguage.GetLanguage(CultureInfo.CurrentCulture.IetfLanguageTag);
+            FrameworkElement.LanguageProperty.OverrideMetadata(typeof(FrameworkElement), new FrameworkPropertyMetadata(lang));
+            FrameworkContentElement.LanguageProperty.OverrideMetadata(typeof(FrameworkContentElement), new FrameworkPropertyMetadata(lang));
+        }
+        catch (ArgumentException ex)
+        {
+            // This can occur if metadata was already overridden in this AppDomain (e.g., due to multiple initializations in CI/headless)
+            // Proceed without failing; default thread culture is already set.
+            Serilog.Log.Warning(ex, "LanguageProperty metadata already registered; continuing without re-registering");
+        }
+        
         // Global exception logging hooks so unexpected errors surface in logs/console
         this.DispatcherUnhandledException += App_DispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += App_UnhandledException;
