@@ -7,6 +7,10 @@ on:
     branches: [ "**" ]
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-test:
     runs-on: windows-latest
@@ -26,10 +30,11 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           global-json-file: ./global.json
+          cache: true
 
       - name: Restore
         run: |
-          dotnet restore ./InventoryApp.sln
+          dotnet restore ./InventoryApp.sln -r win-x64
 
       - name: Build
         run: |
@@ -53,12 +58,12 @@ jobs:
 
       - name: Test (all non-UI)
         run: |
-          dotnet test ./InventoryApp.sln --configuration Release --no-build --logger "trx;LogFileName=test-results.trx" --filter "Category!=UI"
+          dotnet test ./InventoryApp.sln --configuration Release --no-build --no-restore --logger "trx;LogFileName=test-results.trx" --filter "Category!=UI"
 
       - name: UI Smoke Tests (xUnit + FlaUI)
         continue-on-error: true
         run: |
-          dotnet test ./tests/KitchenInventory.Desktop.Tests/KitchenInventory.Desktop.Tests.csproj --configuration Release --no-build --logger "trx;LogFileName=ui-smoke.trx" --filter "Category=UI"
+          dotnet test ./tests/KitchenInventory.Desktop.Tests/KitchenInventory.Desktop.Tests.csproj --configuration Release --no-build --no-restore --logger "trx;LogFileName=ui-smoke.trx" --filter "Category=UI"
 
       - name: Publish Desktop (portable)
         shell: pwsh
@@ -67,7 +72,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path $dest | Out-Null
           dotnet publish ./src/KitchenInventory.Desktop/KitchenInventory.Desktop.csproj `
             -c Release -r win-x64 -o $dest `
-            -p:PublishSingleFile=false -p:IncludeNativeLibrariesForSelfExtract=false
+            -p:PublishSingleFile=false -p:IncludeNativeLibrariesForSelfExtract=false --no-restore
 
       - name: Package Portable Zip
         shell: pwsh
@@ -169,10 +174,11 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           global-json-file: ./global.json
+          cache: true
 
       - name: Restore
         run: |
-          dotnet restore ./InventoryApp.sln
+          dotnet restore ./InventoryApp.sln -r win-x64
 
       - name: Build
         run: |
@@ -185,7 +191,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path $dest | Out-Null
           dotnet publish ./src/KitchenInventory.Desktop/KitchenInventory.Desktop.csproj `
             -c Release -r win-x64 -o $dest `
-            -p:PublishSingleFile=false -p:IncludeNativeLibrariesForSelfExtract=false
+            -p:PublishSingleFile=false -p:IncludeNativeLibrariesForSelfExtract=false --no-restore
 
       - name: Trigger synthetic Sentry crash
         continue-on-error: true
