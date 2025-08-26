@@ -31,6 +31,12 @@ jobs:
         with:
           global-json-file: ./global.json
           cache: true
+          cache-dependency-path: |
+            **/packages.lock.json
+            **/*.csproj
+            **/*.fsproj
+            **/*.vbproj
+            Directory.Packages.props
 
       - name: Restore
         run: |
@@ -175,6 +181,12 @@ jobs:
         with:
           global-json-file: ./global.json
           cache: true
+          cache-dependency-path: |
+            **/packages.lock.json
+            **/*.csproj
+            **/*.fsproj
+            **/*.vbproj
+            Directory.Packages.props
 
       - name: Restore
         run: |
