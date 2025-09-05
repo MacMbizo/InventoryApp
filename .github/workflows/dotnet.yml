@@ -22,6 +22,7 @@ jobs:
       COMPlus_DbgEnableMiniDump: "1"
       COMPlus_DbgMiniDumpType: "2"
       SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+      INVENTORY_COMMIT_SHA: ${{ github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -172,6 +173,7 @@ jobs:
       COMPlus_DbgEnableMiniDump: "1"
       COMPlus_DbgMiniDumpType: "2"
       SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+      INVENTORY_COMMIT_SHA: ${{ github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

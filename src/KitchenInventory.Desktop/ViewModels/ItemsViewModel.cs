@@ -152,6 +152,11 @@ public class ItemsViewModel : INotifyPropertyChanged
     public ICommand ExportItemsCsvCommand { get; }
     public ICommand ExportSelectedMovementsCsvCommand { get; }
     public ICommand ExportRecentMovementsCsvCommand { get; }
+    
+    // New Stock Operation Commands
+    public ICommand AddStockCommand { get; }
+    public ICommand ConsumeStockCommand { get; }
+    public ICommand AdjustStockCommand { get; }
 
     public ItemsViewModel(IDbContextFactory<KitchenInventoryDbContext> dbFactory, ILogger<ItemsViewModel> logger, IFileSaveService fileSave, IFileOpenService fileOpen, ICsvImportService csvImport, IConfiguration? configuration = null, IPreferencesService? preferences = null)
     {
@@ -181,6 +186,11 @@ public class ItemsViewModel : INotifyPropertyChanged
         ExportItemsCsvCommand = new AsyncRelayCommand(ExportItemsCsvAsync, () => ItemsView?.Cast<object>().Any() ?? false);
         ExportSelectedMovementsCsvCommand = new AsyncRelayCommand(ExportSelectedMovementsCsvAsync, () => SelectedItem != null && SelectedMovements.Count > 0);
         ExportRecentMovementsCsvCommand = new AsyncRelayCommand(ExportRecentMovementsCsvAsync, () => RecentMovements.Count > 0);
+
+        // Initialize stock operation commands
+        AddStockCommand = new AsyncRelayCommand(() => ShowStockOperationDialogAsync("Add Stock"), () => SelectedItem != null);
+        ConsumeStockCommand = new AsyncRelayCommand(() => ShowStockOperationDialogAsync("Consume Stock"), () => SelectedItem != null);
+        AdjustStockCommand = new AsyncRelayCommand(() => ShowStockOperationDialogAsync("Adjust Stock"), () => SelectedItem != null);
 
         // Initialize view
         ItemsView = CollectionViewSource.GetDefaultView(Items);
@@ -679,6 +689,49 @@ public class ItemsViewModel : INotifyPropertyChanged
         {
             _logger.LogError(ex, "Failed to import items from CSV");
             StatusText = $"Import failed: {ex.Message}";
+        }
+    }
+
+    // Stock Operation Dialog Handler
+    private async Task ShowStockOperationDialogAsync(string operationType)
+    {
+        if (SelectedItem == null) return;
+
+        try
+        {
+            // Create logger factory and logger for the specific dialog
+            using var loggerFactory = LoggerFactory.Create(builder => 
+            {
+                builder.AddConsole();
+                builder.SetMinimumLevel(LogLevel.Information);
+            });
+            var dialogLogger = loggerFactory.CreateLogger<StockOperationDialog>();
+
+            var dialog = new StockOperationDialog(_dbFactory, dialogLogger, SelectedItem, operationType)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            var result = dialog.ShowDialog();
+            
+            if (result == true)
+            {
+                // Refresh data after successful operation
+                await LoadAsync();
+                ApplyFilter();
+                CommandManager.InvalidateRequerySuggested();
+                
+                // Update status to show operation completed
+                StatusText = $"{operationType} completed for {SelectedItem.Name}";
+                
+                _logger.LogInformation("Stock operation '{Operation}' completed for item '{ItemName}'", 
+                    operationType, SelectedItem.Name);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to open stock operation dialog");
+            StatusText = $"Failed to open {operationType.ToLower()} dialog: {ex.Message}";
         }
     }
 }

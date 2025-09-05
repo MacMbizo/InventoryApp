@@ -2,11 +2,13 @@ using System;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using KitchenInventory.Desktop.Utilities;
 
 namespace KitchenInventory.Desktop.Services;
 
@@ -34,7 +36,7 @@ public class DiagnosticsExporter : IDiagnosticsExporter
         Directory.CreateDirectory(stagingDir);
         try
         {
-            // 1) Collect environment/runtime info
+            // 1) Collect environment/runtime + app version info
             var envInfo = new
             {
                 Machine = Environment.MachineName,
@@ -43,13 +45,17 @@ public class DiagnosticsExporter : IDiagnosticsExporter
                 ProcessArch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString(),
                 OsArch = System.Runtime.InteropServices.RuntimeInformation.OSArchitecture.ToString(),
                 AppEnvironment = _env.EnvironmentName,
-                Version = typeof(DiagnosticsExporter).Assembly.GetName().Version?.ToString(),
+                AppVersion = VersionInfo.AppVersion,
+                InformationalVersion = VersionInfo.InformationalVersion,
+                Commit = VersionInfo.Commit,
+                ShortCommit = VersionInfo.ShortCommit,
                 TimeUtc = DateTimeOffset.UtcNow,
                 Variables = new
                 {
                     CI = Environment.GetEnvironmentVariable("CI"),
                     INVENTORY_DB_PROVIDER = Environment.GetEnvironmentVariable("INVENTORY_DB_PROVIDER"),
                     INVENTORY_HEADLESS = Environment.GetEnvironmentVariable("INVENTORY_HEADLESS"),
+                    INVENTORY_COMMIT_SHA = Environment.GetEnvironmentVariable("INVENTORY_COMMIT_SHA"),
                 }
             };
             var envJson = JsonSerializer.Serialize(envInfo, new JsonSerializerOptions { WriteIndented = true });

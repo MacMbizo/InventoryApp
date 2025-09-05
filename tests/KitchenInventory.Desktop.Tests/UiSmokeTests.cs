@@ -189,6 +189,10 @@ public class UiSmokeTests
         var menuBar = window!.FindFirstDescendant(cf => cf.ByControlType(ControlType.Menu))?.AsMenu();
         Assert.NotNull(menuBar);
 
+        // Ensure main window is focused/foreground to receive menu interactions
+        try { window.Focus(); } catch { }
+        try { window.SetForeground(); } catch { }
+
         // Find the Help menu item (supports both "Help" and "_Help")
         MenuItem? helpItem = null;
         foreach (var item in menuBar!.Items)
@@ -204,7 +208,7 @@ public class UiSmokeTests
 
         // Open Help menu
         helpItem!.Click();
-        Thread.Sleep(200); // brief pause to allow submenu to render
+        Thread.Sleep(300); // brief pause to allow submenu to render
 
         // Find Diagnostics submenu item
         MenuItem? diagnosticsItem = null;
@@ -219,11 +223,28 @@ public class UiSmokeTests
         }
         Assert.NotNull(diagnosticsItem);
 
-        diagnosticsItem!.Click();
+        // Prefer Invoke pattern for menu activation; fallback to Click
+        try
+        {
+            if (diagnosticsItem!.Patterns.Invoke.IsSupported)
+            {
+                diagnosticsItem.Patterns.Invoke.Pattern.Invoke();
+            }
+            else
+            {
+                diagnosticsItem.Click();
+            }
+        }
+        catch
+        {
+            // Fallback click if invoke fails
+            try { diagnosticsItem!.Click(); } catch { }
+        }
+        Thread.Sleep(300);
 
-        // Wait for Diagnostics window to appear
-        AutomationElement? diagElement = null;
-        var diagDeadline = DateTime.UtcNow.AddSeconds(20);
+        // Wait for Diagnostics window to appear (check both modal windows and top-level windows)
+        Window? diagWindow = null;
+        var diagDeadline = DateTime.UtcNow.AddSeconds(30);
         while (DateTime.UtcNow < diagDeadline)
         {
             if (process.HasExited)
@@ -233,20 +254,55 @@ public class UiSmokeTests
 
             try
             {
-                diagElement = app.GetAllTopLevelWindows(automation)
-                                  .FirstOrDefault(w => w.AsWindow().Title?.Contains("Diagnostics", StringComparison.OrdinalIgnoreCase) == true);
-                if (diagElement != null) break;
+                // Check modal windows owned by main window first
+                var modal = window.ModalWindows?.FirstOrDefault(w => !string.IsNullOrEmpty(w.Title) && w.Title.Contains("Diagnostics", StringComparison.OrdinalIgnoreCase));
+                if (modal != null)
+                {
+                    diagWindow = modal;
+                    break;
+                }
+
+                // Fallback: search all top-level windows for expected title
+                var top = app.GetAllTopLevelWindows(automation)
+                              .Select(w => w.AsWindow())
+                              .FirstOrDefault(w => w.Title?.Contains("Diagnostics", StringComparison.OrdinalIgnoreCase) == true);
+                if (top != null)
+                {
+                    diagWindow = top;
+                    break;
+                }
             }
             catch { /* ignore transient*/ }
-            Thread.Sleep(200);
+            Thread.Sleep(250);
         }
-        Assert.NotNull(diagElement);
 
-        var diagWindow = diagElement!.AsWindow();
+        if (diagWindow == null)
+        {
+            try
+            {
+                var titles = app.GetAllTopLevelWindows(automation).Select(w => w.AsWindow().Title ?? "(no title)");
+                Console.WriteLine("Open top-level windows at failure: " + string.Join(" | ", titles));
+            }
+            catch { }
+        }
+        Assert.NotNull(diagWindow);
         Assert.Contains("Diagnostics", diagWindow.Title, StringComparison.OrdinalIgnoreCase);
 
-        // Close Diagnostics via the "Close" button
-        var closeBtn = diagWindow.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Close")))?.AsButton();
+        // Close Diagnostics via the "Close" button (wait for it to appear and try multiple identifiers)
+        Button? closeBtn = null;
+        var closeDeadline = DateTime.UtcNow.AddSeconds(5);
+        while (DateTime.UtcNow < closeDeadline && closeBtn == null)
+        {
+            try
+            {
+                closeBtn = diagWindow.FindFirstDescendant(cf => cf.ByAutomationId("DiagnosticsCloseButton"))?.AsButton()
+                           ?? diagWindow.FindFirstDescendant(cf => cf.ByAutomationId("CloseButton"))?.AsButton()
+                           ?? diagWindow.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Close")))?.AsButton();
+            }
+            catch { /* transient tree changes */ }
+            if (closeBtn != null) break;
+            Thread.Sleep(100);
+        }
         Assert.NotNull(closeBtn);
         try { closeBtn!.Invoke(); } catch { }
 

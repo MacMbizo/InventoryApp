@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using KitchenInventory.Desktop.Services;
 using Microsoft.Win32;
+using KitchenInventory.Desktop.Utilities;
 
 namespace KitchenInventory.Desktop;
 
@@ -29,6 +30,17 @@ public partial class DiagnosticsWindow : Window
         {
             _info = await _infoService.GetInfoAsync();
             DataContext = _info;
+
+            // Populate app version/commit UI
+            if (AppVersionText is not null)
+            {
+                AppVersionText.Text = VersionInfo.AppVersion ?? "n/a";
+            }
+            if (AppCommitText is not null)
+            {
+                var commit = VersionInfo.Commit;
+                AppCommitText.Text = string.IsNullOrWhiteSpace(commit) ? "n/a" : commit;
+            }
         }
         catch (Exception ex)
         {
@@ -40,6 +52,8 @@ public partial class DiagnosticsWindow : Window
     {
         if (_info == null) return;
         var sb = new StringBuilder();
+        sb.AppendLine($"AppVersion: {VersionInfo.AppVersion}");
+        sb.AppendLine($"Commit: {VersionInfo.Commit}");
         sb.AppendLine($"Provider: {_info.Provider}");
         sb.AppendLine($"Target: {_info.Target}");
         sb.AppendLine($"ProviderVersion: {_info.ProviderVersion}");
@@ -69,7 +83,7 @@ public partial class DiagnosticsWindow : Window
     {
         try
         {
-            var suggested = $"diagnostics-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.zip";
+            var suggested = VersionInfo.GetDefaultDiagnosticsFileName();
             var dlg = new SaveFileDialog
             {
                 Title = "Export Diagnostics Bundle",

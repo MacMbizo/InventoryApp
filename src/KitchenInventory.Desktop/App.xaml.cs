@@ -21,6 +21,8 @@ using System.Runtime.InteropServices;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.IO.Compression;
+using KitchenInventory.Desktop.Constants;
+using KitchenInventory.Desktop.Utilities;
 
 namespace KitchenInventory.Desktop;
 
@@ -273,20 +275,19 @@ public partial class App : Application
                 var exporter = _host.Services.GetRequiredService<IDiagnosticsExporter>();
                 if (string.IsNullOrWhiteSpace(exportPath))
                 {
-                    var ts = DateTimeOffset.UtcNow.ToString("yyyyMMdd-HHmmss");
-                    exportPath = Path.Combine(baseDir, $"diagnostics-{ts}.zip");
+                    exportPath = Path.Combine(baseDir, VersionInfo.GetDefaultDiagnosticsFileName());
                 }
                 exporter.ExportAsync(exportPath!).GetAwaiter().GetResult();
                 Log.Information("Diagnostics bundle exported to {Path}", exportPath);
-                Environment.ExitCode = 0;
-                Shutdown(0);
+                Environment.ExitCode = ExitCodes.Success;
+                Shutdown(ExitCodes.Success);
                 return;
             }
             catch (Exception ex)
             {
                 Log.Fatal(ex, "Failed to export diagnostics bundle to {Path}", exportPath);
-                Environment.ExitCode = 1;
-                Shutdown(1);
+                Environment.ExitCode = ExitCodes.ExportError;
+                Shutdown(ExitCodes.ExportError);
                 return;
             }
         }
@@ -299,8 +300,8 @@ public partial class App : Application
         if (headless)
         {
             Log.Information("Headless mode: startup + DB migration succeeded; exiting without UI");
-            Environment.ExitCode = 0;
-            Shutdown(0);
+            Environment.ExitCode = ExitCodes.Success;
+            Shutdown(ExitCodes.Success);
             return;
         }
 
@@ -319,7 +320,8 @@ public partial class App : Application
             {
                 MessageBox.Show($"Failed to start application: {ex.Message}", "Kitchen Inventory", MessageBoxButton.OK, MessageBoxImage.Error);
             }
-            Shutdown(1);
+            Environment.ExitCode = ExitCodes.GeneralError;
+            Shutdown(ExitCodes.GeneralError);
         }
     }
 
@@ -345,7 +347,8 @@ public partial class App : Application
         e.Handled = true; // prevent crash when possible
         if (_headlessMode || _crashTest)
         {
-            Shutdown(1);
+            Environment.ExitCode = ExitCodes.GeneralError;
+            Shutdown(ExitCodes.GeneralError);
         }
     }
 
@@ -363,7 +366,8 @@ public partial class App : Application
         }
         if (_headlessMode || _crashTest)
         {
-            Shutdown(1);
+            Environment.ExitCode = ExitCodes.GeneralError;
+            Shutdown(ExitCodes.GeneralError);
         }
     }
 
@@ -374,7 +378,8 @@ public partial class App : Application
         e.SetObserved();
         if (_headlessMode || _crashTest)
         {
-            Shutdown(1);
+            Environment.ExitCode = ExitCodes.GeneralError;
+            Shutdown(ExitCodes.GeneralError);
         }
     }
 }

@@ -40,11 +40,17 @@
                     <!-- Left actions group -->
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                         <Button Content="Refresh" Command="{Binding RefreshCommand}" Margin="0,0,8,0" />
-                        <Button Content="Add" Command="{Binding AddItemCommand}" Margin="0,0,8,0" />
-                        <Button Content="Delete" Command="{Binding DeleteItemCommand}" Margin="0,0,8,0" />
-                        <Button Content="Save" Command="{Binding SaveChangesCommand}"/>
-                        <Button Content="Import Items (CSV)" Command="{Binding ImportItemsCsvCommand}" Margin="8,0,0,0" />
-                        <Button Content="Export Items (CSV)" Command="{Binding ExportItemsCsvCommand}" Margin="8,0,0,0" />
+                        <Button Content="Add" Command="{Binding AddItemCommand}" Margin="0,0,8,0" AutomationProperties.AutomationId="AddItemButton" />
+                        <Button Content="Delete" Command="{Binding DeleteItemCommand}" Margin="0,0,8,0" AutomationProperties.AutomationId="DeleteItemButton" />
+                        <Button Content="Save" Command="{Binding SaveChangesCommand}" Margin="0,0,16,0" AutomationProperties.AutomationId="SaveChangesButton"/>
+                        
+                        <!-- Stock Operations -->
+                        <Button Content="Add Stock" Command="{Binding AddStockCommand}" Margin="0,0,4,0" ToolTip="Add stock to selected item" AutomationProperties.AutomationId="AddStockButton" />
+                        <Button Content="Consume Stock" Command="{Binding ConsumeStockCommand}" Margin="0,0,4,0" ToolTip="Consume stock from selected item" AutomationProperties.AutomationId="ConsumeStockButton" />
+                        <Button Content="Adjust Stock" Command="{Binding AdjustStockCommand}" Margin="0,0,16,0" ToolTip="Adjust stock for selected item" AutomationProperties.AutomationId="AdjustStockButton" />
+                        
+                        <Button Content="Import Items (CSV)" Command="{Binding ImportItemsCsvCommand}" Margin="0,0,4,0" />
+                        <Button Content="Export Items (CSV)" Command="{Binding ExportItemsCsvCommand}" Margin="0,0,0,0" />
                     </StackPanel>
 
                     <!-- Right search group -->
@@ -78,7 +84,8 @@
                       VerticalAlignment="Stretch"
                       MinWidth="600"
                       MinColumnWidth="100"
-                      ColumnWidth="*">
+                      ColumnWidth="*"
+                      AutomationProperties.AutomationId="ItemsDataGrid">
                 <DataGrid.RowStyle>
                     <Style TargetType="DataGridRow">
                         <Style.Triggers>
