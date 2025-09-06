@@ -3,80 +3,100 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using System.Threading.Tasks;
+using System.IO;
+using System.Linq;
 using KitchenInventory.Domain.Entities;
 
 namespace KitchenInventory.Desktop.Services
 {
     public sealed class CsvImportService : ICsvImportService
     {
-        public Task<IReadOnlyList<Item>> ParseItemsAsync(string csvContent)
+        public async Task<IReadOnlyList<Item>> ParseItemsAsync(string csvContent, List<Category> categories)
         {
-            if (string.IsNullOrWhiteSpace(csvContent))
-                return Task.FromResult((IReadOnlyList<Item>)new List<Item>());
+            return await ParseItemsInternalAsync(csvContent, categories);
+        }
 
-            var lines = csvContent.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
-            if (lines.Length == 0) return Task.FromResult((IReadOnlyList<Item>)new List<Item>());
+        public static async Task<List<Item>> ParseItemsInternalAsync(string csvContent, List<Category> categories)
+        {
+            var results = new List<Item>();
+            if (string.IsNullOrWhiteSpace(csvContent)) return results;
 
-            int start = 0;
-            // Expect header: Id,Name,Quantity,Unit,ExpiryDate,CreatedAtUtc,UpdatedAtUtc
-            if (lines[0].TrimStart().StartsWith("Id,", StringComparison.OrdinalIgnoreCase))
-                start = 1;
+            using var reader = new StringReader(csvContent);
+            var headerLine = await reader.ReadLineAsync();
+            if (headerLine == null) return results;
 
-            var items = new List<Item>();
-            for (int i = start; i < lines.Length; i++)
+            var headers = headerLine.Split(',');
+            int idxId = Array.FindIndex(headers, h => string.Equals(h.Trim(), "Id", StringComparison.OrdinalIgnoreCase));
+            int idxName = Array.FindIndex(headers, h => string.Equals(h.Trim(), "Name", StringComparison.OrdinalIgnoreCase));
+            int idxQty = Array.FindIndex(headers, h => string.Equals(h.Trim(), "Quantity", StringComparison.OrdinalIgnoreCase));
+            int idxUnit = Array.FindIndex(headers, h => string.Equals(h.Trim(), "Unit", StringComparison.OrdinalIgnoreCase));
+            int idxCategoryId = Array.FindIndex(headers, h => string.Equals(h.Trim(), "CategoryId", StringComparison.OrdinalIgnoreCase));
+            int idxCategoryName = Array.FindIndex(headers, h => string.Equals(h.Trim(), "CategoryName", StringComparison.OrdinalIgnoreCase));
+            int idxExpiry = Array.FindIndex(headers, h => string.Equals(h.Trim(), "ExpiryDate", StringComparison.OrdinalIgnoreCase));
+            int idxCreated = Array.FindIndex(headers, h => string.Equals(h.Trim(), "CreatedAtUtc", StringComparison.OrdinalIgnoreCase));
+            int idxUpdated = Array.FindIndex(headers, h => string.Equals(h.Trim(), "UpdatedAtUtc", StringComparison.OrdinalIgnoreCase));
+
+            string? line;
+            while ((line = await reader.ReadLineAsync()) != null)
             {
-                var line = lines[i];
                 if (string.IsNullOrWhiteSpace(line)) continue;
-                var cols = ParseCsvLine(line);
-                if (cols.Count < 4) continue;
+                var cols = ParseCsvLine(line).ToList();
 
-                int id = 0;
-                if (cols.Count > 0 && int.TryParse(cols[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedId))
-                    id = parsedId;
+                int? id = null;
+                if (idxId >= 0 && idxId < cols.Count && int.TryParse(cols[idxId], NumberStyles.Integer, CultureInfo.InvariantCulture, out var idVal))
+                    id = idVal;
 
-                var name = cols.Count > 1 ? cols[1].Trim() : string.Empty;
-                if (string.IsNullOrWhiteSpace(name)) continue;
+                var name = idxName >= 0 && idxName < cols.Count ? cols[idxName] : string.Empty;
+                var unit = idxUnit >= 0 && idxUnit < cols.Count ? cols[idxUnit] : string.Empty;
 
                 decimal qty = 0m;
-                if (cols.Count > 2)
-                    decimal.TryParse(cols[2], NumberStyles.Float, CultureInfo.InvariantCulture, out qty);
-
-                var unit = cols.Count > 3 ? cols[3].Trim() : string.Empty;
+                if (idxQty >= 0 && idxQty < cols.Count)
+                    decimal.TryParse(cols[idxQty], NumberStyles.Number, CultureInfo.InvariantCulture, out qty);
 
                 DateTime? expiry = null;
-                if (cols.Count > 4 && !string.IsNullOrWhiteSpace(cols[4]))
+                if (idxExpiry >= 0 && idxExpiry < cols.Count && !string.IsNullOrWhiteSpace(cols[idxExpiry]))
                 {
-                    if (DateTime.TryParseExact(cols[4], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var ed))
-                        expiry = ed;
+                    if (DateTime.TryParseExact(cols[idxExpiry], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var dt))
+                        expiry = dt.Date;
                 }
 
-                DateTime createdUtc = DateTime.UtcNow;
-                if (cols.Count > 5 && !string.IsNullOrWhiteSpace(cols[5]))
+                int? categoryId = null;
+                if (idxCategoryId >= 0 && idxCategoryId < cols.Count && int.TryParse(cols[idxCategoryId], NumberStyles.Integer, CultureInfo.InvariantCulture, out var catIdVal))
                 {
-                    if (DateTime.TryParse(cols[5], CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var ct))
-                        createdUtc = ct.ToUniversalTime();
+                    categoryId = categories.Any(c => c.Id == catIdVal) ? catIdVal : (int?)null;
+                }
+                else if (idxCategoryName >= 0 && idxCategoryName < cols.Count)
+                {
+                    var catName = cols[idxCategoryName];
+                    if (!string.IsNullOrWhiteSpace(catName))
+                    {
+                        var match = categories.FirstOrDefault(c => string.Equals(c.Name, catName, StringComparison.OrdinalIgnoreCase));
+                        if (match != null) categoryId = match.Id;
+                    }
                 }
 
-                DateTime? updatedUtc = null;
-                if (cols.Count > 6 && !string.IsNullOrWhiteSpace(cols[6]))
-                {
-                    if (DateTime.TryParse(cols[6], CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var ut))
-                        updatedUtc = ut.ToUniversalTime();
-                }
+                DateTime created = DateTime.UtcNow;
+                if (idxCreated >= 0 && idxCreated < cols.Count && DateTime.TryParse(cols[idxCreated], CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var createdVal))
+                    created = createdVal.ToUniversalTime();
 
-                items.Add(new Item
+                DateTime? updated = null;
+                if (idxUpdated >= 0 && idxUpdated < cols.Count && DateTime.TryParse(cols[idxUpdated], CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var updatedVal))
+                    updated = updatedVal.ToUniversalTime();
+
+                var item = new Item
                 {
-                    Id = id,
+                    Id = id.GetValueOrDefault(),
                     Name = name,
                     Quantity = qty,
                     Unit = unit,
+                    CategoryId = categoryId,
                     ExpiryDate = expiry,
-                    CreatedAtUtc = createdUtc,
-                    UpdatedAtUtc = updatedUtc
-                });
+                    CreatedAtUtc = created,
+                    UpdatedAtUtc = updated
+                };
+                results.Add(item);
             }
-
-            return Task.FromResult((IReadOnlyList<Item>)items);
+            return results;
         }
 
         private static List<string> ParseCsvLine(string line)

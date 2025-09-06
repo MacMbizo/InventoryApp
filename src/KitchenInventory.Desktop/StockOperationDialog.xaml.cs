@@ -236,7 +236,7 @@ namespace KitchenInventory.Desktop
         }
 
         private string _title = "Stock Operation";
-        public string Title
+        public string DialogTitle
         {
             get => _title;
             set
@@ -270,7 +270,7 @@ namespace KitchenInventory.Desktop
             _selectedOperationType = operationType;
             IsItemSelectionEnabled = false;
             IsOperationSelectable = false;
-            Title = $"{operationType} - {selectedItem.Name}";
+            DialogTitle = $"{operationType} - {selectedItem.Name}";
         }
 
         private async void OnLoaded(object sender, RoutedEventArgs e)

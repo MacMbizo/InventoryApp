@@ -22,7 +22,42 @@ namespace KitchenInventory.Desktop
             InitializeComponent();
             _viewModel = viewModel;
             DataContext = _viewModel;
-            Loaded += async (_, __) => await _viewModel.LoadAsync();
+            // Replace inline lambda to allow post-load logic for first-run categories
+            Loaded += MainWindow_OnLoaded;
+        }
+
+        private async void MainWindow_OnLoaded(object sender, RoutedEventArgs e)
+        {
+            await _viewModel.LoadAsync();
+
+            // Respect automation/test runs: allow suppressing first-run prompt via env var
+            bool suppressFirstRunPrompt = false;
+            try
+            {
+                var suppress = Environment.GetEnvironmentVariable("INVENTORY_SUPPRESS_FIRST_RUN");
+                if (!string.IsNullOrEmpty(suppress))
+                {
+                    suppressFirstRunPrompt = suppress.Equals("1", StringComparison.OrdinalIgnoreCase)
+                                           || suppress.Equals("true", StringComparison.OrdinalIgnoreCase)
+                                           || suppress.Equals("yes", StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            catch { }
+
+            // If only the sentinel "All" category exists (Id == 0), prompt the user to create categories
+            if (!suppressFirstRunPrompt && _viewModel.Categories != null && _viewModel.Categories.Count <= 1)
+            {
+                var result = MessageBox.Show(this,
+                    "No categories found. Would you like to create categories now?",
+                    "Create Categories",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (result == MessageBoxResult.Yes && _viewModel.ManageCategoriesCommand != null && _viewModel.ManageCategoriesCommand.CanExecute(null))
+                {
+                    _viewModel.ManageCategoriesCommand.Execute(null);
+                }
+            }
         }
 
         private void OnValidationError(object sender, ValidationErrorEventArgs e)

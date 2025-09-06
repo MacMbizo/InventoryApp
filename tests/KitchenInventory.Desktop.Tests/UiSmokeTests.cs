@@ -17,37 +17,17 @@ public class UiSmokeTests
 {
     private static string GetDesktopExePath()
     {
-        var repoRoot = GetRepoRoot();
-        var exe = Path.Combine(repoRoot, "src", "KitchenInventory.Desktop", "bin", "Release", "net8.0-windows", "KitchenInventory.Desktop.exe");
-        if (!File.Exists(exe))
-        {
-            throw new FileNotFoundException($"Desktop exe not found at {exe}. Ensure Release build ran before tests.");
-        }
-        return exe;
+        return UiTestHelpers.GetDesktopExePath();
     }
 
     private static string GetRepoRoot()
     {
-        // Walk up from current test directory to find InventoryApp.sln
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "InventoryApp.sln")))
-        {
-            dir = dir.Parent;
-        }
-        return dir?.FullName ?? throw new InvalidOperationException("Could not locate repository root.");
+        return UiTestHelpers.GetRepoRoot();
     }
 
     private static Window? TryGetMainWindow(Application app, UIA3Automation automation)
     {
-        try
-        {
-            var win = app.GetMainWindow(automation);
-            return win?.AsWindow();
-        }
-        catch
-        {
-            return null;
-        }
+        return UiTestHelpers.TryGetMainWindow(app, automation);
     }
 
     [StaFact]
@@ -68,6 +48,7 @@ public class UiSmokeTests
         // Ensure child process is not headless even if CI=true in the environment
         psi.Environment["CI"] = "false";
         psi.Environment["INVENTORY_HEADLESS"] = "0";
+        psi.Environment["INVENTORY_SUPPRESS_FIRST_RUN"] = "1";
         psi.Environment.Remove("INVENTORY_EXPORT_DIAGNOSTICS");
         psi.Environment.Remove("INVENTORY_CRASH_TEST");
 
@@ -86,7 +67,7 @@ public class UiSmokeTests
         {
             if (process.HasExited)
             {
-                Assert.True(false, $"Desktop process exited early with code {process.ExitCode} before main window appeared.");
+                Assert.Fail($"Desktop process exited early with code {process.ExitCode} before main window appeared.");
             }
 
             // Try via GetMainWindow first
@@ -143,6 +124,7 @@ public class UiSmokeTests
         // Ensure child process is not headless even if CI=true in the environment
         psi.Environment["CI"] = "false";
         psi.Environment["INVENTORY_HEADLESS"] = "0";
+        psi.Environment["INVENTORY_SUPPRESS_FIRST_RUN"] = "1";
         psi.Environment.Remove("INVENTORY_EXPORT_DIAGNOSTICS");
         psi.Environment.Remove("INVENTORY_CRASH_TEST");
 
@@ -159,7 +141,7 @@ public class UiSmokeTests
         {
             if (process.HasExited)
             {
-                Assert.True(false, $"Desktop process exited early with code {process.ExitCode} before main window appeared.");
+                Assert.Fail($"Desktop process exited early with code {process.ExitCode} before main window appeared.");
             }
 
             window = TryGetMainWindow(app, automation);
@@ -223,93 +205,22 @@ public class UiSmokeTests
         }
         Assert.NotNull(diagnosticsItem);
 
-        // Prefer Invoke pattern for menu activation; fallback to Click
-        try
-        {
-            if (diagnosticsItem!.Patterns.Invoke.IsSupported)
-            {
-                diagnosticsItem.Patterns.Invoke.Pattern.Invoke();
-            }
-            else
-            {
-                diagnosticsItem.Click();
-            }
-        }
-        catch
-        {
-            // Fallback click if invoke fails
-            try { diagnosticsItem!.Click(); } catch { }
-        }
-        Thread.Sleep(300);
+        // Open Diagnostics
+        diagnosticsItem!.Click();
 
-        // Wait for Diagnostics window to appear (check both modal windows and top-level windows)
-        Window? diagWindow = null;
-        var diagDeadline = DateTime.UtcNow.AddSeconds(30);
-        while (DateTime.UtcNow < diagDeadline)
-        {
-            if (process.HasExited)
-            {
-                Assert.True(false, $"Desktop process exited early with code {process.ExitCode} before diagnostics window appeared.");
-            }
+        // Wait for Diagnostics window
+        var diag = UiTestHelpers.WaitForDialog(window!, "Diagnostics", TimeSpan.FromSeconds(10));
+        Assert.NotNull(diag);
 
-            try
-            {
-                // Check modal windows owned by main window first
-                var modal = window.ModalWindows?.FirstOrDefault(w => !string.IsNullOrEmpty(w.Title) && w.Title.Contains("Diagnostics", StringComparison.OrdinalIgnoreCase));
-                if (modal != null)
-                {
-                    diagWindow = modal;
-                    break;
-                }
+        // Close Diagnostics
+        var close = diag!.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Close")));
+        Assert.NotNull(close);
+        UiTestHelpers.TryInvokeWithFallback(close!);
 
-                // Fallback: search all top-level windows for expected title
-                var top = app.GetAllTopLevelWindows(automation)
-                              .Select(w => w.AsWindow())
-                              .FirstOrDefault(w => w.Title?.Contains("Diagnostics", StringComparison.OrdinalIgnoreCase) == true);
-                if (top != null)
-                {
-                    diagWindow = top;
-                    break;
-                }
-            }
-            catch { /* ignore transient*/ }
-            Thread.Sleep(250);
-        }
-
-        if (diagWindow == null)
-        {
-            try
-            {
-                var titles = app.GetAllTopLevelWindows(automation).Select(w => w.AsWindow().Title ?? "(no title)");
-                Console.WriteLine("Open top-level windows at failure: " + string.Join(" | ", titles));
-            }
-            catch { }
-        }
-        Assert.NotNull(diagWindow);
-        Assert.Contains("Diagnostics", diagWindow.Title, StringComparison.OrdinalIgnoreCase);
-
-        // Close Diagnostics via the "Close" button (wait for it to appear and try multiple identifiers)
-        Button? closeBtn = null;
-        var closeDeadline = DateTime.UtcNow.AddSeconds(5);
-        while (DateTime.UtcNow < closeDeadline && closeBtn == null)
-        {
-            try
-            {
-                closeBtn = diagWindow.FindFirstDescendant(cf => cf.ByAutomationId("DiagnosticsCloseButton"))?.AsButton()
-                           ?? diagWindow.FindFirstDescendant(cf => cf.ByAutomationId("CloseButton"))?.AsButton()
-                           ?? diagWindow.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Close")))?.AsButton();
-            }
-            catch { /* transient tree changes */ }
-            if (closeBtn != null) break;
-            Thread.Sleep(100);
-        }
-        Assert.NotNull(closeBtn);
-        try { closeBtn!.Invoke(); } catch { }
-
-        // Finally close the main window and ensure clean exit
-        try { window.Close(); } catch { }
+        // Close app
+        try { window!.Close(); } catch { }
         var exited = process.WaitForExit(TimeSpan.FromSeconds(20));
-        Assert.True(exited, "Desktop process did not exit in allotted time after closing windows.");
+        Assert.True(exited, "Desktop process did not exit in allotted time after closing main window.");
         Assert.Equal(0, process.ExitCode);
     }
 }

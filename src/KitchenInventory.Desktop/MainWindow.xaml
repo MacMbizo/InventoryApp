@@ -11,7 +11,8 @@
         Validation.Error="OnValidationError">
     <!-- Converters -->
     <Window.Resources>
-        <conv:NeedsAttentionConverter x:Key="NeedsAttentionConverter"/>
+        <conv:NeedsAttentionConverter x:Key="NeedsAttentionConverter" />
+        <conv:HideZeroIdConverter x:Key="HideZeroIdConverter" />
     </Window.Resources>
     <Grid>
         <Grid.RowDefinitions>
@@ -50,7 +51,19 @@
                         <Button Content="Adjust Stock" Command="{Binding AdjustStockCommand}" Margin="0,0,16,0" ToolTip="Adjust stock for selected item" AutomationProperties.AutomationId="AdjustStockButton" />
                         
                         <Button Content="Import Items (CSV)" Command="{Binding ImportItemsCsvCommand}" Margin="0,0,4,0" />
-                        <Button Content="Export Items (CSV)" Command="{Binding ExportItemsCsvCommand}" Margin="0,0,0,0" />
+                        <Button Content="Export Items (CSV)" Command="{Binding ExportItemsCsvCommand}" Margin="0,0,16,0" />
+
+                        <!-- Manage Categories -->
+                        <Button Content="Manage Categories" Command="{Binding ManageCategoriesCommand}" Margin="0,0,8,0" AutomationProperties.AutomationId="ManageCategoriesButton" />
+
+                        <!-- Category Filter -->
+                        <TextBlock Text="Category:" VerticalAlignment="Center" Margin="8,0,4,0" />
+                        <ComboBox Width="180"
+                                  ItemsSource="{Binding Categories}"
+                                  SelectedValuePath="Id"
+                                  DisplayMemberPath="Name"
+                                  SelectedValue="{Binding SelectedCategoryId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  AutomationProperties.AutomationId="CategoryFilterCombo"/>
                     </StackPanel>
 
                     <!-- Right search group -->
@@ -125,57 +138,34 @@
                 </DataGrid.Resources>
 
                 <DataGrid.Columns>
-                    <!-- Name: required, wider column -->
-                    <DataGridTextColumn Header="Name" Width="2*">
-                        <DataGridTextColumn.Binding>
-                            <Binding Path="Name" UpdateSourceTrigger="PropertyChanged" NotifyOnValidationError="True">
-                                <Binding.ValidationRules>
-                                    <val:NotEmptyValidationRule/>
-                                </Binding.ValidationRules>
-                            </Binding>
-                        </DataGridTextColumn.Binding>
-                    </DataGridTextColumn>
-
-                    <!-- Quantity: numeric with range validation -->
-                    <DataGridTemplateColumn Header="Quantity" Width="*" SortMemberPath="Quantity">
+                    <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="2*"/>
+                    <DataGridTextColumn Header="Quantity" Binding="{Binding Quantity, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}" Width="*"/>
+                    <DataGridTextColumn Header="Unit" Binding="{Binding Unit, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
+                    <!-- Insert Category column -->
+                    <DataGridTemplateColumn Header="Category" Width="*">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding Quantity, StringFormat='#,0.###'}" TextAlignment="Right" />
+                                <TextBlock Text="{Binding Category.Name}" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                         <DataGridTemplateColumn.CellEditingTemplate>
                             <DataTemplate>
-                                <TextBox TextAlignment="Right"
-                                         PreviewTextInput="Quantity_PreviewTextInput"
-                                         DataObject.Pasting="Quantity_Pasting">
-                                    <TextBox.Text>
-                                        <Binding Path="Quantity" Mode="TwoWay" UpdateSourceTrigger="PropertyChanged" NotifyOnValidationError="True" ValidatesOnExceptions="True">
-                                            <Binding.ValidationRules>
-                                                <val:DoubleRangeValidationRule Min="0" Max="1000000" AllowEmpty="False"/>
-                                            </Binding.ValidationRules>
-                                        </Binding>
-                                    </TextBox.Text>
-                                </TextBox>
+                                <ComboBox
+                                    ItemsSource="{Binding DataContext.Categories, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    SelectedValuePath="Id"
+                                    DisplayMemberPath="Name"
+                                    SelectedValue="{Binding CategoryId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    >
+                                    <ComboBox.ItemContainerStyle>
+                                        <Style TargetType="ComboBoxItem">
+                                            <Setter Property="Visibility" Value="{Binding Id, Converter={StaticResource HideZeroIdConverter}}"/>
+                                        </Style>
+                                    </ComboBox.ItemContainerStyle>
+                                </ComboBox>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellEditingTemplate>
                     </DataGridTemplateColumn>
-
-                    <!-- Unit: optional free text -->
-                    <DataGridTextColumn Header="Unit" Binding="{Binding Unit, UpdateSourceTrigger=PropertyChanged}" Width="*" />
-
-                    <!-- Expiry Date: DatePicker editor -->
-                    <DataGridTemplateColumn Header="Expiry Date" Width="*" SortMemberPath="ExpiryDate">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding ExpiryDate, StringFormat=yyyy-MM-dd}" />
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                        <DataGridTemplateColumn.CellEditingTemplate>
-                            <DataTemplate>
-                                <DatePicker SelectedDate="{Binding ExpiryDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellEditingTemplate>
-                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="Expiry Date" Binding="{Binding ExpiryDate, UpdateSourceTrigger=PropertyChanged, StringFormat=yyyy-MM-dd}" Width="*"/>
                 </DataGrid.Columns>
             </DataGrid>
 

@@ -5,6 +5,7 @@ using System.Linq;
 using KitchenInventory.Desktop.Services;
 using KitchenInventory.Domain.Entities;
 using Xunit;
+using FluentAssertions;
 
 namespace KitchenInventory.Desktop.Tests;
 
@@ -27,18 +28,18 @@ public class CsvExportTests
         var lines = csv.TrimEnd().Split('\n');
 
         Assert.True(lines.Length >= 4, $"Expected at least 4 lines, got {lines.Length}\n{csv}");
-        Assert.Equal("Id,Name,Quantity,Unit,ExpiryDate,CreatedAtUtc,UpdatedAtUtc", lines[0]);
+        Assert.Equal("Id,Name,Quantity,Unit,CategoryId,CategoryName,ExpiryDate,CreatedAtUtc,UpdatedAtUtc", lines[0]);
 
-        // First item line
-        Assert.Contains("1,Apple,5,pcs,," + fixedCreated.ToString("o", CultureInfo.InvariantCulture) + "," + fixedUpdated.ToString("o", CultureInfo.InvariantCulture), lines[1]);
+        // First item line (CategoryId empty, CategoryName empty, Expiry empty)
+        Assert.Contains("1,Apple,5,pcs,,,," + fixedCreated.ToString("o", CultureInfo.InvariantCulture) + "," + fixedUpdated.ToString("o", CultureInfo.InvariantCulture), lines[1]);
 
-        // Second item line with escaping and date
+        // Second item line with escaping and date (CategoryId empty, CategoryName empty)
         var expectedName = "\"Cheese, \"\"Gouda\"\"\""; // quotes doubled and field quoted
         var expectedExpiry = "2025-12-31";
-        Assert.Contains($"2,{expectedName},2.5,kg,{expectedExpiry},{fixedCreated:o},{fixedUpdated:o}", lines[2]);
+        Assert.Contains($"2,{expectedName},2.5,kg,,,{expectedExpiry},{fixedCreated:o},{fixedUpdated:o}", lines[2]);
 
-        // Third item line with empty optional fields
-        Assert.StartsWith("3,,0,,", lines[3]);
+        // Third item line with empty optional fields (CategoryId empty, CategoryName empty, Expiry empty)
+        Assert.StartsWith("3,,0,,,", lines[3]);
     }
 
     [Fact]
@@ -111,5 +112,22 @@ public class CsvExportTests
 
         Assert.Contains("\"Fix, \"\"Manual\"\"\"", line); // escaped reason
         Assert.Contains("\"Doe, John\"", line); // quoted user
+    }
+
+    [Fact]
+    public void ExportItems_IncludesExpectedHeaders()
+    {
+        // Arrange
+        var items = new List<Item>
+        {
+            new Item { Id = 1, Name = "Milk", Quantity = 2, Unit = "L", CategoryId = 3, Category = new Category { Id = 3, Name = "Dairy" }, CreatedAtUtc = DateTime.Parse("2023-01-01T00:00:00Z"), UpdatedAtUtc = DateTime.Parse("2023-01-02T00:00:00Z") },
+        };
+    
+        // Act
+        var csv = CsvExportService.ExportItems(items);
+        var header = csv.Split('\n')[0];
+    
+        // Assert
+        header.Should().Be("Id,Name,Quantity,Unit,CategoryId,CategoryName,ExpiryDate,CreatedAtUtc,UpdatedAtUtc");
     }
 }

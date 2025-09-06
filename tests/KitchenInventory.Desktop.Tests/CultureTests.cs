@@ -28,9 +28,9 @@ public class CultureTests
             Assert.NotNull(regex);
 
             // In fr-FR, comma should be accepted, dot should be rejected
-            Assert.True(regex!.IsMatch("1,25"));
-            Assert.True(regex!.IsMatch(",5"));
-            Assert.False(regex!.IsMatch("1.25"));
+            Assert.Matches(regex!, "1,25");
+            Assert.Matches(regex!, ",5");
+            Assert.DoesNotMatch(regex!, "1.25");
         }
         finally
         {

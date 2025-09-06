@@ -40,7 +40,7 @@ public sealed class ImportTests
     {
         private readonly IReadOnlyList<Item> _items;
         public FakeCsvImportService(IReadOnlyList<Item> items) { _items = items; }
-        public Task<IReadOnlyList<Item>> ParseItemsAsync(string csvContent)
+        public Task<IReadOnlyList<Item>> ParseItemsAsync(string csvContent, List<Category> categories)
             => Task.FromResult(_items);
     }
 

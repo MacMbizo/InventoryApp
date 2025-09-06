@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using KitchenInventory.Desktop.Services;
 using Microsoft.Extensions.Configuration;
 using System.Globalization;
+using KitchenInventory.Desktop;
 
 namespace KitchenInventory.Desktop.ViewModels;
 
@@ -31,6 +32,7 @@ public class ItemsViewModel : INotifyPropertyChanged
     public ObservableCollection<Item> Items { get; } = new();
     public ObservableCollection<StockMovement> SelectedMovements { get; } = new();
     public ObservableCollection<StockMovement> RecentMovements { get; } = new();
+    public ObservableCollection<Category> Categories { get; } = new();
 
     private ICollectionView? _itemsView;
     public ICollectionView? ItemsView
@@ -137,6 +139,23 @@ public class ItemsViewModel : INotifyPropertyChanged
         set { if (_hasValidationErrors != value) { _hasValidationErrors = value; OnPropertyChanged(); CommandManager.InvalidateRequerySuggested(); } }
     }
 
+    private int? _selectedCategoryId;
+    public int? SelectedCategoryId
+    {
+        get => _selectedCategoryId;
+        set
+        {
+            if (_selectedCategoryId != value)
+            {
+                _selectedCategoryId = value;
+                OnPropertyChanged();
+                _preferences?.Set("ui.selectedCategoryId", value ?? 0);
+                _preferences?.Save();
+                ApplyFilter();
+            }
+        }
+    }
+
     private Item? _selectedItem;
     public Item? SelectedItem
     {
@@ -158,6 +177,9 @@ public class ItemsViewModel : INotifyPropertyChanged
     public ICommand ConsumeStockCommand { get; }
     public ICommand AdjustStockCommand { get; }
 
+    // Category Management
+    public ICommand ManageCategoriesCommand { get; }
+
     public ItemsViewModel(IDbContextFactory<KitchenInventoryDbContext> dbFactory, ILogger<ItemsViewModel> logger, IFileSaveService fileSave, IFileOpenService fileOpen, ICsvImportService csvImport, IConfiguration? configuration = null, IPreferencesService? preferences = null)
     {
         _dbFactory = dbFactory;
@@ -177,6 +199,8 @@ public class ItemsViewModel : INotifyPropertyChanged
 
         // Load UI preference
         _showNeedsAttentionOnly = _preferences?.Get<bool>("ui.showNeedsAttentionOnly", false) ?? false;
+        var prefCat = _preferences?.Get<int>("ui.selectedCategoryId", 0) ?? 0;
+        _selectedCategoryId = (prefCat > 0) ? prefCat : (int?)null;
 
         RefreshCommand = new AsyncRelayCommand(LoadAsync);
         AddItemCommand = new RelayCommand(AddItem);
@@ -192,6 +216,8 @@ public class ItemsViewModel : INotifyPropertyChanged
         ConsumeStockCommand = new AsyncRelayCommand(() => ShowStockOperationDialogAsync("Consume Stock"), () => SelectedItem != null);
         AdjustStockCommand = new AsyncRelayCommand(() => ShowStockOperationDialogAsync("Adjust Stock"), () => SelectedItem != null);
 
+        // Initialize category management command
+        ManageCategoriesCommand = new AsyncRelayCommand(ShowManageCategoriesDialogAsync);
         // Initialize view
         ItemsView = CollectionViewSource.GetDefaultView(Items);
         if (ItemsView != null)
@@ -220,6 +246,12 @@ public class ItemsViewModel : INotifyPropertyChanged
                           (it.Name?.IndexOf(FilterText.Trim(), StringComparison.CurrentCultureIgnoreCase) >= 0) ||
                           (it.Unit?.IndexOf(FilterText.Trim(), StringComparison.CurrentCultureIgnoreCase) >= 0);
         if (!matchesText) return false;
+
+        // Category filter
+        if (SelectedCategoryId.HasValue && SelectedCategoryId.Value > 0)
+        {
+            if (it.CategoryId != SelectedCategoryId.Value) return false;
+        }
 
         if (ShowNeedsAttentionOnly)
         {
@@ -269,7 +301,17 @@ public class ItemsViewModel : INotifyPropertyChanged
         try
         {
             using var db = await _dbFactory.CreateDbContextAsync();
-            var items = await db.Items.AsNoTracking().OrderBy(i => i.Name).ToListAsync();
+
+            // Load categories
+            var cats = await db.Categories.AsNoTracking().OrderBy(c => c.Name).ToListAsync();
+            Categories.Clear();
+            // Insert sentinel "All" option as Id=0
+            Categories.Add(new Category { Id = 0, Name = "All" });
+            foreach (var c in cats) Categories.Add(c);
+            OnPropertyChanged(nameof(Categories));
+
+            // Load items with Category included for display
+            var items = await db.Items.AsNoTracking().Include(i => i.Category).OrderBy(i => i.Name).ToListAsync();
             Items.Clear();
             foreach (var it in items)
                 Items.Add(it);
@@ -573,7 +615,9 @@ public class ItemsViewModel : INotifyPropertyChanged
             var text = await _fileOpen.OpenTextFileAsync("CSV Files|*.csv|All Files|*.*");
             if (text == null) return;
 
-            var parsed = await _csvImport.ParseItemsAsync(text);
+            // Pass available categories excluding sentinel "All" (Id=0)
+            var availableCategories = Categories.Where(c => c.Id > 0).ToList();
+            var parsed = await _csvImport.ParseItemsAsync(text, availableCategories);
             if (parsed.Count == 0)
             {
                 StatusText = "No items found in CSV.";
@@ -619,6 +663,7 @@ public class ItemsViewModel : INotifyPropertyChanged
                             Name = name,
                             Quantity = imp.Quantity,
                             Unit = string.IsNullOrWhiteSpace(imp.Unit) ? "pcs" : imp.Unit!,
+                            CategoryId = imp.CategoryId, // may be null
                             ExpiryDate = imp.ExpiryDate,
                             CreatedAtUtc = imp.CreatedAtUtc == default ? nowUtc : imp.CreatedAtUtc,
                             UpdatedAtUtc = nowUtc
@@ -648,6 +693,7 @@ public class ItemsViewModel : INotifyPropertyChanged
 
                         target.Unit = string.IsNullOrWhiteSpace(imp.Unit) ? target.Unit : imp.Unit!;
                         target.ExpiryDate = imp.ExpiryDate;
+                        target.CategoryId = imp.CategoryId; // allow updating category if provided
                         target.Quantity = newQty;
                         target.UpdatedAtUtc = nowUtc;
 
@@ -732,6 +778,41 @@ public class ItemsViewModel : INotifyPropertyChanged
         {
             _logger.LogError(ex, "Failed to open stock operation dialog");
             StatusText = $"Failed to open {operationType.ToLower()} dialog: {ex.Message}";
+        }
+    }
+
+    // Category Management
+    private async Task ShowManageCategoriesDialogAsync()
+    {
+        try
+        {
+            using var loggerFactory = LoggerFactory.Create(builder =>
+            {
+                builder.AddConsole();
+                builder.SetMinimumLevel(LogLevel.Information);
+            });
+            var dialogLogger = loggerFactory.CreateLogger<CategoryManagementDialog>();
+
+            var dialog = new CategoryManagementDialog(_dbFactory, dialogLogger)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            var result = dialog.ShowDialog();
+            if (result == true)
+            {
+                // Reload items and categories after changes
+                await LoadAsync();
+                ApplyFilter();
+                CommandManager.InvalidateRequerySuggested();
+                StatusText = "Categories updated.";
+                _logger.LogInformation("Categories were updated via management dialog");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to open category management dialog");
+            StatusText = $"Failed to open category dialog: {ex.Message}";
         }
     }
 }

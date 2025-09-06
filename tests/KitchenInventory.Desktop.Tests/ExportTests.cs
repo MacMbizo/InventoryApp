@@ -121,9 +121,9 @@ public sealed class ExportTests
 
             // Spot-check header is present and quoted value for name is escaped
             var lines = saver.LastContent!.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-            lines[0].Should().Be("Id,Name,Quantity,Unit,ExpiryDate,CreatedAtUtc,UpdatedAtUtc");
+            lines[0].Should().Be("Id,Name,Quantity,Unit,CategoryId,CategoryName,ExpiryDate,CreatedAtUtc,UpdatedAtUtc");
             lines.Should().Contain(l => l.Contains("\"Tomato, \"\"Roma\"\"\""))
-                 .And.Contain(l => Regex.IsMatch(l, @",2(\.0)?,"));
+                     .And.Contain(l => Regex.IsMatch(l, @",2(\.0)?,"));
         }
         finally { conn.Dispose(); }
     }
@@ -229,6 +229,6 @@ public sealed class ExportTests
     // Helpers
     private sealed class FakeCsvImportServiceEmpty : ICsvImportService
     {
-        public Task<IReadOnlyList<Item>> ParseItemsAsync(string csvContent) => Task.FromResult((IReadOnlyList<Item>)Array.Empty<Item>());
+        public Task<IReadOnlyList<Item>> ParseItemsAsync(string csvContent, List<Category> categories) => Task.FromResult((IReadOnlyList<Item>)Array.Empty<Item>());
     }
 }

@@ -9,6 +9,8 @@ public class Item
     public decimal Quantity { get; set; }
     public string Unit { get; set; } = "pcs";
     public DateTime? ExpiryDate { get; set; }
+    public int? CategoryId { get; set; }
+    public Category? Category { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAtUtc { get; set; }
 }

@@ -49,8 +49,11 @@ public sealed class MovementTests
 
     private sealed class FakeCsvImportService : ICsvImportService
     {
-        public Task<IReadOnlyList<Item>> ParseItemsAsync(string csvContent)
-            => Task.FromResult((IReadOnlyList<Item>)Array.Empty<Item>());
+        private readonly IReadOnlyList<Item> _items;
+        public FakeCsvImportService() { _items = Array.Empty<Item>(); }
+        public FakeCsvImportService(IReadOnlyList<Item> items) { _items = items; }
+        public Task<IReadOnlyList<Item>> ParseItemsAsync(string csvContent, List<Category> categories)
+            => Task.FromResult(_items);
     }
 
     private static (IDbContextFactory<KitchenInventoryDbContext> factory, SqliteConnection conn, DbContextOptions<KitchenInventoryDbContext> options)

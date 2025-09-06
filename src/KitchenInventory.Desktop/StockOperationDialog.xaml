@@ -5,11 +5,12 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:val="clr-namespace:KitchenInventory.Desktop.Validations"
         mc:Ignorable="d"
-        Title="{Binding Title}" Height="420" Width="480"
+        Title="{Binding DialogTitle}"
+        Height="480" Width="720"
         WindowStartupLocation="CenterOwner"
-        ResizeMode="NoResize" ShowInTaskbar="False"
-        Validation.ErrorTemplate="{x:Null}">
-    
+        ResizeMode="NoResize"
+        ShowInTaskbar="False">
+
     <Window.Resources>
         <Style TargetType="TextBox">
             <Setter Property="Padding" Value="4"/>

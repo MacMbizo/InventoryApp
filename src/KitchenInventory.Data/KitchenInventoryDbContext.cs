@@ -12,6 +12,7 @@ public class KitchenInventoryDbContext : DbContext
 
     public DbSet<Item> Items => Set<Item>();
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
+    public DbSet<Category> Categories => Set<Category>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -21,6 +22,18 @@ public class KitchenInventoryDbContext : DbContext
             b.Property(x => x.Name).IsRequired().HasMaxLength(200);
             b.Property(x => x.Unit).IsRequired().HasMaxLength(32);
             b.Property(x => x.Quantity).HasPrecision(18, 3);
+            b.HasOne(x => x.Category)
+             .WithMany()
+             .HasForeignKey(x => x.CategoryId)
+             .OnDelete(DeleteBehavior.SetNull);
+            b.HasIndex(x => x.CategoryId);
+        });
+
+        modelBuilder.Entity<Category>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Name).IsRequired().HasMaxLength(100);
+            b.HasIndex(x => x.Name).IsUnique();
         });
 
         modelBuilder.Entity<StockMovement>(b =>
