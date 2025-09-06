@@ -23,6 +23,7 @@ using System.Text.Json;
 using System.IO.Compression;
 using KitchenInventory.Desktop.Constants;
 using KitchenInventory.Desktop.Utilities;
+using KitchenInventory.Domain.Entities;
 
 namespace KitchenInventory.Desktop;
 
@@ -288,6 +289,196 @@ public partial class App : Application
                 Log.Fatal(ex, "Failed to export diagnostics bundle to {Path}", exportPath);
                 Environment.ExitCode = ExitCodes.ExportError;
                 Shutdown(ExitCodes.ExportError);
+                return;
+            }
+        }
+
+        // Headless CSV import trigger: env INVENTORY_IMPORT_CSV or --import-items[=path] / --import-csv[=path]
+        string? importPath = null;
+        for (int i = 0; i < e.Args.Length; i++)
+        {
+            var a = e.Args[i];
+            if (a.StartsWith("--import-items", StringComparison.OrdinalIgnoreCase) ||
+                a.StartsWith("--import-csv", StringComparison.OrdinalIgnoreCase))
+            {
+                // Support --flag=path
+                var parts = a.Split('=', 2);
+                if (parts.Length == 2 && !string.IsNullOrWhiteSpace(parts[1]))
+                {
+                    importPath = parts[1].Trim('"');
+                }
+                else if (string.Equals(a, "--import-items", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(a, "--import-csv", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Support --flag path (next arg)
+                    if (i + 1 < e.Args.Length)
+                    {
+                        var candidate = e.Args[i + 1];
+                        if (!candidate.StartsWith("--"))
+                        {
+                            importPath = candidate.Trim('"');
+                        }
+                    }
+                }
+                break; // stop after first match
+            }
+        }
+         var envImport = Environment.GetEnvironmentVariable("INVENTORY_IMPORT_CSV");
+         if (!string.IsNullOrWhiteSpace(envImport))
+         {
+             importPath ??= envImport;
+         }
+
+        if (!string.IsNullOrWhiteSpace(importPath))
+        {
+            try
+            {
+                Log.Information("CSV import requested from {Path}", importPath);
+                if (!File.Exists(importPath))
+                {
+                    Log.Error("Import file not found: {Path}", importPath);
+                    Environment.ExitCode = ExitCodes.FileOperationError;
+                    Shutdown(ExitCodes.FileOperationError);
+                    return;
+                }
+
+                var csvText = File.ReadAllText(importPath);
+                if (string.IsNullOrWhiteSpace(csvText))
+                {
+                    Log.Warning("Import file is empty: {Path}", importPath);
+                    Environment.ExitCode = ExitCodes.Success; // treat empty import as no-op success
+                    Shutdown(ExitCodes.Success);
+                    return;
+                }
+
+                // Resolve services
+                var csvImporter = _host.Services.GetRequiredService<ICsvImportService>();
+                var dbFactory = _host.Services.GetRequiredService<IDbContextFactory<KitchenInventory.Data.KitchenInventoryDbContext>>();
+
+                using var db = dbFactory.CreateDbContext();
+                using var tx = db.Database.BeginTransaction();
+
+                // Load categories for mapping in parser (exclude sentinel if any)
+                var categories = db.Categories.AsNoTracking().ToList();
+                // Parse items
+                var parsed = csvImporter.ParseItemsAsync(csvText, categories).GetAwaiter().GetResult();
+
+                if (parsed.Count == 0)
+                {
+                    Log.Information("No items found in CSV: {Path}", importPath);
+                    Environment.ExitCode = ExitCodes.Success;
+                    Shutdown(ExitCodes.Success);
+                    return;
+                }
+
+                // Load existing items and build lookup
+                var existingItems = db.Items.ToList();
+                var byId = existingItems.ToDictionary(i => i.Id, i => i);
+                var byName = existingItems
+                    .Where(i => !string.IsNullOrWhiteSpace(i.Name))
+                    .GroupBy(i => i.Name!.Trim().ToLowerInvariant())
+                    .ToDictionary(g => g.Key, g => g.First());
+
+                int addedCount = 0;
+                int updatedCount = 0;
+                var movements = new List<StockMovement>();
+                var nowUtc = DateTime.UtcNow;
+
+                foreach (var imp in parsed)
+                {
+                    var name = (imp.Name ?? string.Empty).Trim();
+                    if (string.IsNullOrWhiteSpace(name)) continue;
+
+                    Item? target = null;
+                    if (imp.Id > 0 && byId.TryGetValue(imp.Id, out var byIdMatch))
+                    {
+                        target = byIdMatch;
+                    }
+                    else if (byName.TryGetValue(name.ToLowerInvariant(), out var byNameMatch))
+                    {
+                        target = byNameMatch;
+                    }
+
+                    if (target == null)
+                    {
+                        // New item
+                        var entity = new Item
+                        {
+                            Name = name,
+                            Quantity = imp.Quantity,
+                            Unit = string.IsNullOrWhiteSpace(imp.Unit) ? "pcs" : imp.Unit!,
+                            CategoryId = imp.CategoryId,
+                            ExpiryDate = imp.ExpiryDate,
+                            CreatedAtUtc = imp.CreatedAtUtc == default ? nowUtc : imp.CreatedAtUtc,
+                            UpdatedAtUtc = nowUtc
+                        };
+                        db.Items.Add(entity);
+
+                        if (entity.Quantity != 0)
+                        {
+                            movements.Add(new StockMovement
+                            {
+                                Item = entity,
+                                Type = MovementType.Add,
+                                Quantity = Math.Abs(entity.Quantity),
+                                Reason = "Import add",
+                                User = Environment.UserName,
+                                TimestampUtc = nowUtc
+                            });
+                        }
+                        addedCount++;
+                    }
+                    else
+                    {
+                        // Existing item -> update fields and record quantity delta
+                        var oldQty = target.Quantity;
+                        var newQty = imp.Quantity;
+                        var delta = newQty - oldQty;
+
+                        target.Unit = string.IsNullOrWhiteSpace(imp.Unit) ? target.Unit : imp.Unit!;
+                        target.ExpiryDate = imp.ExpiryDate;
+                        target.CategoryId = imp.CategoryId;
+                        target.Quantity = newQty;
+                        target.UpdatedAtUtc = nowUtc;
+
+                        db.Attach(target);
+                        db.Entry(target).State = EntityState.Modified;
+
+                        if (delta != 0)
+                        {
+                            movements.Add(new StockMovement
+                            {
+                                ItemId = target.Id,
+                                Type = delta > 0 ? MovementType.Add : MovementType.Consume,
+                                Quantity = Math.Abs(delta),
+                                Reason = "Import update",
+                                User = Environment.UserName,
+                                TimestampUtc = nowUtc
+                            });
+                        }
+
+                        updatedCount++;
+                    }
+                }
+
+                if (movements.Count > 0)
+                {
+                    db.StockMovements.AddRange(movements);
+                }
+
+                db.SaveChanges();
+                tx.Commit();
+
+                Log.Information("CSV import completed. Total: {Total}; Added: {Added}; Updated: {Updated}", parsed.Count, addedCount, updatedCount);
+                Environment.ExitCode = ExitCodes.Success;
+                Shutdown(ExitCodes.Success);
+                return;
+            }
+            catch (Exception ex)
+            {
+                Log.Fatal(ex, "CSV import failed from {Path}", importPath);
+                Environment.ExitCode = ExitCodes.ImportError;
+                Shutdown(ExitCodes.ImportError);
                 return;
             }
         }

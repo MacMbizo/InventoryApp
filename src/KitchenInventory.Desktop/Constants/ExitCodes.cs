@@ -36,6 +36,11 @@ public static class ExitCodes
     public const int ExportError = 20;
     
     /// <summary>
+    /// Import error - CSV import operation failed.
+    /// </summary>
+    public const int ImportError = 21;
+    
+    /// <summary>
     /// Configuration error - invalid or missing configuration.
     /// </summary>
     public const int ConfigurationError = 30;
