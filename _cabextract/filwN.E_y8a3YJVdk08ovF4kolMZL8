@@ -1,0 +1,32 @@
+2025-09-06 14:43:32.503 +02:00 [INF] Application starting up
+2025-09-06 14:43:32.950 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=4; Pending=0
+2025-09-06 14:43:33.423 +02:00 [INF] Loading items from database...
+2025-09-06 14:43:33.501 +02:00 [INF] Loaded 18 items
+2025-09-06 14:43:33.675 +02:00 [INF] Application shutting down
+2025-09-06 14:43:33.676 +02:00 [INF] OnExit: ExitCode=0, Headless=false
+2025-09-06 14:43:34.059 +02:00 [INF] Application starting up
+2025-09-06 14:43:34.498 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=4; Pending=0
+2025-09-06 14:43:34.978 +02:00 [INF] Loading items from database...
+2025-09-06 14:43:35.055 +02:00 [INF] Loaded 18 items
+2025-09-06 14:43:36.173 +02:00 [INF] Application shutting down
+2025-09-06 14:43:36.173 +02:00 [INF] OnExit: ExitCode=0, Headless=false
+2025-09-06 14:51:06.461 +02:00 [INF] Application starting up
+2025-09-06 14:51:06.962 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=4; Pending=0
+2025-09-06 14:51:07.453 +02:00 [INF] Loading items from database...
+2025-09-06 14:51:07.531 +02:00 [INF] Loaded 18 items
+2025-09-06 14:51:11.998 +02:00 [INF] Application shutting down
+2025-09-06 14:51:11.999 +02:00 [INF] OnExit: ExitCode=0, Headless=false
+2025-09-06 14:51:12.470 +02:00 [INF] Application starting up
+2025-09-06 14:51:12.916 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=4; Pending=0
+2025-09-06 14:51:13.376 +02:00 [INF] Loading items from database...
+2025-09-06 14:51:13.455 +02:00 [INF] Loaded 18 items
+2025-09-06 14:52:02.331 +02:00 [INF] Loading items from database...
+2025-09-06 14:52:02.338 +02:00 [INF] Loaded 18 items
+2025-09-06 14:52:02.340 +02:00 [INF] Categories were updated via management dialog
+2025-09-06 14:52:43.232 +02:00 [INF] Saving 18 items
+2025-09-06 14:52:43.334 +02:00 [INF] Save successful
+2025-09-06 14:52:43.335 +02:00 [INF] Loading items from database...
+2025-09-06 14:52:43.343 +02:00 [INF] Loaded 18 items
+2025-09-06 14:53:02.052 +02:00 [INF] Loading items from database...
+2025-09-06 14:53:02.068 +02:00 [INF] Loaded 18 items
+2025-09-06 14:53:02.070 +02:00 [INF] Categories were updated via management dialog

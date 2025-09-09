@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using KitchenInventory.Desktop.Utilities;
+using Serilog;
 
 namespace KitchenInventory.Desktop.Services;
 
@@ -59,12 +60,12 @@ public class DiagnosticsExporter : IDiagnosticsExporter
                 }
             };
             var envJson = JsonSerializer.Serialize(envInfo, new JsonSerializerOptions { WriteIndented = true });
-            await File.WriteAllTextAsync(Path.Combine(stagingDir, "environment.json"), envJson, ct);
+            await File.WriteAllTextAsync(Path.Combine(stagingDir, "environment.json"), envJson, ct).ConfigureAwait(false);
 
             // 2) Database info (redacted)
-            var db = await _dbInfo.GetInfoAsync(ct);
+            var db = await _dbInfo.GetInfoAsync(ct).ConfigureAwait(false);
             var dbJson = JsonSerializer.Serialize(db, new JsonSerializerOptions { WriteIndented = true });
-            await File.WriteAllTextAsync(Path.Combine(stagingDir, "database.json"), dbJson, ct);
+            await File.WriteAllTextAsync(Path.Combine(stagingDir, "database.json"), dbJson, ct).ConfigureAwait(false);
 
             // 3) appsettings.json copy (non-secret) if available
             try
@@ -119,6 +120,15 @@ public class DiagnosticsExporter : IDiagnosticsExporter
             // Create zip
             if (File.Exists(outputZipPath)) File.Delete(outputZipPath);
             ZipFile.CreateFromDirectory(stagingDir, outputZipPath, CompressionLevel.Optimal, includeBaseDirectory: false);
+
+            // Explicit success marker for CI/scripts
+            Log.Information("ExportDiagnostics: SUCCESS path={OutputZip}", outputZipPath);
+        }
+        catch (Exception ex)
+        {
+            // Explicit failure marker for CI/scripts
+            Log.Error(ex, "ExportDiagnostics: FAIL path={OutputZip}", outputZipPath);
+            throw;
         }
         finally
         {

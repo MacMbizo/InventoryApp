@@ -1,0 +1,24 @@
+2025-08-27 00:01:14.612 +02:00 [INF] Application starting up
+2025-08-27 00:01:15.102 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=3; Pending=0
+2025-08-27 00:01:15.567 +02:00 [INF] Loading items from database...
+2025-08-27 00:01:15.613 +02:00 [INF] Loaded 2 items
+2025-08-27 00:01:15.753 +02:00 [INF] Application shutting down
+2025-08-27 00:01:15.754 +02:00 [INF] OnExit: ExitCode=0, Headless=false
+2025-08-27 00:01:16.207 +02:00 [INF] Application starting up
+2025-08-27 00:01:16.641 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=3; Pending=0
+2025-08-27 00:01:17.114 +02:00 [INF] Loading items from database...
+2025-08-27 00:01:17.162 +02:00 [INF] Loaded 2 items
+2025-08-27 00:13:00.122 +02:00 [INF] Application starting up
+2025-08-27 00:13:00.876 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=3; Pending=0
+2025-08-27 00:13:01.412 +02:00 [INF] Loading items from database...
+2025-08-27 00:13:01.461 +02:00 [INF] Loaded 2 items
+2025-08-27 00:13:01.608 +02:00 [INF] Application shutting down
+2025-08-27 00:13:01.609 +02:00 [INF] OnExit: ExitCode=0, Headless=false
+2025-08-27 00:13:02.072 +02:00 [INF] Application starting up
+2025-08-27 00:13:02.494 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=3; Pending=0
+2025-08-27 00:13:02.938 +02:00 [INF] Loading items from database...
+2025-08-27 00:13:02.984 +02:00 [INF] Loaded 2 items
+2025-08-27 00:35:38.036 +02:00 [INF] Application starting up
+2025-08-27 00:35:38.513 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=3; Pending=0
+2025-08-27 00:35:38.982 +02:00 [INF] Loading items from database...
+2025-08-27 00:35:39.029 +02:00 [INF] Loaded 2 items

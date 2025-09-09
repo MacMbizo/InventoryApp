@@ -1,0 +1,51 @@
+Data dir: C:\Users\admin\AppData\Local\InventoryApp
+Timestamp UTC: 2025-09-07T14:47:04.6328091+02:00
+\n== Zips ==
+(none)
+\n== Latest log tail ==
+Log: C:\Users\admin\AppData\Local\InventoryApp\logs\log-20250907_003.txt
+2025-09-07 14:42:30.974 +02:00 [INF] Application started. Press Ctrl+C to shut down.
+2025-09-07 14:42:31.006 +02:00 [INF] Hosting environment: Production
+2025-09-07 14:42:31.007 +02:00 [INF] Content root path: C:\InventoryApp
+2025-09-07 14:42:31.007 +02:00 [INF] Application starting up
+2025-09-07 14:42:31.008 +02:00 [INF] ExportDiagnostics: Requested=true; Arg='--export-diagnostics=C:\Users\admin\AppData\Local\InventoryApp\diagnostics-ci-20250907-124230.zip'; EnvVar='(none)'; Path='C:\Users\admin\AppData\Local\InventoryApp\diagnostics-ci-20250907-124230.zip'
+2025-09-07 14:42:31.493 +02:00 [INF] Executed DbCommand (5ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+PRAGMA journal_mode=WAL;
+2025-09-07 14:42:31.495 +02:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+PRAGMA busy_timeout=5000;
+2025-09-07 14:42:31.495 +02:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+PRAGMA foreign_keys=ON;
+2025-09-07 14:42:31.495 +02:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+PRAGMA synchronous=NORMAL;
+2025-09-07 14:42:31.505 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT COUNT(*) FROM "sqlite_master" WHERE "name" = '__EFMigrationsHistory' AND "type" = 'table';
+2025-09-07 14:42:31.506 +02:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT COUNT(*) FROM "sqlite_master" WHERE "name" = '__EFMigrationsHistory' AND "type" = 'table';
+2025-09-07 14:42:31.514 +02:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2025-09-07 14:42:31.524 +02:00 [INF] No migrations were applied. The database is already up to date.
+2025-09-07 14:42:31.529 +02:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT COUNT(*) FROM "sqlite_master" WHERE "name" = '__EFMigrationsHistory' AND "type" = 'table';
+2025-09-07 14:42:31.530 +02:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2025-09-07 14:42:31.530 +02:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT COUNT(*) FROM "sqlite_master" WHERE "name" = '__EFMigrationsHistory' AND "type" = 'table';
+2025-09-07 14:42:31.530 +02:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2025-09-07 14:42:31.530 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=4; Pending=0
+2025-09-07 14:42:31.541 +02:00 [INF] ExportDiagnostics: Resolved output path = C:\Users\admin\AppData\Local\InventoryApp\diagnostics-ci-20250907-124230.zip
+=== DIAG START 2025-09-08 14:05:02 ===
+MSIEXEC exit code: 1622
+Log: C:\InventoryApp\_msilogs\ki-install-20250908-140503.log Exists=False
+LocalAppData folder: C:\Users\admin\AppData\Local\KitchenInventory Exists=False
+EXE1 Exists=False: C:\Users\admin\AppData\Local\KitchenInventory\KitchenInventory.Desktop.exe
+EXE2 Exists=False: C:\Users\admin\AppData\Local\KitchenInventory\KitchenInventory.exe
+Start Menu shortcut Exists=False: C:\Users\admin\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\KitchenInventory.lnk
+--- Uninstall (HKCU) entries ---
+=== DIAG END 2025-09-08 14:05:07 ===

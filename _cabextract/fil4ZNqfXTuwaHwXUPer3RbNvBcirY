@@ -1,0 +1,10 @@
+2025-08-26 23:56:47.815 +02:00 [INF] Application starting up
+2025-08-26 23:56:48.637 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=3; Pending=0
+2025-08-26 23:56:49.217 +02:00 [INF] Loading items from database...
+2025-08-26 23:56:49.264 +02:00 [INF] Loaded 2 items
+2025-08-26 23:56:49.418 +02:00 [INF] Application shutting down
+2025-08-26 23:56:49.418 +02:00 [INF] OnExit: ExitCode=0, Headless=false
+2025-08-26 23:56:49.914 +02:00 [INF] Application starting up
+2025-08-26 23:56:50.364 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=3; Pending=0
+2025-08-26 23:56:50.853 +02:00 [INF] Loading items from database...
+2025-08-26 23:56:50.901 +02:00 [INF] Loaded 2 items

@@ -1,0 +1,78 @@
+2025-09-06 11:19:16.418 +02:00 [INF] Application starting up
+2025-09-06 11:19:18.910 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=4; Pending=0
+2025-09-06 11:19:21.557 +02:00 [INF] Loading items from database...
+2025-09-06 11:19:22.027 +02:00 [INF] Loaded 18 items
+2025-09-06 11:19:23.025 +02:00 [INF] Application shutting down
+2025-09-06 11:19:23.029 +02:00 [INF] OnExit: ExitCode=0, Headless=false
+2025-09-06 11:19:25.265 +02:00 [INF] Application starting up
+2025-09-06 11:19:27.757 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=4; Pending=0
+2025-09-06 11:19:30.403 +02:00 [INF] Loading items from database...
+2025-09-06 11:19:30.901 +02:00 [INF] Loaded 18 items
+2025-09-06 11:19:34.763 +02:00 [INF] Application shutting down
+2025-09-06 11:19:34.765 +02:00 [INF] OnExit: ExitCode=0, Headless=false
+2025-09-06 13:09:31.296 +02:00 [INF] Application starting up
+2025-09-06 13:09:31.764 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=4; Pending=0
+2025-09-06 13:09:32.356 +02:00 [INF] Loading items from database...
+2025-09-06 13:09:32.445 +02:00 [INF] Loaded 18 items
+2025-09-06 13:09:32.652 +02:00 [INF] Application shutting down
+2025-09-06 13:09:32.652 +02:00 [INF] OnExit: ExitCode=0, Headless=false
+2025-09-06 13:09:33.115 +02:00 [INF] Application starting up
+2025-09-06 13:09:33.595 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=4; Pending=0
+2025-09-06 13:09:34.087 +02:00 [INF] Loading items from database...
+2025-09-06 13:09:34.171 +02:00 [INF] Loaded 18 items
+2025-09-06 13:09:35.477 +02:00 [INF] Application shutting down
+2025-09-06 13:09:35.478 +02:00 [INF] OnExit: ExitCode=0, Headless=false
+2025-09-06 13:10:47.707 +02:00 [INF] Application starting up
+2025-09-06 13:10:48.256 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=4; Pending=0
+2025-09-06 13:10:48.816 +02:00 [INF] Loading items from database...
+2025-09-06 13:10:48.903 +02:00 [INF] Loaded 18 items
+2025-09-06 13:10:49.095 +02:00 [INF] Application shutting down
+2025-09-06 13:10:49.095 +02:00 [INF] OnExit: ExitCode=0, Headless=false
+2025-09-06 13:10:49.609 +02:00 [INF] Application starting up
+2025-09-06 13:10:50.136 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=4; Pending=0
+2025-09-06 13:10:50.716 +02:00 [INF] Loading items from database...
+2025-09-06 13:10:50.805 +02:00 [INF] Loaded 18 items
+2025-09-06 13:10:52.137 +02:00 [INF] Application shutting down
+2025-09-06 13:10:52.138 +02:00 [INF] OnExit: ExitCode=0, Headless=false
+2025-09-06 13:11:32.399 +02:00 [INF] Application starting up
+2025-09-06 13:11:32.926 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=4; Pending=0
+2025-09-06 13:11:33.455 +02:00 [INF] Loading items from database...
+2025-09-06 13:11:33.544 +02:00 [INF] Loaded 18 items
+2025-09-06 13:11:33.733 +02:00 [INF] Application shutting down
+2025-09-06 13:11:33.734 +02:00 [INF] OnExit: ExitCode=0, Headless=false
+2025-09-06 13:11:34.172 +02:00 [INF] Application starting up
+2025-09-06 13:11:34.631 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=4; Pending=0
+2025-09-06 13:11:35.153 +02:00 [INF] Loading items from database...
+2025-09-06 13:11:35.240 +02:00 [INF] Loaded 18 items
+2025-09-06 13:11:36.570 +02:00 [INF] Application shutting down
+2025-09-06 13:11:36.571 +02:00 [INF] OnExit: ExitCode=0, Headless=false
+2025-09-06 13:20:22.202 +02:00 [INF] Application starting up
+2025-09-06 13:20:22.821 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=4; Pending=0
+2025-09-06 13:20:23.414 +02:00 [INF] Loading items from database...
+2025-09-06 13:20:23.499 +02:00 [INF] Loaded 18 items
+2025-09-06 13:20:26.039 +02:00 [INF] Application shutting down
+2025-09-06 13:20:26.040 +02:00 [INF] OnExit: ExitCode=0, Headless=false
+2025-09-06 13:20:26.615 +02:00 [INF] Application starting up
+2025-09-06 13:20:27.125 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=4; Pending=0
+2025-09-06 13:20:27.614 +02:00 [INF] Loading items from database...
+2025-09-06 13:20:27.710 +02:00 [INF] Loaded 18 items
+2025-09-06 13:20:29.015 +02:00 [INF] Application shutting down
+2025-09-06 13:20:29.015 +02:00 [INF] OnExit: ExitCode=0, Headless=false
+2025-09-06 13:25:09.271 +02:00 [INF] Application starting up
+2025-09-06 13:25:09.825 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=4; Pending=0
+2025-09-06 13:25:10.401 +02:00 [INF] Loading items from database...
+2025-09-06 13:25:10.496 +02:00 [INF] Loaded 18 items
+2025-09-06 13:25:10.723 +02:00 [INF] Application shutting down
+2025-09-06 13:25:10.724 +02:00 [INF] OnExit: ExitCode=0, Headless=false
+2025-09-06 13:25:11.248 +02:00 [INF] Application starting up
+2025-09-06 13:25:11.769 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=4; Pending=0
+2025-09-06 13:25:12.427 +02:00 [INF] Loading items from database...
+2025-09-06 13:25:12.529 +02:00 [INF] Loaded 18 items
+2025-09-06 13:25:13.882 +02:00 [INF] Application shutting down
+2025-09-06 13:25:13.883 +02:00 [INF] OnExit: ExitCode=0, Headless=false
+2025-09-06 13:27:58.400 +02:00 [INF] Application starting up
+2025-09-06 13:27:58.897 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=4; Pending=0
+2025-09-06 13:27:59.423 +02:00 [INF] Loading items from database...
+2025-09-06 13:27:59.511 +02:00 [INF] Loaded 18 items
+2025-09-06 13:34:37.408 +02:00 [INF] Loading items from database...
+2025-09-06 13:34:37.414 +02:00 [INF] Loaded 18 items

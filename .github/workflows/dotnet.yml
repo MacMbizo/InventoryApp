@@ -58,10 +58,31 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $exe = "${{ github.workspace }}\src\KitchenInventory.Desktop\bin\Release\net8.0-windows\KitchenInventory.Desktop.exe"
           if (!(Test-Path $exe)) { throw "Desktop exe not found at $exe" }
+          # Basic headless startup
           $proc = Start-Process -FilePath $exe -ArgumentList '--headless' -PassThru -Wait -NoNewWindow
           $code = $proc.ExitCode
           Write-Host "Headless exit code: $code"
           if ($code -ne 0) { throw "Desktop headless run failed with exit code $code" }
+
+          # CLI CSV import (success)
+          $sample = Join-Path $env:TEMP 'sample-import.csv'
+          @(
+            'Id,Name,Quantity,Unit,CategoryName,ExpiryDate'
+            '0,Apples,3,pcs,Produce,2026-01-15'
+          ) | Out-File -FilePath $sample -Encoding utf8 -Force
+          if (!(Test-Path $sample)) { throw "Sample CSV not created at $sample" }
+          & $exe --headless --import-csv "$sample"
+          $importOk = $LASTEXITCODE
+          Write-Host "CLI import (success) exit code: $importOk"
+          if ($importOk -ne 0) { throw "CSV import expected success (0) but got $importOk" }
+
+          # CLI CSV import (missing file -> FileOperationError=11)
+          $missing = Join-Path $env:TEMP 'missing.csv'
+          if (Test-Path $missing) { Remove-Item $missing -Force }
+          & $exe --headless --import-csv "$missing"
+          $importMissing = $LASTEXITCODE
+          Write-Host "CLI import (missing) exit code: $importMissing"
+          if ($importMissing -ne 11) { throw "CSV import expected FileOperationError (11) but got $importMissing" }
 
       - name: Test (all non-UI)
         run: |
@@ -94,6 +115,24 @@ jobs:
         with:
           name: KitchenInventory.Desktop-win-x64
           path: artifacts/KitchenInventory.Desktop-win-x64.zip
+
+      - name: Build MSI (WiX v4)
+        shell: pwsh
+        run: |
+          $publishDir = "${{ github.workspace }}\artifacts\publish\desktop"
+          if (!(Test-Path $publishDir)) { throw "Publish dir not found: $publishDir" }
+          dotnet build .\src\Installer.Msi\Installer.Msi.wixproj -c Release -p:AppPublishDir="$publishDir" --nologo
+          $msi = Get-ChildItem -Path .\src\Installer.Msi\bin\Release\*.msi -ErrorAction Stop | Select-Object -First 1
+          if (-not $msi) { throw "MSI not found" }
+          $outDir = "${{ github.workspace }}\artifacts\installer"
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          Copy-Item $msi.FullName (Join-Path $outDir $msi.Name) -Force
+
+      - name: Upload MSI Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KitchenInventory-Installer-MSI
+          path: artifacts/installer/*.msi
 
       - name: Export Diagnostics Bundle
         shell: pwsh

@@ -1,0 +1,42 @@
+<Project Sdk="WixToolset.Sdk/4.0.4">
+  <PropertyGroup>
+    <OutputName>KitchenInventory-x64</OutputName>
+    <Platform>x64</Platform>
+    <AppPublishDir>..\KitchenInventory.Desktop\bin\Release\net8.0-windows</AppPublishDir>
+    <DefineConstants>AppPublishDir=$(AppPublishDir)</DefineConstants>
+    <!-- Suppress ICE64: we author recursive uninstall cleanup via util:RemoveFolderEx -->
+    <SuppressIces>ICE64</SuppressIces>
+    <!-- Pass -gg to Heat globally as a safety net -->
+    <HarvestDirectoryAdditionalOptions>-gg</HarvestDirectoryAdditionalOptions>
+    <!-- Force durable GUID generation during harvest and disable '*' GUIDs -->
+    <HarvestDirectoryGenerateGuidsNow>true</HarvestDirectoryGenerateGuidsNow>
+    <HarvestDirectoryAutogenerateGuids>false</HarvestDirectoryAutogenerateGuids>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="WixToolset.Heat" Version="4.0.4" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="4.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Ensure the Util extension is linked -->
+    <WixExtension Include="WixToolset.Util.wixext" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <HarvestDirectory Include="$(AppPublishDir)">
+      <ComponentGroupName>AppFiles</ComponentGroupName>
+      <DirectoryRefId>INSTALLFOLDER</DirectoryRefId>
+      <PreprocessorVariable>AppPublishDir</PreprocessorVariable>
+      <SuppressFragments>false</SuppressFragments>
+      <!-- Apply XSLT to switch KeyPath to HKCU registry value to satisfy ICE38 -->
+      <Transforms>HeatTransforms\PerUserKeyPath.xslt</Transforms>
+      <!-- Ensure Heat generates explicit component GUIDs now (equivalent to -gg) -->
+      <GenerateGuidsNow>true</GenerateGuidsNow>
+      <!-- Do not use '*' GUIDs -->
+      <AutogenerateGuids>false</AutogenerateGuids>
+      <!-- Safety: also pass -gg at item level -->
+      <AdditionalOptions>-gg</AdditionalOptions>
+    </HarvestDirectory>
+  </ItemGroup>
+</Project>

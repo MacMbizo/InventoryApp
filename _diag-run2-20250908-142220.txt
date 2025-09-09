@@ -1,0 +1,28 @@
+﻿=== RUN2 20250908-142220 ===
+MSI: C:\InventoryApp\src\Installer.Msi\obj\x64\Release\KitchenInventory-x64.msi
+LogTemp: C:\Users\admin\AppData\Local\Temp\ki-install-20250908-142220.log
+LogCopy: C:\InventoryApp\_msilogs\ki-install-20250908-142220.log
+MSIEXEC: msiexec.exe /i "C:\InventoryApp\src\Installer.Msi\obj\x64\Release\KitchenInventory-x64.msi"
+ExitCode: 0
+LogExists: False
+InstallDirCandidate: C:\Users\admin\AppData\Local\KitchenInventory Exists=False
+InstallDirCandidate: C:\Program Files\KitchenInventory Exists=False
+InstallDirCandidate: C:\Program Files (x86)\KitchenInventory Exists=False
+StartMenu: C:\Users\admin\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\KitchenInventory.lnk Exists=False
+--- Uninstall HKCU ---
+
+--- Uninstall HKLM ---
+
+PSChildName                            DisplayName      DisplayVersion Publisher     InstallLocation InstallDate Unin
+                                                                                                                 stal
+                                                                                                                 lStr
+                                                                                                                 ing 
+-----------                            -----------      -------------- ---------     --------------- ----------- ----
+{5E82255C-5031-4701-90F7-E8ED6D9422FA} KitchenInventory 1.0.0.0        Inventory Co.                 20250906    M...
+
+
+
+MSIEXEC (admin): msiexec.exe /a "C:\InventoryApp\src\Installer.Msi\obj\x64\Release\KitchenInventory-x64.msi"
+AdminExitCode: 0
+--- AdminImage EXEs (top 50) ---
+--- AdminImage top 100 files ---

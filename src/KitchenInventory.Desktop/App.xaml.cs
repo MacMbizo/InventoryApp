@@ -163,18 +163,29 @@ public partial class App : Application
         Log.Information("Application starting up");
 
         // Diagnostics export trigger: env INVENTORY_EXPORT_DIAGNOSTICS or --export-diagnostics[=path]
+        bool exportRequested = false;
         string? exportPath = null;
         var exportArg = e.Args.FirstOrDefault(a => a.StartsWith("--export-diagnostics", StringComparison.OrdinalIgnoreCase));
         if (exportArg != null)
         {
             var parts = exportArg.Split('=', 2);
-            exportPath = parts.Length == 2 ? parts[1] : null;
+            if (parts.Length == 2 && !string.IsNullOrWhiteSpace(parts[1]))
+            {
+                exportPath = parts[1].Trim('"');
+            }
+            // Presence of the flag (with or without a path) should trigger export
+            exportRequested = true;
         }
         var envExport = Environment.GetEnvironmentVariable("INVENTORY_EXPORT_DIAGNOSTICS");
         if (!string.IsNullOrWhiteSpace(envExport))
         {
-            exportPath ??= envExport;
+            exportRequested = true;
+            if (string.IsNullOrWhiteSpace(exportPath))
+            {
+                exportPath = envExport.Trim('"');
+            }
         }
+        Log.Information("ExportDiagnostics: Requested={Requested}; Arg='{Arg}'; EnvVar='{EnvVar}'; Path='{Path}'", exportRequested, exportArg ?? "(none)", envExport ?? "(none)", exportPath ?? "(default)");
 
         // Synthetic crash triggers for validation: env INVENTORY_CRASH_TEST or --crash-test[=sentry|dump]
         string? crashMode = null;
@@ -196,7 +207,7 @@ public partial class App : Application
                 crashMode ??= envCrash;
             }
         }
-        if (!string.IsNullOrWhiteSpace(crashMode) && !string.IsNullOrWhiteSpace(exportPath))
+        if (!string.IsNullOrWhiteSpace(crashMode) && exportRequested)
         {
             Log.Warning("Both crash-test and export-diagnostics requested. Proceeding with diagnostics export and skipping crash-test.");
             crashMode = null;
@@ -269,7 +280,7 @@ public partial class App : Application
         }
 
         // If diagnostics export requested, perform it and exit
-        if (!string.IsNullOrWhiteSpace(exportPath))
+        if (exportRequested)
         {
             try
             {
@@ -278,6 +289,7 @@ public partial class App : Application
                 {
                     exportPath = Path.Combine(baseDir, VersionInfo.GetDefaultDiagnosticsFileName());
                 }
+                Log.Information("ExportDiagnostics: Resolved output path = {Path}", exportPath);
                 exporter.ExportAsync(exportPath!).GetAwaiter().GetResult();
                 Log.Information("Diagnostics bundle exported to {Path}", exportPath);
                 Environment.ExitCode = ExitCodes.Success;

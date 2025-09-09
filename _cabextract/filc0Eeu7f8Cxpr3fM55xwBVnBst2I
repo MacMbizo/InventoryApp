@@ -1,0 +1,19 @@
+2025-09-06 13:57:22.492 +02:00 [INF] Application starting up
+2025-09-06 13:57:22.993 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=4; Pending=0
+2025-09-06 13:57:23.953 +02:00 [INF] Loading items from database...
+2025-09-06 13:57:24.036 +02:00 [INF] Loaded 18 items
+2025-09-06 13:57:26.510 +02:00 [INF] Application shutting down
+2025-09-06 13:57:26.510 +02:00 [INF] OnExit: ExitCode=0, Headless=false
+2025-09-06 13:57:26.956 +02:00 [INF] Application starting up
+2025-09-06 13:57:27.407 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=4; Pending=0
+2025-09-06 13:57:27.896 +02:00 [INF] Loading items from database...
+2025-09-06 13:57:27.982 +02:00 [INF] Loaded 18 items
+2025-09-06 14:39:19.860 +02:00 [INF] Application starting up
+2025-09-06 14:39:20.484 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=4; Pending=0
+2025-09-06 14:39:21.122 +02:00 [INF] Loading items from database...
+2025-09-06 14:39:21.220 +02:00 [INF] Loaded 18 items
+2025-09-06 18:26:58.776 +02:00 [INF] Loading items from database...
+2025-09-06 18:26:58.784 +02:00 [INF] Loaded 18 items
+2025-09-06 18:26:58.786 +02:00 [INF] Categories were updated via management dialog
+2025-09-06 18:27:10.180 +02:00 [INF] Application shutting down
+2025-09-06 18:27:10.181 +02:00 [INF] OnExit: ExitCode=0, Headless=false

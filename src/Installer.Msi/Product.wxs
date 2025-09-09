@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  <Package Name="KitchenInventory" Manufacturer="Inventory Co." Version="1.0.0.0" UpgradeCode="{8F0A7621-2C7A-4726-9A03-5C5B9B9D8A5B}" Language="1033" InstallerVersion="500" Scope="perUser">
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="INSTALLFOLDER" Name="KitchenInventory" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="KitchenInventory" />
+    </StandardDirectory>
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed."/>
+
+    <!-- Remember install location in registry for later uninstall cleanup (used by RemoveFolderEx) -->
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="RememberInstallLocation" Guid="*">
+        <RegistryValue Root="HKCU" Key="Software\KitchenInventory" Name="InstallLocation" Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <!-- AppSearch: load InstallLocation into a property early (before CostInitialize) -->
+    <Property Id="INSTALLFOLDERPATH">
+      <RegistrySearch Id="INSTALLFOLDERPATH_REG" Root="HKCU" Key="Software\KitchenInventory" Name="InstallLocation" Type="raw" />
+    </Property>
+
+    <!-- Start Menu Shortcut component under per-user Programs folder -->
+    <DirectoryRef Id="ApplicationProgramsFolder">
+      <Component Id="StartMenuShortcut" Guid="*">
+        <Shortcut Id="KitchenInventoryStartMenuShortcut"
+                  Name="KitchenInventory"
+                  Description="Kitchen Inventory"
+                  Target="[INSTALLFOLDER]KitchenInventory.Desktop.exe"
+                  WorkingDirectory="INSTALLFOLDER" />
+        <RemoveFolder Id="RemoveAppProgramsFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\KitchenInventory" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <!-- Cleanup component to satisfy ICE64 and remove per-user install folder content on uninstall -->
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="InstallFolderCleanup" Guid="*">
+        <!-- Recursive removal using util:RemoveFolderEx requires Util extension and a property with the absolute path set before CostInitialize -->
+        <util:RemoveFolderEx On="uninstall" Property="INSTALLFOLDERPATH" />
+        <!-- Keep conservative cleanup as well -->
+        <RemoveFile Id="RemoveAllFilesInInstallFolder" Name="*.*" On="uninstall" />
+        <RemoveFolder Id="RemoveInstallFolder" Directory="INSTALLFOLDER" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\KitchenInventory" Name="InstallFolderCleanup" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <Feature Id="Main" Title="Kitchen Inventory Desktop" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="RememberInstallLocation" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="InstallFolderCleanup" />
+    </Feature>
+  </Package>
+</Wix>

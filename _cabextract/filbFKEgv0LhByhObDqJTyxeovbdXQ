@@ -1,0 +1,4 @@
+2025-09-06 13:56:46.025 +02:00 [INF] Application starting up
+2025-09-06 13:56:46.534 +02:00 [INF] DB Provider: Microsoft.EntityFrameworkCore.Sqlite; Target: C:\Users\admin\AppData\Local\InventoryApp\kitchen.db; Applied=4; Pending=0
+2025-09-06 13:56:47.005 +02:00 [INF] Loading items from database...
+2025-09-06 13:56:47.079 +02:00 [INF] Loaded 18 items
