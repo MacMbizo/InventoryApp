@@ -305,6 +305,205 @@ public partial class App : Application
             }
         }
 
+        // Headless Items CSV export trigger: env INVENTORY_EXPORT_ITEMS / INVENTORY_EXPORT_ITEMS_CSV or --export-items[=path] / --export-items-csv[=path]
+        bool exportItemsRequested = false;
+        string? exportItemsPath = null;
+        var exportItemsArg = e.Args.FirstOrDefault(a => a.StartsWith("--export-items", StringComparison.OrdinalIgnoreCase) || a.StartsWith("--export-items-csv", StringComparison.OrdinalIgnoreCase));
+        if (exportItemsArg != null)
+        {
+            exportItemsRequested = true;
+            var parts = exportItemsArg.Split('=', 2);
+            if (parts.Length == 2 && !string.IsNullOrWhiteSpace(parts[1]))
+            {
+                exportItemsPath = parts[1].Trim('"');
+            }
+            else
+            {
+                var idx = Array.IndexOf(e.Args, exportItemsArg);
+                if (idx >= 0 && idx + 1 < e.Args.Length)
+                {
+                    var candidate = e.Args[idx + 1];
+                    if (!candidate.StartsWith("--"))
+                    {
+                        exportItemsPath = candidate.Trim('"');
+                    }
+                }
+            }
+        }
+        var envExportItems = Environment.GetEnvironmentVariable("INVENTORY_EXPORT_ITEMS");
+        var envExportItemsCsv = Environment.GetEnvironmentVariable("INVENTORY_EXPORT_ITEMS_CSV");
+        if (!string.IsNullOrWhiteSpace(envExportItems) || !string.IsNullOrWhiteSpace(envExportItemsCsv))
+        {
+            exportItemsRequested = true;
+            var candidate = !string.IsNullOrWhiteSpace(envExportItemsCsv) ? envExportItemsCsv : envExportItems;
+            if (!string.IsNullOrWhiteSpace(candidate) && !string.Equals(candidate, "1", StringComparison.OrdinalIgnoreCase) && !string.Equals(candidate, "true", StringComparison.OrdinalIgnoreCase))
+            {
+                exportItemsPath ??= candidate!.Trim('"');
+            }
+        }
+
+        if (exportItemsRequested)
+        {
+            try
+            {
+                Log.Information("Items CSV export requested. Path arg/env: {Path}", exportItemsPath ?? "(default)");
+                if (string.IsNullOrWhiteSpace(exportItemsPath))
+                {
+                    var ts = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
+                    exportItemsPath = Path.Combine(baseDir, $"items-{ts}.csv");
+                }
+                var outDir = Path.GetDirectoryName(exportItemsPath);
+                if (!string.IsNullOrEmpty(outDir)) Directory.CreateDirectory(outDir);
+
+                var dbFactory = _host.Services.GetRequiredService<IDbContextFactory<KitchenInventory.Data.KitchenInventoryDbContext>>();
+                using var db = dbFactory.CreateDbContext();
+                var items = db.Items.AsNoTracking().Include(i => i.Category).OrderBy(i => i.Id).ToList();
+                var csv = KitchenInventory.Desktop.Services.CsvExportService.ExportItems(items);
+
+                System.IO.File.WriteAllText(exportItemsPath!, csv, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+                Log.Information("Items CSV exported to {Path}. Count={Count}", exportItemsPath, items.Count);
+                Environment.ExitCode = ExitCodes.Success;
+                Shutdown(ExitCodes.Success);
+                return;
+            }
+            catch (UnauthorizedAccessException ua)
+            {
+                Log.Fatal(ua, "Permission denied writing Items CSV to {Path}", exportItemsPath);
+                Environment.ExitCode = ExitCodes.FileOperationError;
+                Shutdown(ExitCodes.FileOperationError);
+                return;
+            }
+            catch (IOException io)
+            {
+                Log.Fatal(io, "I/O error writing Items CSV to {Path}", exportItemsPath);
+                Environment.ExitCode = ExitCodes.FileOperationError;
+                Shutdown(ExitCodes.FileOperationError);
+                return;
+            }
+            catch (Exception ex)
+            {
+                Log.Fatal(ex, "Failed to export Items CSV to {Path}", exportItemsPath);
+                Environment.ExitCode = ExitCodes.ExportError;
+                Shutdown(ExitCodes.ExportError);
+                return;
+            }
+        }
+
+        // Headless Movements CSV export trigger: env INVENTORY_EXPORT_MOVEMENTS / INVENTORY_EXPORT_MOVEMENTS_CSV or --export-movements[=path] / --export-movements-csv[=path]
+        bool exportMovementsRequested = false;
+        string? exportMovementsPath = null;
+        int movementsTake = 50;
+        var exportMovementsArg = e.Args.FirstOrDefault(a => a.StartsWith("--export-movements", StringComparison.OrdinalIgnoreCase) || a.StartsWith("--export-movements-csv", StringComparison.OrdinalIgnoreCase));
+        if (exportMovementsArg != null)
+        {
+            exportMovementsRequested = true;
+            var parts = exportMovementsArg.Split('=', 2);
+            if (parts.Length == 2 && !string.IsNullOrWhiteSpace(parts[1]))
+            {
+                exportMovementsPath = parts[1].Trim('"');
+            }
+            else
+            {
+                var idx = Array.IndexOf(e.Args, exportMovementsArg);
+                if (idx >= 0 && idx + 1 < e.Args.Length)
+                {
+                    var candidate = e.Args[idx + 1];
+                    if (!candidate.StartsWith("--"))
+                    {
+                        exportMovementsPath = candidate.Trim('"');
+                    }
+                }
+            }
+        }
+        var envExportMovements = Environment.GetEnvironmentVariable("INVENTORY_EXPORT_MOVEMENTS");
+        var envExportMovementsCsv = Environment.GetEnvironmentVariable("INVENTORY_EXPORT_MOVEMENTS_CSV");
+        var envMovementsTake = Environment.GetEnvironmentVariable("INVENTORY_EXPORT_MOVEMENTS_TAKE");
+        if (!string.IsNullOrWhiteSpace(envExportMovements) || !string.IsNullOrWhiteSpace(envExportMovementsCsv))
+        {
+            exportMovementsRequested = true;
+            var candidate = !string.IsNullOrWhiteSpace(envExportMovementsCsv) ? envExportMovementsCsv : envExportMovements;
+            if (!string.IsNullOrWhiteSpace(candidate) && !string.Equals(candidate, "1", StringComparison.OrdinalIgnoreCase) && !string.Equals(candidate, "true", StringComparison.OrdinalIgnoreCase))
+            {
+                exportMovementsPath ??= candidate!.Trim('"');
+            }
+        }
+        if (!string.IsNullOrWhiteSpace(envMovementsTake) && int.TryParse(envMovementsTake, out var takeFromEnv) && takeFromEnv > 0)
+        {
+            movementsTake = takeFromEnv;
+        }
+        // Optional CLI take override: --take=NN or --movements-take=NN
+        var takeArg = e.Args.FirstOrDefault(a => a.StartsWith("--movements-take", StringComparison.OrdinalIgnoreCase) || a.StartsWith("--take", StringComparison.OrdinalIgnoreCase));
+        if (takeArg != null)
+        {
+            var parts = takeArg.Split('=', 2);
+            if (parts.Length == 2 && int.TryParse(parts[1], out var t) && t > 0)
+            {
+                movementsTake = t;
+            }
+            else
+            {
+                var idx = Array.IndexOf(e.Args, takeArg);
+                if (idx >= 0 && idx + 1 < e.Args.Length)
+                {
+                    var candidate = e.Args[idx + 1];
+                    if (!candidate.StartsWith("--") && int.TryParse(candidate, out var t2) && t2 > 0)
+                    {
+                        movementsTake = t2;
+                    }
+                }
+            }
+        }
+
+        if (exportMovementsRequested)
+        {
+            try
+            {
+                Log.Information("Movements CSV export requested. Path arg/env: {Path}; Take={Take}", exportMovementsPath ?? "(default)", movementsTake);
+                if (string.IsNullOrWhiteSpace(exportMovementsPath))
+                {
+                    var ts = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
+                    exportMovementsPath = Path.Combine(baseDir, $"movements-{ts}.csv");
+                }
+                var outDir = Path.GetDirectoryName(exportMovementsPath);
+                if (!string.IsNullOrEmpty(outDir)) Directory.CreateDirectory(outDir);
+
+                var dbFactory = _host.Services.GetRequiredService<IDbContextFactory<KitchenInventory.Data.KitchenInventoryDbContext>>();
+                using var db = dbFactory.CreateDbContext();
+
+                var movements = db.StockMovements.AsNoTracking().OrderByDescending(m => m.CreatedAt).Take(movementsTake).ToList();
+                 var itemNames = db.Items.AsNoTracking().ToDictionary(i => i.Id, i => i.Name);
+                 string MapName(int id) => itemNames.TryGetValue(id, out var n) ? n : string.Empty;
+                 var csv = KitchenInventory.Desktop.Services.CsvExportService.ExportMovements(movements, MapName);
+ 
+                 System.IO.File.WriteAllText(exportMovementsPath!, csv, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+                Log.Information("Movements CSV exported to {Path}. Count={Count}", exportMovementsPath, movements.Count);
+                Environment.ExitCode = ExitCodes.Success;
+                Shutdown(ExitCodes.Success);
+                return;
+            }
+            catch (UnauthorizedAccessException ua)
+            {
+                Log.Fatal(ua, "Permission denied writing Movements CSV to {Path}", exportMovementsPath);
+                Environment.ExitCode = ExitCodes.FileOperationError;
+                Shutdown(ExitCodes.FileOperationError);
+                return;
+            }
+            catch (IOException io)
+            {
+                Log.Fatal(io, "I/O error writing Movements CSV to {Path}", exportMovementsPath);
+                Environment.ExitCode = ExitCodes.FileOperationError;
+                Shutdown(ExitCodes.FileOperationError);
+                return;
+            }
+            catch (Exception ex)
+            {
+                Log.Fatal(ex, "Failed to export Movements CSV to {Path}", exportMovementsPath);
+                Environment.ExitCode = ExitCodes.ExportError;
+                Shutdown(ExitCodes.ExportError);
+                return;
+            }
+        }
+
         // Headless CSV import trigger: env INVENTORY_IMPORT_CSV or --import-items[=path] / --import-csv[=path]
         string? importPath = null;
         for (int i = 0; i < e.Args.Length; i++)

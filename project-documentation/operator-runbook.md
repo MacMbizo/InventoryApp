@@ -77,6 +77,46 @@ CSV import (headless)
 - CSV parsing rules:
   - Comma-separated, "quoted" fields supported, with standard double-quote escaping ("")
 
+Items export (headless)
+- Triggers (precedence: CLI then env):
+  - --export-items[=path] OR --export-items path
+  - --export-items-csv[=path] OR --export-items-csv path
+  - INVENTORY_EXPORT_ITEMS=path OR INVENTORY_EXPORT_ITEMS_CSV=path (also supports 1/true to use default path)
+- Behavior:
+  - If no path is provided, exports to %LOCALAPPDATA%\InventoryApp\items-YYYYMMDD-HHMMSS.csv
+  - On success → exit 0
+  - On unauthorized/I-O errors → exit 11 (File operation error)
+  - On other exceptions → exit 20 (Export error)
+- CSV contents:
+  - Matches application’s CsvExportService.ExportItems output; includes item attributes for all rows currently in the database
+  - CSV schema preview (header row exactly):
+
+```text
+Id,Name,Quantity,Unit,CategoryId,CategoryName,ExpiryDate,CreatedAtUtc,UpdatedAtUtc
+```
+
+Recent movements export (headless)
+- Triggers (precedence: CLI then env):
+  - --export-movements[=path] OR --export-movements path
+  - --export-movements-csv[=path] OR --export-movements-csv path
+  - INVENTORY_EXPORT_MOVEMENTS=path OR INVENTORY_EXPORT_MOVEMENTS_CSV=path (also supports 1/true to use default path)
+- Count control (optional):
+  - Default: 50 most recent movements
+  - CLI: --movements-take=NN or --take=NN
+  - ENV: INVENTORY_EXPORT_MOVEMENTS_TAKE=NN
+- Behavior:
+  - If no path is provided, exports to %LOCALAPPDATA%\InventoryApp\movements-YYYYMMDD-HHMMSS.csv
+  - On success → exit 0
+  - On unauthorized/I-O errors → exit 11 (File operation error)
+  - On other exceptions → exit 20 (Export error)
+- CSV contents:
+  - Matches application’s CsvExportService.ExportMovements output; includes recent stock movement entries with item name resolved when available
+  - CSV schema preview (header row exactly):
+
+```text
+Id,ItemId,ItemName,Type,Quantity,Reason,User,TimestampUtc
+```
+
 Diagnostics export (optional)
 - Triggers (precedence: CLI then env):
   - --export-diagnostics=path OR --export-diagnostics (uses default name under %LOCALAPPDATA%\InventoryApp if path omitted)
@@ -99,10 +139,20 @@ Examples (PowerShell)
   - & "C:\\Path\\To\\KitchenInventory.Desktop.exe" --import-csv "C:\\data\\items.csv"; $LASTEXITCODE  # expect 0
 - CSV import missing file (negative test):
   - & "C:\\Path\\To\\KitchenInventory.Desktop.exe" --import-csv "C:\\data\\missing.csv"; $LASTEXITCODE  # expect 11
+- Items export with default path:
+  - & "C:\\Path\\To\\KitchenInventory.Desktop.exe" --export-items; $LASTEXITCODE  # writes items-YYYYMMDD-HHMMSS.csv under %LOCALAPPDATA%\InventoryApp
+- Items export with explicit path:
+  - & "C:\\Path\\To\\KitchenInventory.Desktop.exe" --export-items "C:\\temp\\items.csv"; $LASTEXITCODE  # expect 0
+- Movements export with default path (50 most recent):
+  - & "C:\\Path\\To\\KitchenInventory.Desktop.exe" --export-movements; $LASTEXITCODE  # writes movements-YYYYMMDD-HHMMSS.csv under %LOCALAPPDATA%\InventoryApp
+- Movements export with explicit path and 100 entries:
+  - & "C:\\Path\\To\\KitchenInventory.Desktop.exe" --export-movements "C:\\temp\\movements.csv" --movements-take 100; $LASTEXITCODE  # expect 0
 - Using environment variables:
   - $env:INVENTORY_IMPORT_CSV = "C:\\data\\items.csv"; & "...\\KitchenInventory.Desktop.exe"; $LASTEXITCODE
   - $env:INVENTORY_HEADLESS = "1"; & "...\\KitchenInventory.Desktop.exe"; $LASTEXITCODE
   - $env:INVENTORY_EXPORT_DIAGNOSTICS = "C:\\temp\\diag.zip"; & "...\\KitchenInventory.Desktop.exe"; $LASTEXITCODE
+  - $env:INVENTORY_EXPORT_ITEMS = "C:\\temp\\items.csv"; & "...\\KitchenInventory.Desktop.exe"; $LASTEXITCODE
+  - $env:INVENTORY_EXPORT_MOVEMENTS = "C:\\temp\\movements.csv"; $env:INVENTORY_EXPORT_MOVEMENTS_TAKE = "200"; & "...\\KitchenInventory.Desktop.exe"; $LASTEXITCODE
 
 Operational tips
 - Always check $LASTEXITCODE in automation to determine success/failure
@@ -115,6 +165,46 @@ Troubleshooting
 - Exit 21 (Import error): review logs for parse/validation exceptions; check CSV encoding and date/number formats (invariant culture)
 - Exit 10/30 (Database/Configuration): confirm provider/connection settings; default to Sqlite if Npgsql variables are not provided
 - Empty import yields exit 0 by design; ensure the CSV has data rows beyond the header
+
+CI recipes (Windows runners)
+- Purpose: repeatable headless operations with exit code checks and artifact validation.
+
+Example 1: Export Items and Movements with header verification
+```powershell
+$exe = "$env:LOCALAPPDATA\KitchenInventory\KitchenInventory.Desktop.exe"
+$artifacts = Join-Path $PWD 'artifacts'
+New-Item -ItemType Directory -Path $artifacts -Force | Out-Null
+
+$env:CI = 'true'
+$env:INVENTORY_HEADLESS = '1'
+
+$itemsCsv = Join-Path $artifacts 'items.csv'
+& $exe --export-items "$itemsCsv"
+if ($LASTEXITCODE -ne 0) { throw "Items export failed with code $LASTEXITCODE" }
+if ((Get-Content -Path $itemsCsv -TotalCount 1) -ne 'Id,Name,Quantity,Unit,CategoryId,CategoryName,ExpiryDate,CreatedAtUtc,UpdatedAtUtc') { throw 'Items header mismatch' }
+
+$movCsv = Join-Path $artifacts 'movements.csv'
+& $exe --export-movements "$movCsv" --movements-take 25
+if ($LASTEXITCODE -ne 0) { throw "Movements export failed with code $LASTEXITCODE" }
+if ((Get-Content -Path $movCsv -TotalCount 1) -ne 'Id,ItemId,ItemName,Type,Quantity,Reason,User,TimestampUtc') { throw 'Movements header mismatch' }
+```
+
+Example 2: Diagnostics bundle with tools/headless-export.ps1
+```powershell
+$artifacts = Join-Path $PWD 'artifacts'
+New-Item -ItemType Directory -Path $artifacts -Force | Out-Null
+$zipPath = Join-Path $artifacts 'diagnostics.zip'
+
+$exePath = "$env:LOCALAPPDATA\KitchenInventory\KitchenInventory.Desktop.exe"
+$psArgs = @('-File', 'tools/headless-export.ps1', '-OutputZip', $zipPath)
+if (Test-Path $exePath) { $psArgs += @('-ExePath', $exePath) }
+
+$proc = Start-Process -FilePath 'powershell' -ArgumentList $psArgs -NoNewWindow -Wait -PassThru
+if ($proc.ExitCode -ne 0) { throw "Diagnostics export failed with exit code $($proc.ExitCode)" }
+# Optional: zip integrity check
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath); try { if ($zip.Entries.Count -lt 1) { throw 'Empty zip' } } finally { $zip.Dispose() }
+```
 
 Change reference
 - CI validates headless start, import success, and missing-file exit code 11 in .github/workflows/dotnet.yml
