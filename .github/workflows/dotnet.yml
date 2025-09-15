@@ -6,6 +6,8 @@ on:
   pull_request:
     branches: [ "**" ]
   workflow_dispatch:
+  release:
+    types: [ released ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -133,6 +135,47 @@ jobs:
         with:
           name: KitchenInventory-Installer-MSI
           path: artifacts/installer/*.msi
+
+      - name: Build MSIX (Desktop Bridge)
+        shell: pwsh
+        env:
+          MSIX_PFX_B64: ${{ secrets.MSIX_PFX_B64 }}
+          MSIX_PFX_PASSWORD: ${{ secrets.MSIX_PFX_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $msixProject = "${{ github.workspace }}\src\Installer.Msix\Installer.Msix.wapproj"
+          $vswhere = "${Env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (!(Test-Path $vswhere)) { throw "vswhere.exe not found at $vswhere" }
+          $msbuildPath = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -find "MSBuild\**\Bin\MSBuild.exe"
+          if (-not $msbuildPath) { throw "MSBuild.exe not found via vswhere" }
+
+          $msbuildArgs = "/m /t:Restore,Build /p:Configuration=Release /nologo"
+          $pfxPath = $null
+          if ($env:MSIX_PFX_B64 -and $env:MSIX_PFX_PASSWORD) {
+            Write-Host "Signing enabled: using PFX from secrets."
+            $pfxPath = Join-Path $env:RUNNER_TEMP "signing.pfx"
+            [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:MSIX_PFX_B64))
+            $msbuildArgs = "$msbuildArgs /p:AppxPackageSigningEnabled=true /p:PackageCertificateKeyFile=`"$pfxPath`" /p:PackageCertificatePassword=`"$env:MSIX_PFX_PASSWORD`""
+          }
+          else {
+            Write-Host "Signing disabled: building unsigned MSIX."
+            $msbuildArgs = "$msbuildArgs /p:AppxPackageSigningEnabled=false"
+          }
+
+          & $msbuildPath $msixProject $msbuildArgs
+          if ($LASTEXITCODE -ne 0) { throw "MSIX build failed" }
+          $outDir = "${{ github.workspace }}\\artifacts\\installer"
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          $msix = Get-ChildItem -Recurse -Path "${{ github.workspace }}\src\Installer.Msix\bin\Release" -Include *.msix,*.msixbundle -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $msix) { throw "MSIX package not found under Installer.Msix/bin/Release" }
+          Copy-Item $msix.FullName (Join-Path $outDir $msix.Name) -Force
+          if ($pfxPath -and (Test-Path $pfxPath)) { Remove-Item $pfxPath -Force -ErrorAction SilentlyContinue }
+
+      - name: Upload MSIX Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KitchenInventory-Installer-MSIX
+          path: artifacts/installer/*.msix*
 
       - name: Export Diagnostics Bundle
         shell: pwsh
@@ -302,3 +345,15 @@ jobs:
         with:
           name: crash-test-dumps
           path: artifacts/dumps
+
+  publish-winget:
+    if: github.event_name == 'release' && secrets.WINGET_TOKEN != ''
+    runs-on: windows-latest
+    steps:
+      - name: Publish to WinGet (MSI/MSIX)
+        uses: vedantmgoyal9/winget-releaser@main
+        with:
+          identifier: ${{ vars.WINGET_IDENTIFIER }}
+          token: ${{ secrets.WINGET_TOKEN }}
+          max-versions-to-keep: 5
+          installers-regex: '.(msi|msix|appx)(bundle){0,1}$'
