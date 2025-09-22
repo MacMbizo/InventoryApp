@@ -62,12 +62,14 @@ jobs:
           dotnet test tests/KitchenInventory.Desktop.Tests/KitchenInventory.Desktop.Tests.csproj --configuration Release --no-build --verbosity normal
           dotnet test tests/QAAgentRunner.Tests/QAAgentRunner.Tests.csproj --configuration Release --no-build --verbosity normal
       - name: Upload build artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: windows-build-release
           path: |
             src/**/bin/Release/**
             tests/**/bin/Release/**
+            tests/**/TestResults/**
       - name: Basic OS and .NET info
         shell: pwsh
         run: |
