@@ -76,3 +76,66 @@ jobs:
           Write-Host "PSVersion: $($PSVersionTable.PSVersion)"
           Get-CimInstance Win32_OperatingSystem | Select-Object Caption,Version,BuildNumber | Format-List
           dotnet --version
+
+  package-msix:
+    if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/') }}
+    needs: build-test-windows
+    runs-on: windows-latest
+    env:
+      MSIX_PFX_B64: ${{ secrets.MSIX_PFX_B64 }}
+      MSIX_PFX_PASSWORD: ${{ secrets.MSIX_PFX_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup .NET SDK (global.json)
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: ./global.json
+      - name: Build MSIX package (wapproj)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $msixDir = Join-Path $pwd 'artifacts\msix\'
+          New-Item -ItemType Directory -Force -Path $msixDir | Out-Null
+          if ($env:MSIX_PFX_B64) {
+            [IO.File]::WriteAllBytes('signing_cert.pfx', [Convert]::FromBase64String($env:MSIX_PFX_B64))
+          }
+          $msbuildArgs = @(
+            '.\src\Installer.Msix\Installer.Msix.wapproj',
+            '/t:Restore;Rebuild',
+            '/p:Configuration=Release',
+            '/p:UapAppxPackageBuildMode=SideloadOnly',
+            "/p:AppxPackageDir=$msixDir"
+          )
+          if (Test-Path 'signing_cert.pfx') {
+            $pfxPath = Join-Path $pwd 'signing_cert.pfx'
+            $msbuildArgs += "/p:PackageCertificateKeyFile=$pfxPath"
+            if ($env:MSIX_PFX_PASSWORD) { $msbuildArgs += "/p:PackageCertificatePassword=$env:MSIX_PFX_PASSWORD" }
+          }
+          & msbuild @msbuildArgs
+      - name: Upload MSIX artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: msix-package
+          path: |
+            artifacts/msix/**
+            src/Installer.Msix/AppPackages/**
+
+  winget-publish:
+    if: ${{ github.event_name == 'release' && github.event.action == 'published' }}
+    needs: package-msix
+    runs-on: windows-latest
+    env:
+      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+      WINGET_IDENTIFIER: ${{ vars.WINGET_IDENTIFIER }}
+    steps:
+      - name: Placeholder for winget publish (gated by secrets)
+        shell: pwsh
+        run: |
+          if (-not $env:WINGET_TOKEN -or -not $env:WINGET_IDENTIFIER) {
+            Write-Host "Winget publish skipped: token or identifier not configured."
+            exit 0
+          }
+          Write-Host "Winget publish would run here using WINGET_IDENTIFIER=$env:WINGET_IDENTIFIER"
+          Write-Host "TODO: Integrate wingetcreate-based submission"
