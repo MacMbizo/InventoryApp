@@ -59,8 +59,8 @@ jobs:
           dotnet build tests/QAAgentRunner.Tests/QAAgentRunner.Tests.csproj --configuration Release --no-restore --nologo
       - name: Test (project-level)
         run: |
-          dotnet test tests/KitchenInventory.Desktop.Tests/KitchenInventory.Desktop.Tests.csproj --configuration Release --no-build --verbosity normal
-          dotnet test tests/QAAgentRunner.Tests/QAAgentRunner.Tests.csproj --configuration Release --no-build --verbosity normal
+          dotnet test tests/KitchenInventory.Desktop.Tests/KitchenInventory.Desktop.Tests.csproj --configuration Release --verbosity normal --logger "trx;LogFileName=TestResults.trx"
+          dotnet test tests/QAAgentRunner.Tests/QAAgentRunner.Tests.csproj --configuration Release --verbosity normal --logger "trx;LogFileName=TestResults.trx"
       - name: Upload build artifacts
         if: always()
         uses: actions/upload-artifact@v4
