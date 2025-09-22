@@ -15,6 +15,8 @@ using KitchenInventory.Desktop.Services;
 using Microsoft.Extensions.Configuration;
 using System.Globalization;
 using KitchenInventory.Desktop;
+using KitchenInventory.Desktop.ViewModels;
+using KitchenInventory.Desktop.Utilities;
 
 namespace KitchenInventory.Desktop.ViewModels;
 
@@ -26,6 +28,7 @@ public class ItemsViewModel : INotifyPropertyChanged
     private readonly IFileOpenService _fileOpen;
     private readonly ICsvImportService _csvImport;
     private readonly IPreferencesService? _preferences;
+    private readonly IDialogService? _dialogs;
     private decimal _lowStockThreshold;
     private int _expiringSoonDays;
 
@@ -60,6 +63,22 @@ public class ItemsViewModel : INotifyPropertyChanged
                 ApplyFilter();
                 // persist preference
                 _preferences?.Set("ui.showNeedsAttentionOnly", value);
+                _preferences?.Save();
+            }
+        }
+    }
+
+    private bool _crashReportingEnabled;
+    public bool CrashReportingEnabled
+    {
+        get => _crashReportingEnabled;
+        set
+        {
+            if (_crashReportingEnabled != value)
+            {
+                _crashReportingEnabled = value;
+                OnPropertyChanged();
+                _preferences?.Set("privacy.errorReportingEnabled", value);
                 _preferences?.Save();
             }
         }
@@ -180,7 +199,7 @@ public class ItemsViewModel : INotifyPropertyChanged
     // Category Management
     public ICommand ManageCategoriesCommand { get; }
 
-    public ItemsViewModel(IDbContextFactory<KitchenInventoryDbContext> dbFactory, ILogger<ItemsViewModel> logger, IFileSaveService fileSave, IFileOpenService fileOpen, ICsvImportService csvImport, IConfiguration? configuration = null, IPreferencesService? preferences = null)
+    public ItemsViewModel(IDbContextFactory<KitchenInventoryDbContext> dbFactory, ILogger<ItemsViewModel> logger, IFileSaveService fileSave, IFileOpenService fileOpen, ICsvImportService csvImport, IConfiguration? configuration = null, IPreferencesService? preferences = null, IDialogService? dialogs = null)
     {
         _dbFactory = dbFactory;
         _logger = logger;
@@ -188,6 +207,8 @@ public class ItemsViewModel : INotifyPropertyChanged
         _fileOpen = fileOpen;
         _csvImport = csvImport;
         _preferences = preferences;
+        _dialogs = dialogs;
+        _logger.LogInformation("ItemsViewModel constructed. DialogService injected: {HasDialog}", _dialogs != null);
 
         // thresholds from preferences > config; defaults: LowStockThreshold=5, ExpiringSoonDays=7
         var prefLow = _preferences?.Get<decimal>("inventory.lowStockThreshold", default);
@@ -201,9 +222,10 @@ public class ItemsViewModel : INotifyPropertyChanged
         _showNeedsAttentionOnly = _preferences?.Get<bool>("ui.showNeedsAttentionOnly", false) ?? false;
         var prefCat = _preferences?.Get<int>("ui.selectedCategoryId", 0) ?? 0;
         _selectedCategoryId = (prefCat > 0) ? prefCat : (int?)null;
+        _crashReportingEnabled = _preferences?.Get<bool>("privacy.errorReportingEnabled", false) ?? false;
 
         RefreshCommand = new AsyncRelayCommand(LoadAsync);
-        AddItemCommand = new RelayCommand(AddItem);
+        AddItemCommand = _dialogs != null ? new AsyncRelayCommand(AddItemAsync) : new RelayCommand(AddItem);
         DeleteItemCommand = new AsyncRelayCommand(DeleteSelectedAsync, () => SelectedItem != null);
         SaveChangesCommand = new AsyncRelayCommand(SaveChangesAsync, () => Items.Count > 0 && AreItemsValid() && !HasValidationErrors);
         ImportItemsCsvCommand = new AsyncRelayCommand(ImportItemsCsvAsync);
@@ -334,12 +356,49 @@ public class ItemsViewModel : INotifyPropertyChanged
 
     private void AddItem()
     {
+        _logger.LogWarning("AddItem() direct path executed (no dialog)");
         var newItem = new Item { Name = "New Item", Quantity = 1, Unit = "pcs" };
         Items.Add(newItem);
         SelectedItem = newItem;
         ItemsView?.Refresh();
         UpdateCounts();
         CommandManager.InvalidateRequerySuggested();
+    }
+
+    private async Task AddItemAsync()
+    {
+        if (_dialogs == null)
+        {
+            _logger.LogWarning("IDialogService is null in AddItemAsync; falling back to direct AddItem");
+            AddItem();
+            return;
+        }
+
+        try
+        {
+            _logger.LogInformation("AddItemAsync() using dialog flow");
+            var catList = Categories.Where(c => c.Id > 0).OrderBy(c => c.Name).ToList();
+            var dialog = new AddItemDialog(catList);
+            var result = await _dialogs.ShowAsync(dialog);
+            if (result is Item newItem)
+            {
+                if (!newItem.CategoryId.HasValue && SelectedCategoryId.HasValue && SelectedCategoryId.Value > 0)
+                    newItem.CategoryId = SelectedCategoryId.Value;
+
+                Items.Add(newItem);
+                SelectedItem = newItem;
+                ItemsView?.Refresh();
+                UpdateCounts();
+                CommandManager.InvalidateRequerySuggested();
+
+                await SaveChangesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to add item via dialog");
+            StatusText = $"Add failed: {ex.Message}";
+        }
     }
 
     private bool IsNeedsAttention(Item it)
@@ -615,121 +674,158 @@ public class ItemsViewModel : INotifyPropertyChanged
             var text = await _fileOpen.OpenTextFileAsync("CSV Files|*.csv|All Files|*.*");
             if (text == null) return;
 
-            // Pass available categories excluding sentinel "All" (Id=0)
+            // Categories available for parsing (exclude sentinel All with Id=0)
             var availableCategories = Categories.Where(c => c.Id > 0).ToList();
-            var parsed = await _csvImport.ParseItemsAsync(text, availableCategories);
+
+            // First, parse via ICsvImportService to keep legacy/test behavior
+            var parsed = (await _csvImport.ParseItemsAsync(text, availableCategories)).ToList();
             if (parsed.Count == 0)
             {
                 StatusText = "No items found in CSV.";
+                return;
+            }
+
+            // Load existing items for matching and optional preview
+            List<Item> existingItems;
+
+            // If a dialog service is available, run preview and let user confirm; only import valid rows
+            if (_dialogs != null)
+            {
+                using (var dbLoad = await _dbFactory.CreateDbContextAsync())
+                {
+                    existingItems = await dbLoad.Items.AsNoTracking().ToListAsync();
+                }
+
+                var previewAnalyzer = new CsvImportPreviewAnalyzer();
+                var preview = await previewAnalyzer.AnalyzeAsync(text, availableCategories, existingItems);
+
+                var previewDialog = new CsvImportPreviewDialog(preview, _fileSave);
+                WindowOwnerHelper.SetSafeOwner(previewDialog, System.Windows.Application.Current.MainWindow);
+                var dialogResult = await _dialogs.ShowAsync(previewDialog);
+                if (!(dialogResult is bool b && b))
+                {
+                    StatusText = "Import canceled.";
+                    return;
+                }
+
+                // Use only valid items for the actual import
+                parsed = preview.ValidItems;
+                if (parsed.Count == 0)
+                {
+                    StatusText = "No valid items to import.";
+                    return;
+                }
             }
             else
             {
-                using var db = await _dbFactory.CreateDbContextAsync();
-                using var tx = await db.Database.BeginTransactionAsync();
+                using var dbLoad = await _dbFactory.CreateDbContextAsync();
+                existingItems = await dbLoad.Items.AsNoTracking().ToListAsync();
+            }
 
-                // Load existing items to match by Id or case-insensitive Name
-                var existingItems = await db.Items.ToListAsync();
-                var byId = existingItems.ToDictionary(i => i.Id, i => i);
-                var byName = existingItems
-                    .Where(i => !string.IsNullOrWhiteSpace(i.Name))
-                    .GroupBy(i => i.Name.Trim().ToLowerInvariant())
-                    .ToDictionary(g => g.Key, g => g.First());
+            using var db = await _dbFactory.CreateDbContextAsync();
+            using var tx = await db.Database.BeginTransactionAsync();
 
-                int addedCount = 0;
-                int updatedCount = 0;
-                var movements = new List<StockMovement>();
-                var nowUtc = DateTime.UtcNow;
+            // Match existing items by Id or case-insensitive Name
+            var byId = existingItems.ToDictionary(i => i.Id, i => i);
+            var byName = existingItems
+                .Where(i => !string.IsNullOrWhiteSpace(i.Name))
+                .GroupBy(i => i.Name!.Trim().ToLowerInvariant())
+                .ToDictionary(g => g.Key, g => g.First());
 
-                foreach (var imp in parsed)
+            int addedCount = 0;
+            int updatedCount = 0;
+            var movements = new List<StockMovement>();
+            var nowUtc = DateTime.UtcNow;
+
+            foreach (var imp in parsed)
+            {
+                var name = (imp.Name ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(name)) continue;
+
+                Item? target = null;
+                if (imp.Id > 0 && byId.TryGetValue(imp.Id, out var byIdMatch))
                 {
-                    var name = (imp.Name ?? string.Empty).Trim();
-                    if (string.IsNullOrWhiteSpace(name)) continue;
-
-                    Item? target = null;
-                    if (imp.Id > 0 && byId.TryGetValue(imp.Id, out var byIdMatch))
-                    {
-                        target = byIdMatch;
-                    }
-                    else if (byName.TryGetValue(name.ToLowerInvariant(), out var byNameMatch))
-                    {
-                        target = byNameMatch;
-                    }
-
-                    if (target == null)
-                    {
-                        // New item
-                        var entity = new Item
-                        {
-                            Name = name,
-                            Quantity = imp.Quantity,
-                            Unit = string.IsNullOrWhiteSpace(imp.Unit) ? "pcs" : imp.Unit!,
-                            CategoryId = imp.CategoryId, // may be null
-                            ExpiryDate = imp.ExpiryDate,
-                            CreatedAtUtc = imp.CreatedAtUtc == default ? nowUtc : imp.CreatedAtUtc,
-                            UpdatedAtUtc = nowUtc
-                        };
-                        await db.Items.AddAsync(entity);
-
-                        if (entity.Quantity != 0)
-                        {
-                            movements.Add(new StockMovement
-                            {
-                                Item = entity,
-                                Type = MovementType.Add,
-                                Quantity = Math.Abs(entity.Quantity),
-                                Reason = "Import add",
-                                User = Environment.UserName,
-                                TimestampUtc = nowUtc
-                            });
-                        }
-                        addedCount++;
-                    }
-                    else
-                    {
-                        // Existing item -> update fields and record quantity delta
-                        var oldQty = target.Quantity;
-                        var newQty = imp.Quantity;
-                        var delta = newQty - oldQty;
-
-                        target.Unit = string.IsNullOrWhiteSpace(imp.Unit) ? target.Unit : imp.Unit!;
-                        target.ExpiryDate = imp.ExpiryDate;
-                        target.CategoryId = imp.CategoryId; // allow updating category if provided
-                        target.Quantity = newQty;
-                        target.UpdatedAtUtc = nowUtc;
-
-                        db.Attach(target);
-                        db.Entry(target).State = EntityState.Modified;
-
-                        if (delta != 0)
-                        {
-                            movements.Add(new StockMovement
-                            {
-                                ItemId = target.Id,
-                                Type = delta > 0 ? MovementType.Add : MovementType.Consume,
-                                Quantity = Math.Abs(delta),
-                                Reason = "Import update",
-                                User = Environment.UserName,
-                                TimestampUtc = nowUtc
-                            });
-                        }
-
-                        updatedCount++;
-                    }
+                    target = byIdMatch;
+                }
+                else if (byName.TryGetValue(name.ToLowerInvariant(), out var byNameMatch))
+                {
+                    target = byNameMatch;
                 }
 
-                if (movements.Count > 0)
-                    await db.StockMovements.AddRangeAsync(movements);
+                if (target == null)
+                {
+                    // New item
+                    var entity = new Item
+                    {
+                        Name = name,
+                        Quantity = imp.Quantity,
+                        Unit = string.IsNullOrWhiteSpace(imp.Unit) ? "pcs" : imp.Unit!,
+                        CategoryId = imp.CategoryId, // may be null
+                        ExpiryDate = imp.ExpiryDate,
+                        CreatedAtUtc = imp.CreatedAtUtc == default ? nowUtc : imp.CreatedAtUtc,
+                        UpdatedAtUtc = nowUtc
+                    };
+                    await db.Items.AddAsync(entity);
 
-                await db.SaveChangesAsync();
-                await tx.CommitAsync();
+                    if (entity.Quantity != 0)
+                    {
+                        movements.Add(new StockMovement
+                        {
+                            Item = entity,
+                            Type = MovementType.Add,
+                            Quantity = Math.Abs(entity.Quantity),
+                            Reason = "Import add",
+                            User = Environment.UserName,
+                            TimestampUtc = nowUtc
+                        });
+                    }
+                    addedCount++;
+                }
+                else
+                {
+                    // Existing item -> update fields and record quantity delta
+                    var oldQty = target.Quantity;
+                    var newQty = imp.Quantity;
+                    var delta = newQty - oldQty;
 
-                // Refresh view-model collections to reflect DB state
-                await LoadAsync();
-                ApplyFilter();
-                UpdateCounts();
+                    target.Unit = string.IsNullOrWhiteSpace(imp.Unit) ? target.Unit : imp.Unit!;
+                    target.ExpiryDate = imp.ExpiryDate;
+                    target.CategoryId = imp.CategoryId; // allow updating category if provided
+                    target.Quantity = newQty;
+                    target.UpdatedAtUtc = nowUtc;
 
-                StatusText = $"Imported {parsed.Count} items. Added: {addedCount}, Updated: {updatedCount}";
+                    db.Attach(target);
+                    db.Entry(target).State = EntityState.Modified;
+
+                    if (delta != 0)
+                    {
+                        movements.Add(new StockMovement
+                        {
+                            ItemId = target.Id,
+                            Type = delta > 0 ? MovementType.Add : MovementType.Consume,
+                            Quantity = Math.Abs(delta),
+                            Reason = "Import update",
+                            User = Environment.UserName,
+                            TimestampUtc = nowUtc
+                        });
+                    }
+
+                    updatedCount++;
+                }
             }
+
+            if (movements.Count > 0)
+                await db.StockMovements.AddRangeAsync(movements);
+
+            await db.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            // Refresh view-model collections to reflect DB state
+            await LoadAsync();
+            ApplyFilter();
+            UpdateCounts();
+
+            StatusText = $"Imported {parsed.Count} items. Added: {addedCount}, Updated: {updatedCount}";
         }
         catch (Exception ex)
         {
@@ -753,10 +849,8 @@ public class ItemsViewModel : INotifyPropertyChanged
             });
             var dialogLogger = loggerFactory.CreateLogger<StockOperationDialog>();
 
-            var dialog = new StockOperationDialog(_dbFactory, dialogLogger, SelectedItem, operationType)
-            {
-                Owner = System.Windows.Application.Current.MainWindow
-            };
+            var dialog = new StockOperationDialog(_dbFactory, dialogLogger, SelectedItem, operationType);
+            WindowOwnerHelper.SetSafeOwner(dialog, System.Windows.Application.Current.MainWindow);
 
             var result = dialog.ShowDialog();
             
@@ -793,10 +887,8 @@ public class ItemsViewModel : INotifyPropertyChanged
             });
             var dialogLogger = loggerFactory.CreateLogger<CategoryManagementDialog>();
 
-            var dialog = new CategoryManagementDialog(_dbFactory, dialogLogger)
-            {
-                Owner = System.Windows.Application.Current.MainWindow
-            };
+            var dialog = new CategoryManagementDialog(_dbFactory, dialogLogger);
+            WindowOwnerHelper.SetSafeOwner(dialog, System.Windows.Application.Current.MainWindow);
 
             var result = dialog.ShowDialog();
             if (result == true)
@@ -812,7 +904,7 @@ public class ItemsViewModel : INotifyPropertyChanged
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to open category management dialog");
-            StatusText = $"Failed to open category dialog: {ex.Message}";
+            StatusText = $"Failed to open categories dialog: {ex.Message}";
         }
     }
 }

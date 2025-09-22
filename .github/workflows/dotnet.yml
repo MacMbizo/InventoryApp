@@ -15,6 +15,16 @@ on:
   workflow_dispatch: {}
 
 jobs:
+  secrets-check:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Echo secrets/vars presence (no values)
+        run: |
+          echo "MSIX_PFX_B64 set: ${{ secrets.MSIX_PFX_B64 != '' }}"
+          echo "MSIX_PFX_PASSWORD set: ${{ secrets.MSIX_PFX_PASSWORD != '' }}"
+          echo "WINGET_TOKEN set: ${{ secrets.WINGET_TOKEN != '' }}"
+          echo "WINGET_IDENTIFIER var set: ${{ vars.WINGET_IDENTIFIER != '' }}"
   sanity:
     runs-on: ubuntu-latest
     steps:

@@ -99,7 +99,8 @@ namespace KitchenInventory.Desktop.Services
             return results;
         }
 
-        private static List<string> ParseCsvLine(string line)
+        // CSV parsing helper (exposed for analyzer)
+        internal static List<string> ParseCsvLine(string line)
         {
             var result = new List<string>();
             if (line == null) return result;

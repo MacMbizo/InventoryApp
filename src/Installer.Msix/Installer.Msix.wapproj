@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup>
+    <ProjectGuid>{1B8F1C6E-BAF4-4B9C-8D19-6B1C9B2BEBB3}</ProjectGuid>
+    <TargetPlatformVersion>10.0.19041.0</TargetPlatformVersion>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <DefaultLanguage>en-US</DefaultLanguage>
+    <PackageCertificateKeyFile>KitchenInventory_Dev_TemporaryKey.pfx</PackageCertificateKeyFile>
+    <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
+    <AppxBundle>Never</AppxBundle>
+    <GenerateAppInstallerFile>false</GenerateAppInstallerFile>
+    <EntryPointProjectUniqueName>..\KitchenInventory.Desktop\KitchenInventory.Desktop.csproj</EntryPointProjectUniqueName>
+    <OutDir>bin\$(Configuration)\</OutDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <AppxManifest Include="Package.appxmanifest" />
+    <Content Include="Assets\**\*.*" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\KitchenInventory.Desktop\KitchenInventory.Desktop.csproj" />
+  </ItemGroup>
+  <Target Name="GenerateAssets" BeforeTargets="PrepareForBuild">
+    <Message Text="Generating MSIX assets..." Importance="high" />
+    <Exec Command='dotnet run --project "$(MSBuildProjectDirectory)\..\..\tools\GenerateMsixAssets\GenerateMsixAssets.csproj" --configuration $(Configuration) -- "$(MSBuildProjectDirectory)\Assets"' />
+  </Target>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" Condition="'$(VCTargetsPath)' != ''" />
+  <Import Project="$(MSBuildExtensionsPath)\Microsoft\DesktopBridge\Microsoft.DesktopBridge.props" />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" />
+  <Import Project="$(MSBuildExtensionsPath)\Microsoft\DesktopBridge\Microsoft.DesktopBridge.targets" />
+</Project>

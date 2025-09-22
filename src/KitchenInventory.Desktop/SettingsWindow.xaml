@@ -5,11 +5,13 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:val="clr-namespace:KitchenInventory.Desktop.Validations"
         mc:Ignorable="d"
-        Title="Settings" Height="220" Width="380"
+        Title="Settings" Height="280" Width="440"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize" ShowInTaskbar="False">
     <Grid Margin="12">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -38,7 +40,12 @@
             </TextBox.Text>
         </TextBox>
 
-        <DockPanel Grid.Row="3" Grid.ColumnSpan="2" LastChildFill="False" Margin="0,12,0,0">
+        <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Margin="0,12,0,0">
+            <CheckBox Content="Enable anonymous crash reporting (helps improve app)" IsChecked="{Binding CrashReportingEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+            <TextBlock Margin="24,4,0,0" Foreground="Gray" FontSize="11" TextWrapping="Wrap" Text="Note: Changing this requires an app restart to fully apply."/>
+        </StackPanel>
+
+        <DockPanel Grid.Row="5" Grid.ColumnSpan="2" LastChildFill="False" Margin="0,12,0,0">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="OK" Width="80" Margin="0,0,8,0" IsDefault="True" Click="Ok_Click" />
                 <Button Content="Cancel" Width="80" IsCancel="True" />

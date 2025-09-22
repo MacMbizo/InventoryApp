@@ -1,0 +1,1 @@
+This folder will contain MSIX visual assets (PNG). They are generated during CI to avoid committing binary images.

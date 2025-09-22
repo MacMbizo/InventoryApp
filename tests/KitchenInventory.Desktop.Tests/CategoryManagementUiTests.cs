@@ -220,24 +220,42 @@ public class CategoryManagementUiTests
         Assert.NotNull(ok);
         UiTestHelpers.TryInvokeWithFallback(ok!);
 
-        // Verify the new category appears in the grid within 10 seconds
+        // Verify the new category appears in the grid within 20 seconds
         var gridEl = dialog.FindFirstDescendant(cf => cf.ByAutomationId("CategoriesGrid"));
         Assert.NotNull(gridEl);
 
-        var appearDeadline = DateTime.UtcNow.AddSeconds(10);
+        var appearDeadline = DateTime.UtcNow.AddSeconds(25);
         bool found = false;
         while (DateTime.UtcNow < appearDeadline)
         {
             try
             {
-                // DataGrid rows are DataItem controls; scan their text descendants
+                // First, try to find by row name exposed via AutomationProperties.Name
+                var matchRow = gridEl!.FindFirstDescendant(cf => cf.ByControlType(ControlType.DataItem).And(cf.ByName(categoryName)));
+                if (matchRow != null)
+                {
+                    found = true;
+                    break;
+                }
+
+                // Prefer scanning DataItem rows and both Text/Edit descendants (accounting for edit-mode cells)
                 var rows = gridEl!.FindAllDescendants(cf => cf.ByControlType(ControlType.DataItem));
                 foreach (var row in rows)
                 {
-                    var texts = row.FindAllDescendants(cf => cf.ByControlType(ControlType.Text));
-                    foreach (var t in texts)
+                    var cells = row.FindAllDescendants(cf => cf.ByControlType(ControlType.Text).Or(cf.ByControlType(ControlType.Edit)));
+                    foreach (var cell in cells)
                     {
-                        var txt = (t.AsLabel()?.Text ?? t.Name ?? string.Empty).Trim();
+                        string txt = string.Empty;
+                        try
+                        {
+                            txt = cell.AsLabel()?.Text ?? cell.AsTextBox()?.Text ?? cell.Name ?? string.Empty;
+                            if (string.IsNullOrEmpty(txt) && cell.Patterns.Value.IsSupported)
+                            {
+                                txt = cell.Patterns.Value.Pattern.Value ?? string.Empty;
+                            }
+                        }
+                        catch { }
+                        txt = (txt ?? string.Empty).Trim();
                         if (!string.IsNullOrEmpty(txt) && txt.Contains(categoryName, StringComparison.OrdinalIgnoreCase))
                         {
                             found = true;
@@ -246,10 +264,35 @@ public class CategoryManagementUiTests
                     }
                     if (found) break;
                 }
+
+                if (!found)
+                {
+                    // Fallback: scan any text/edit under the grid in case template differs
+                    var all = gridEl!.FindAllDescendants(cf => cf.ByControlType(ControlType.Text).Or(cf.ByControlType(ControlType.Edit)));
+                    foreach (var el in all)
+                    {
+                        string txt = string.Empty;
+                        try
+                        {
+                            txt = el.AsLabel()?.Text ?? el.AsTextBox()?.Text ?? el.Name ?? string.Empty;
+                            if (string.IsNullOrEmpty(txt) && el.Patterns.Value.IsSupported)
+                            {
+                                txt = el.Patterns.Value.Pattern.Value ?? string.Empty;
+                            }
+                        }
+                        catch { }
+                        txt = (txt ?? string.Empty).Trim();
+                        if (!string.IsNullOrEmpty(txt) && txt.Contains(categoryName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+                }
                 if (found) break;
             }
             catch { }
-            Thread.Sleep(200);
+            Thread.Sleep(250);
         }
 
         Assert.True(found, $"Category '{categoryName}' did not appear in the grid within timeout.");

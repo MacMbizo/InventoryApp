@@ -44,7 +44,8 @@ public partial class DiagnosticsWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"Failed to load diagnostics: {ex.Message}", "Diagnostics", MessageBoxButton.OK, MessageBoxImage.Error);
+            var owner = WindowOwnerHelper.GetSafeOwner(this) ?? this;
+            MessageBox.Show(owner, $"Failed to load diagnostics: {ex.Message}", "Diagnostics", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -94,7 +95,8 @@ public partial class DiagnosticsWindow : Window
                 OverwritePrompt = true
             };
 
-            var result = dlg.ShowDialog(this);
+            Window? owner = WindowOwnerHelper.GetSafeOwner(this) ?? this;
+            var result = dlg.ShowDialog(owner);
             if (result != true) return;
 
             // Best-effort UX: disable window during export
@@ -102,7 +104,7 @@ public partial class DiagnosticsWindow : Window
             try
             {
                 await _exporter.ExportAsync(dlg.FileName);
-                MessageBox.Show(this, $"Diagnostics bundle exported to:\n{dlg.FileName}", "Diagnostics", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(owner, $"Diagnostics bundle exported to:\n{dlg.FileName}", "Diagnostics", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             finally
             {
@@ -111,7 +113,8 @@ public partial class DiagnosticsWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"Failed to export diagnostics: {ex.Message}", "Diagnostics", MessageBoxButton.OK, MessageBoxImage.Error);
+            var owner = WindowOwnerHelper.GetSafeOwner(this) ?? this;
+            MessageBox.Show(owner, $"Failed to export diagnostics: {ex.Message}", "Diagnostics", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -129,7 +132,11 @@ public partial class DiagnosticsWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to open folder: {ex.Message}", "Diagnostics", MessageBoxButton.OK, MessageBoxImage.Error);
+            var owner = WindowOwnerHelper.GetSafeOwner() ?? Application.Current?.MainWindow;
+            if (owner != null)
+                MessageBox.Show(owner, $"Failed to open folder: {ex.Message}", "Diagnostics", MessageBoxButton.OK, MessageBoxImage.Error);
+            else
+                MessageBox.Show($"Failed to open folder: {ex.Message}", "Diagnostics", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 }

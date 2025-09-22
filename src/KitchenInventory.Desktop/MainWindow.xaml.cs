@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using System.Windows.Data;
 using System.Windows.Input;
 using Microsoft.Extensions.DependencyInjection;
+using KitchenInventory.Desktop.Utilities;
 
 namespace KitchenInventory.Desktop
 {
@@ -20,8 +21,8 @@ namespace KitchenInventory.Desktop
         public MainWindow(ItemsViewModel viewModel)
         {
             InitializeComponent();
+            DataContext = viewModel;
             _viewModel = viewModel;
-            DataContext = _viewModel;
             // Replace inline lambda to allow post-load logic for first-run categories
             Loaded += MainWindow_OnLoaded;
         }
@@ -47,7 +48,7 @@ namespace KitchenInventory.Desktop
             // If only the sentinel "All" category exists (Id == 0), prompt the user to create categories
             if (!suppressFirstRunPrompt && _viewModel.Categories != null && _viewModel.Categories.Count <= 1)
             {
-                var result = MessageBox.Show(this,
+                var result = MessageBox.Show(WindowOwnerHelper.GetSafeOwner(this) ?? this,
                     "No categories found. Would you like to create categories now?",
                     "Create Categories",
                     MessageBoxButton.YesNo,
@@ -125,12 +126,13 @@ namespace KitchenInventory.Desktop
             {
                 var sp = ((App)Application.Current).Services;
                 var diag = sp.GetRequiredService<DiagnosticsWindow>();
-                diag.Owner = this;
+                WindowOwnerHelper.SetSafeOwner(diag, this);
                 diag.ShowDialog();
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, $"Failed to open diagnostics: {ex.Message}", "Diagnostics", MessageBoxButton.OK, MessageBoxImage.Error);
+                var owner = WindowOwnerHelper.GetSafeOwner(this) ?? this;
+                MessageBox.Show(owner, $"Failed to open diagnostics: {ex.Message}", "Diagnostics", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -140,14 +142,15 @@ namespace KitchenInventory.Desktop
             {
                 var sp = ((App)Application.Current).Services;
                 var sw = sp.GetRequiredService<SettingsWindow>();
-                sw.Owner = this;
+                WindowOwnerHelper.SetSafeOwner(sw, this);
                 // Share the same view model instance so changes reflect immediately
                 sw.DataContext = _viewModel;
                 sw.ShowDialog();
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, $"Failed to open Settings: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                var owner = WindowOwnerHelper.GetSafeOwner(this) ?? this;
+                MessageBox.Show(owner, $"Failed to open Settings: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
     }
