@@ -2,10 +2,17 @@ name: .NET CI
 
 on:
   push:
-    branches: [ "**" ]
+    branches:
+      - main
+      - ci/*
+      - feature/*
+      - hotfix/*
+      - release/*
   pull_request:
-    branches: [ "**" ]
-  workflow_dispatch:
+    branches:
+      - main
+      - release/*
+  workflow_dispatch: {}
   release:
     types: [ published ]
 
