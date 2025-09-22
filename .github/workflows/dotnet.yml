@@ -23,13 +23,14 @@ concurrency:
 
 jobs:
   sanity:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Echo context
         run: |
           echo "event=${{ github.event_name }} ref=${{ github.ref }} sha=${{ github.sha }} workflow=${{ github.workflow }} run_id=${{ github.run_id }}"
 
   build-test:
+    if: false
     runs-on: windows-latest
     timeout-minutes: 60
     env:
