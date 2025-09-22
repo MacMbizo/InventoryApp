@@ -65,3 +65,5 @@ _ReSharper*/
 
 # Others
 .localhistory/
+.env
+.env
