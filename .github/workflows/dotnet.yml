@@ -21,3 +21,15 @@ jobs:
       - name: Echo context
         run: |
           echo "event=${{ github.event_name }} ref=${{ github.ref }} sha=${{ github.sha }} workflow=${{ github.workflow }} run_id=${{ github.run_id }} on $(date)"
+
+  win-smoke:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Basic OS and .NET info
+        shell: pwsh
+        run: |
+          Write-Host "PSVersion: $($PSVersionTable.PSVersion)"
+          Get-CimInstance Win32_OperatingSystem | Select-Object Caption,Version,BuildNumber | Format-List
+          dotnet --version
