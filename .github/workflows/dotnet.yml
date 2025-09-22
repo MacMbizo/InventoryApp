@@ -51,6 +51,10 @@ jobs:
           dotnet restore ./InventoryApp.sln -r win-x64
       - name: Build (project-level to avoid MSIX wapproj)
         run: |
+          dotnet build src/KitchenInventory.Domain/KitchenInventory.Domain.csproj --configuration Release --no-restore --nologo
+          dotnet build src/KitchenInventory.Data/KitchenInventory.Data.csproj --configuration Release --no-restore --nologo
+          dotnet build src/KitchenInventory.Desktop/KitchenInventory.Desktop.csproj --configuration Release --no-restore --nologo
+          dotnet build src/QAAgentRunner/QAAgentRunner.csproj --configuration Release --no-restore --nologo
           dotnet build tests/KitchenInventory.Desktop.Tests/KitchenInventory.Desktop.Tests.csproj --configuration Release --no-restore --nologo
           dotnet build tests/QAAgentRunner.Tests/QAAgentRunner.Tests.csproj --configuration Release --no-restore --nologo
       - name: Test (project-level)
