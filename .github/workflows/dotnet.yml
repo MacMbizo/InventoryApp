@@ -181,8 +181,7 @@ jobs:
           path: artifacts/installer/*.msix*
 
       - name: Export Diagnostics Bundle
--        continue-on-error: true
-+        continue-on-error: true
+        continue-on-error: true
         shell: pwsh
         run: |
           $destDir = "${{ github.workspace }}\artifacts\diagnostics"
