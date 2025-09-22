@@ -49,18 +49,21 @@ jobs:
       - name: Restore
         run: |
           dotnet restore ./InventoryApp.sln -r win-x64
-      - name: Build
+      - name: Build (project-level to avoid MSIX wapproj)
         run: |
-          dotnet build ./InventoryApp.sln --configuration Release --no-restore --nologo
-      - name: Test
+          dotnet build tests/KitchenInventory.Desktop.Tests/KitchenInventory.Desktop.Tests.csproj --configuration Release --no-restore --nologo
+          dotnet build tests/QAAgentRunner.Tests/QAAgentRunner.Tests.csproj --configuration Release --no-restore --nologo
+      - name: Test (project-level)
         run: |
-          dotnet test ./InventoryApp.sln --configuration Release --no-build --verbosity normal
+          dotnet test tests/KitchenInventory.Desktop.Tests/KitchenInventory.Desktop.Tests.csproj --configuration Release --no-build --verbosity normal
+          dotnet test tests/QAAgentRunner.Tests/QAAgentRunner.Tests.csproj --configuration Release --no-build --verbosity normal
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-build-release
           path: |
-            **/bin/Release/**
+            src/**/bin/Release/**
+            tests/**/bin/Release/**
       - name: Basic OS and .NET info
         shell: pwsh
         run: |
