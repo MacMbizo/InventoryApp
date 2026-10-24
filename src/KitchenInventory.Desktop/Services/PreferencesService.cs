@@ -11,10 +11,9 @@ public sealed class PreferencesService : IPreferencesService
     private readonly Dictionary<string, JsonElement> _map;
     private readonly object _lock = new();
 
-    public PreferencesService()
+    public PreferencesService(string? baseDirectory = null)
     {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var baseDir = Path.Combine(appData, "InventoryApp");
+        var baseDir = baseDirectory ?? Utilities.AppPaths.GetDataDirectory();
         Directory.CreateDirectory(baseDir);
         _filePath = Path.Combine(baseDir, "preferences.json");
         _map = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);

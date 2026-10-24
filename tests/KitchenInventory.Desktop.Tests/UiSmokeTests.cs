@@ -1,9 +1,7 @@
 using System;
 using System.Diagnostics;
-using System.IO;
-using System.Threading;
 using System.Linq;
-using FlaUI.Core;
+using System.Threading;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Definitions;
 using FlaUI.UIA3;
@@ -15,212 +13,110 @@ namespace KitchenInventory.Desktop.Tests;
 [Trait("Category", "UI")]
 public class UiSmokeTests
 {
-    private static string GetDesktopExePath()
-    {
-        return UiTestHelpers.GetDesktopExePath();
-    }
-
-    private static string GetRepoRoot()
-    {
-        return UiTestHelpers.GetRepoRoot();
-    }
-
-    private static Window? TryGetMainWindow(Application app, UIA3Automation automation)
-    {
-        return UiTestHelpers.TryGetMainWindow(app, automation);
-    }
-
     [StaFact]
     public void Desktop_Launches_ShowsMainWindow_And_Closes_Cleanly()
     {
-        // Ensure headless mode is disabled for UI smoke (in parent process as a fallback)
-        Environment.SetEnvironmentVariable("INVENTORY_HEADLESS", "0");
-        Environment.SetEnvironmentVariable("CI", "false");
+        var connection = UiTestHelpers.CreateIsolatedSqliteConnectionString();
+        using var process = UiTestHelpers.LaunchApp(connection);
 
-        var exe = GetDesktopExePath();
-        var psi = new ProcessStartInfo(exe)
+        try
         {
-            UseShellExecute = false,
-            WorkingDirectory = Path.GetDirectoryName(exe)!,
-            Arguments = string.Empty,
-        };
+            // Let the UI initialize to a message loop state
+            try { process.WaitForInputIdle(10000); } catch { /* ignore on fast-start or non-GUI edge */ }
 
-        // Ensure child process is not headless even if CI=true in the environment
-        psi.Environment["CI"] = "false";
-        psi.Environment["INVENTORY_HEADLESS"] = "0";
-        psi.Environment["INVENTORY_SUPPRESS_FIRST_RUN"] = "1";
-        psi.Environment.Remove("INVENTORY_EXPORT_DIAGNOSTICS");
-        psi.Environment.Remove("INVENTORY_CRASH_TEST");
+            using var automation = new UIA3Automation();
+            var window = UiTestHelpers.CompleteStartupGating(automation, process);
 
-        using var process = Process.Start(psi)!;
+            Assert.NotNull(window);
+            Assert.Contains("Kitchen Inventory", window.Title, StringComparison.OrdinalIgnoreCase);
 
-        // Let the UI initialize to a message loop state
-        try { process.WaitForInputIdle(10000); } catch { /* ignore on fast-start or non-GUI edge */ }
+            // Close the window and wait for clean exit
+            UiTestHelpers.CloseAppWindow(window, process);
 
-        using var automation = new UIA3Automation();
-        using var app = Application.Attach(process.Id);
-
-        // Wait for the main window and verify the title
-        Window? window = null;
-        var deadline = DateTime.UtcNow.AddSeconds(30);
-        while (DateTime.UtcNow < deadline)
-        {
-            if (process.HasExited)
-            {
-                Assert.Fail($"Desktop process exited early with code {process.ExitCode} before main window appeared.");
-            }
-
-            // Try via GetMainWindow first
-            window = TryGetMainWindow(app, automation);
-            if (window != null && !string.IsNullOrEmpty(window.Title) && window.Title.Contains("Kitchen Inventory", StringComparison.OrdinalIgnoreCase))
-            {
-                break;
-            }
-
-            // Fallback: search all top-level windows for expected title
-            try
-            {
-                var candidate = app.GetAllTopLevelWindows(automation)
-                                   .Select(a => a.AsWindow())
-                                   .FirstOrDefault(w => !string.IsNullOrEmpty(w.Title) && w.Title.Contains("Kitchen Inventory", StringComparison.OrdinalIgnoreCase));
-                if (candidate != null)
-                {
-                    window = candidate;
-                    break;
-                }
-            }
-            catch { /* ignore transient */ }
-
-            Thread.Sleep(250);
+            // Give the app some time to shutdown
+            var exited = process.WaitForExit(TimeSpan.FromSeconds(20));
+            Assert.True(exited, "Desktop process did not exit in allotted time after Close().");
+            Assert.Equal(0, process.ExitCode);
         }
-
-        Assert.NotNull(window);
-        Assert.Contains("Kitchen Inventory", window!.Title, StringComparison.OrdinalIgnoreCase);
-
-        // Close the window and wait for clean exit
-        try { window.Close(); } catch { /* ignore if already closing */ }
-
-        // Give the app some time to shutdown
-        var exited = process.WaitForExit(TimeSpan.FromSeconds(20));
-        Assert.True(exited, "Desktop process did not exit in allotted time after Close().");
-        Assert.Equal(0, process.ExitCode);
+        finally
+        {
+            UiTestHelpers.KillIfRunning(process);
+        }
     }
 
     [StaFact]
     public void Desktop_Open_Diagnostics_From_Menu_And_Close()
     {
-        // Ensure headless mode is disabled for UI smoke (in parent process as a fallback)
-        Environment.SetEnvironmentVariable("INVENTORY_HEADLESS", "0");
-        Environment.SetEnvironmentVariable("CI", "false");
+        var connection = UiTestHelpers.CreateIsolatedSqliteConnectionString();
+        using var process = UiTestHelpers.LaunchApp(connection);
 
-        var exe = GetDesktopExePath();
-        var psi = new ProcessStartInfo(exe)
+        try
         {
-            UseShellExecute = false,
-            WorkingDirectory = Path.GetDirectoryName(exe)!,
-            Arguments = string.Empty,
-        };
+            try { process.WaitForInputIdle(10000); } catch { }
 
-        // Ensure child process is not headless even if CI=true in the environment
-        psi.Environment["CI"] = "false";
-        psi.Environment["INVENTORY_HEADLESS"] = "0";
-        psi.Environment["INVENTORY_SUPPRESS_FIRST_RUN"] = "1";
-        psi.Environment.Remove("INVENTORY_EXPORT_DIAGNOSTICS");
-        psi.Environment.Remove("INVENTORY_CRASH_TEST");
+            using var automation = new UIA3Automation();
+            var window = UiTestHelpers.CompleteStartupGating(automation, process);
+            Assert.NotNull(window);
 
-        using var process = Process.Start(psi)!;
-        try { process.WaitForInputIdle(10000); } catch { }
+            // Locate the menu bar
+            var menuBar = window.FindFirstDescendant(cf => cf.ByControlType(ControlType.Menu))?.AsMenu();
+            Assert.NotNull(menuBar);
 
-        using var automation = new UIA3Automation();
-        using var app = Application.Attach(process.Id);
+            // Ensure main window is focused/foreground to receive menu interactions
+            try { window.Focus(); } catch { }
+            try { window.SetForeground(); } catch { }
 
-        // Wait for the main window (more generous timeout for first-launch migrations)
-        Window? window = null;
-        var deadline = DateTime.UtcNow.AddSeconds(40);
-        while (DateTime.UtcNow < deadline)
-        {
-            if (process.HasExited)
+            // Find the Help menu item (supports both "Help" and "_Help")
+            MenuItem? helpItem = null;
+            foreach (var item in menuBar!.Items)
             {
-                Assert.Fail($"Desktop process exited early with code {process.ExitCode} before main window appeared.");
-            }
-
-            window = TryGetMainWindow(app, automation);
-            if (window != null && !string.IsNullOrEmpty(window.Title))
-            {
-                break;
-            }
-
-            try
-            {
-                var candidate = app.GetAllTopLevelWindows(automation)
-                                   .Select(a => a.AsWindow())
-                                   .FirstOrDefault(w => !string.IsNullOrEmpty(w.Title));
-                if (candidate != null)
+                var name = item.Properties.Name?.Value ?? string.Empty;
+                if (string.Equals(name.Replace("_", string.Empty), "Help", StringComparison.OrdinalIgnoreCase))
                 {
-                    window = candidate;
+                    helpItem = item;
                     break;
                 }
             }
-            catch { }
+            Assert.NotNull(helpItem);
 
-            Thread.Sleep(250);
-        }
-        Assert.NotNull(window);
+            // Open Help menu
+            helpItem!.Click();
+            Thread.Sleep(300); // brief pause to allow submenu to render
 
-        // Locate the menu bar
-        var menuBar = window!.FindFirstDescendant(cf => cf.ByControlType(ControlType.Menu))?.AsMenu();
-        Assert.NotNull(menuBar);
-
-        // Ensure main window is focused/foreground to receive menu interactions
-        try { window.Focus(); } catch { }
-        try { window.SetForeground(); } catch { }
-
-        // Find the Help menu item (supports both "Help" and "_Help")
-        MenuItem? helpItem = null;
-        foreach (var item in menuBar!.Items)
-        {
-            var name = item.Properties.Name?.Value ?? string.Empty;
-            if (string.Equals(name.Replace("_", string.Empty), "Help", StringComparison.OrdinalIgnoreCase))
+            // Find Diagnostics submenu item
+            MenuItem? diagnosticsItem = null;
+            foreach (var sub in helpItem.Items)
             {
-                helpItem = item;
-                break;
+                var name = sub.Properties.Name?.Value ?? string.Empty;
+                if (string.Equals(name.Replace("_", string.Empty), "Diagnostics", StringComparison.OrdinalIgnoreCase))
+                {
+                    diagnosticsItem = sub;
+                    break;
+                }
             }
+            Assert.NotNull(diagnosticsItem);
+
+            // Open Diagnostics
+            diagnosticsItem!.Click();
+
+            // Wait for Diagnostics window
+            var diag = UiTestHelpers.WaitForDialog(window, "Diagnostics", TimeSpan.FromSeconds(10));
+            Assert.NotNull(diag);
+
+            // Close Diagnostics
+            var close = diag!.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Close")));
+            Assert.NotNull(close);
+            UiTestHelpers.TryInvokeWithFallback(close!);
+
+            // Close app
+            UiTestHelpers.CloseAppWindow(window, process);
+            var exited = process.WaitForExit(TimeSpan.FromSeconds(20));
+            Assert.True(exited, "Desktop process did not exit in allotted time after closing main window.");
+            Assert.Equal(0, process.ExitCode);
         }
-        Assert.NotNull(helpItem);
-
-        // Open Help menu
-        helpItem!.Click();
-        Thread.Sleep(300); // brief pause to allow submenu to render
-
-        // Find Diagnostics submenu item
-        MenuItem? diagnosticsItem = null;
-        foreach (var sub in helpItem.Items)
+        finally
         {
-            var name = sub.Properties.Name?.Value ?? string.Empty;
-            if (string.Equals(name.Replace("_", string.Empty), "Diagnostics", StringComparison.OrdinalIgnoreCase))
-            {
-                diagnosticsItem = sub;
-                break;
-            }
+            UiTestHelpers.KillIfRunning(process);
         }
-        Assert.NotNull(diagnosticsItem);
-
-        // Open Diagnostics
-        diagnosticsItem!.Click();
-
-        // Wait for Diagnostics window
-        var diag = UiTestHelpers.WaitForDialog(window!, "Diagnostics", TimeSpan.FromSeconds(10));
-        Assert.NotNull(diag);
-
-        // Close Diagnostics
-        var close = diag!.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Close")));
-        Assert.NotNull(close);
-        UiTestHelpers.TryInvokeWithFallback(close!);
-
-        // Close app
-        try { window!.Close(); } catch { }
-        var exited = process.WaitForExit(TimeSpan.FromSeconds(20));
-        Assert.True(exited, "Desktop process did not exit in allotted time after closing main window.");
-        Assert.Equal(0, process.ExitCode);
     }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -660,5 +661,380 @@ public static class UiTestHelpers
         Assert.True(el != null, $"Could not find action '{actionName}' in main window or overflow menus.");
         TryInvokeWithFallback(el!);
         Thread.Sleep(300);
+    }
+
+    // ------------------------------------------------------------------
+    // Startup gating helpers
+    //
+    // On launch the app can show up to three modal dialogs before/around the
+    // main window:
+    //   1. Crash Reporting privacy consent (UI mode, first run only)
+    //   2. Authentication gate: "Initial Admin Setup" (fresh DB) or "Sign In"
+    //   3. "Create Categories" first-run prompt (shown after the main window
+    //      loads when the DB has no user categories)
+    // These helpers drive those real dialogs (no auth bypass) so tests can
+    // reach the "Kitchen Inventory" main window.
+    // ------------------------------------------------------------------
+
+    public const string DefaultAdminUsername = "admin";
+    public const string DefaultAdminPassword = "Admin123!";
+
+    /// <summary>
+    /// Builds an isolated SQLite connection string pointing at a brand new
+    /// per-test database under artifacts/ui-test-dbs/{guid}/kitchen.e2e.db.
+    /// </summary>
+    public static string CreateIsolatedSqliteConnectionString()
+    {
+        var repo = GetRepoRoot();
+        var dbDir = Path.Combine(repo, "artifacts", "ui-test-dbs", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dbDir);
+        var dbPath = Path.Combine(dbDir, "kitchen.e2e.db");
+        return $"Data Source={dbPath}";
+    }
+
+    /// <summary>
+    /// Builds a ProcessStartInfo for the desktop app with the standard,
+    /// isolated test environment (non-headless, SQLite, per-test DB).
+    /// </summary>
+    public static ProcessStartInfo CreateStartInfo(string sqliteConnectionString)
+    {
+        var exe = GetDesktopExePath();
+        var psi = new ProcessStartInfo(exe)
+        {
+            UseShellExecute = false,
+            WorkingDirectory = Path.GetDirectoryName(exe)!,
+            Arguments = string.Empty,
+        };
+
+        psi.Environment["CI"] = "false";
+        psi.Environment["INVENTORY_HEADLESS"] = "0";
+        psi.Environment["INVENTORY_DB_PROVIDER"] = "sqlite";
+        psi.Environment["INVENTORY_DB_CONNECTION"] = sqliteConnectionString;
+        // The app's SQLite branch reads the "KitchenDb" connection string from .NET
+        // configuration (INVENTORY_DB_CONNECTION is only honoured for Npgsql). Feed the
+        // isolated per-test DB through the standard configuration env var so tests never
+        // touch the developer's %LOCALAPPDATA%\InventoryApp\kitchen.db.
+        psi.Environment["ConnectionStrings__KitchenDb"] = sqliteConnectionString;
+        psi.Environment["Database__Provider"] = "Sqlite";
+        // Keep ALL app state (daily log, preferences, default DB) beside the isolated
+        // test DB under the repo. Without this the app would write to
+        // %LOCALAPPDATA%\InventoryApp, which is outside the repo and is blocked in
+        // sandboxed runs (surfacing as "access to the path ... is denied").
+        psi.Environment["INVENTORY_DATA_DIR"] = ResolveDataDirectory(sqliteConnectionString);
+        // Remove triggers that would change app behaviour during the test run.
+        psi.Environment.Remove("INVENTORY_EXPORT_DIAGNOSTICS");
+        psi.Environment.Remove("INVENTORY_CRASH_TEST");
+        psi.Environment.Remove("INVENTORY_SUPPRESS_FIRST_RUN");
+        return psi;
+    }
+
+    /// <summary>Launches the desktop app with the standard isolated environment.</summary>
+    public static Process LaunchApp(string sqliteConnectionString)
+    {
+        var psi = CreateStartInfo(sqliteConnectionString);
+        return Process.Start(psi)!;
+    }
+
+    /// <summary>
+    /// Derives the per-test app-data directory (INVENTORY_DATA_DIR) from the connection
+    /// string's DB folder so the app's log/preferences/default-DB tree stays beside the
+    /// test database. Tests can use this to inspect files the app wrote.
+    /// </summary>
+    public static string ResolveDataDirectory(string sqliteConnectionString)
+    {
+        var repo = GetRepoRoot();
+        string? dbDir = null;
+        foreach (var part in sqliteConnectionString.Split(';'))
+        {
+            var kv = part.Split('=', 2);
+            if (kv.Length == 2 && kv[0].Trim().Equals("Data Source", StringComparison.OrdinalIgnoreCase))
+            {
+                var trimmed = kv[1].Trim();
+                if (trimmed.Length > 0) dbDir = Path.GetDirectoryName(trimmed);
+                break;
+            }
+        }
+
+        if (string.IsNullOrEmpty(dbDir))
+        {
+            dbDir = Path.Combine(repo, "artifacts", "ui-test-dbs", Guid.NewGuid().ToString("N"));
+        }
+
+        var dataDir = Path.Combine(dbDir, "appdata");
+        Directory.CreateDirectory(dataDir);
+        return dataDir;
+    }
+
+    /// <summary>Finds a top-level window owned by <paramref name="process"/> whose title contains the given text.</summary>
+    public static Window? FindProcessWindowByTitle(Process process, UIA3Automation automation, string titleContains, bool excludeWin32ErrorDialogs = false)
+    {
+        try
+        {
+            var desktop = automation.GetDesktop();
+            var windows = desktop.FindAllDescendants(cf => cf.ByProcessId(process.Id).And(cf.ByControlType(ControlType.Window)));
+            foreach (var w in windows)
+            {
+                if (w == null) continue;
+                var name = w.Name ?? string.Empty;
+                if (name.Length == 0 || !name.Contains(titleContains, StringComparison.OrdinalIgnoreCase)) continue;
+
+                Window win;
+                try { win = w.AsWindow(); } catch { continue; }
+                if (win == null) continue;
+
+                if (excludeWin32ErrorDialogs)
+                {
+                    // The global exception handler shows a MessageBox whose caption is
+                    // also "Kitchen Inventory"; it is a Win32 dialog (class #32770).
+                    try
+                    {
+                        if (string.Equals(win.ClassName, "#32770", StringComparison.Ordinal)) continue;
+                    }
+                    catch { }
+                }
+                return win;
+            }
+        }
+        catch { }
+        return null;
+    }
+
+    private static void ClickButtonByNameOrId(Window dialog, string[] idsOrNames, ITestOutputHelper? output)
+    {
+        AutomationElement? btn = null;
+        foreach (var key in idsOrNames)
+        {
+            btn = dialog.FindFirstDescendant(cf => cf.ByAutomationId(key).And(cf.ByControlType(ControlType.Button)))
+               ?? dialog.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName(key)));
+            if (btn != null) break;
+        }
+
+        if (btn == null)
+        {
+            foreach (var b in dialog.FindAllDescendants(cf => cf.ByControlType(ControlType.Button)))
+            {
+                var n = b.Name ?? string.Empty;
+                if (idsOrNames.Any(key => n.IndexOf(key, StringComparison.OrdinalIgnoreCase) >= 0))
+                {
+                    btn = b;
+                    break;
+                }
+            }
+        }
+
+        Assert.True(btn != null, $"Could not locate button matching [{string.Join(", ", idsOrNames)}] in dialog '{dialog.Title}'.");
+        output?.WriteLine($"Clicking dialog button: Name='{btn!.Name}' Id='{btn.AutomationId}'");
+        TryInvokeWithFallback(btn!);
+    }
+
+    private static void SetTextValue(AutomationElement? el, string value, ITestOutputHelper? output)
+    {
+        Assert.NotNull(el);
+        try { el!.Focus(); } catch { }
+
+        bool set = false;
+        try
+        {
+            if (el!.Patterns.Value.IsSupported)
+            {
+                el.Patterns.Value.Pattern.SetValue(value);
+                set = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            output?.WriteLine($"SetValue failed ({ex.Message}); falling back to keyboard input.");
+            set = false;
+        }
+
+        if (!set)
+        {
+            try { el!.Click(); } catch { }
+            try { FlaUI.Core.Input.Keyboard.Type(value); } catch { }
+        }
+        Thread.Sleep(150);
+    }
+
+    private static void FillAndSubmitAdminSetup(Window dialog, ITestOutputHelper? output)
+    {
+        try { dialog.SetForeground(); } catch { }
+        try { dialog.Focus(); } catch { }
+
+        var edits = dialog.FindAllDescendants(cf => cf.ByControlType(ControlType.Edit)).ToList();
+        output?.WriteLine($"Admin setup: {edits.Count} edit control(s) found.");
+
+        var username = dialog.FindFirstDescendant(cf => cf.ByAutomationId("AdminUsernameTextBox")) ?? edits.ElementAtOrDefault(0);
+        var password = dialog.FindFirstDescendant(cf => cf.ByAutomationId("AdminPasswordBox"))
+                    ?? dialog.FindFirstDescendant(cf => cf.ByAutomationId("PasswordBox"))
+                    ?? edits.ElementAtOrDefault(1);
+        var confirm  = dialog.FindFirstDescendant(cf => cf.ByAutomationId("AdminConfirmPasswordBox"))
+                    ?? dialog.FindFirstDescendant(cf => cf.ByAutomationId("ConfirmBox"))
+                    ?? edits.ElementAtOrDefault(2);
+
+        SetTextValue(username, DefaultAdminUsername, output);
+        SetTextValue(password, DefaultAdminPassword, output);
+        SetTextValue(confirm, DefaultAdminPassword, output);
+        Thread.Sleep(150);
+
+        ClickButtonByNameOrId(dialog, new[] { "CreateAdminButton", "Create Admin" }, output);
+    }
+
+    private static void FillAndSubmitLogin(Window dialog, ITestOutputHelper? output)
+    {
+        try { dialog.SetForeground(); } catch { }
+        try { dialog.Focus(); } catch { }
+
+        var edits = dialog.FindAllDescendants(cf => cf.ByControlType(ControlType.Edit)).ToList();
+        output?.WriteLine($"Sign in: {edits.Count} edit control(s) found.");
+
+        var username = dialog.FindFirstDescendant(cf => cf.ByAutomationId("LoginUsernameTextBox")) ?? edits.ElementAtOrDefault(0);
+        var password = dialog.FindFirstDescendant(cf => cf.ByAutomationId("LoginPasswordBox"))
+                    ?? dialog.FindFirstDescendant(cf => cf.ByAutomationId("PasswordBox"))
+                    ?? edits.ElementAtOrDefault(1);
+
+        SetTextValue(username, DefaultAdminUsername, output);
+        SetTextValue(password, DefaultAdminPassword, output);
+        Thread.Sleep(150);
+
+        ClickButtonByNameOrId(dialog, new[] { "SignInButton", "Sign In" }, output);
+    }
+
+    /// <summary>
+    /// Completes all startup gating (privacy consent if present, then the auth
+    /// gate, then the first-run "Create Categories" prompt if present) and
+    /// returns the "Kitchen Inventory" main window.
+    /// </summary>
+    public static Window CompleteStartupGating(UIA3Automation automation, Process process, ITestOutputHelper? output = null, TimeSpan? timeout = null)
+    {
+        var deadline = DateTime.UtcNow.Add(timeout ?? TimeSpan.FromSeconds(120));
+        bool gateHandled = false;
+        bool consentHandled = false;
+        bool promptHandled = false;
+        DateTime? mainSeenAt = null;
+
+        while (DateTime.UtcNow < deadline)
+        {
+            if (process.HasExited)
+            {
+                throw new InvalidOperationException($"Desktop exited early with code {process.ExitCode} during startup gating.");
+            }
+
+            // 1) Crash Reporting privacy consent (first run only)
+            if (!consentHandled)
+            {
+                var consent = FindProcessWindowByTitle(process, automation, "Crash Reporting");
+                if (consent != null)
+                {
+                    output?.WriteLine("Startup gating: dismissing 'Crash Reporting' consent dialog.");
+                    ClickButtonByNameOrId(consent, new[] { "NoThanksButton", "No thanks" }, output);
+                    consentHandled = true;
+                    Thread.Sleep(300);
+                    continue;
+                }
+            }
+
+            // 2) Authentication gate
+            if (!gateHandled)
+            {
+                var setup = FindProcessWindowByTitle(process, automation, "Initial Admin Setup");
+                if (setup != null)
+                {
+                    output?.WriteLine("Startup gating: completing 'Initial Admin Setup'.");
+                    FillAndSubmitAdminSetup(setup, output);
+                    gateHandled = true;
+                    consentHandled = true;
+                    Thread.Sleep(300);
+                    continue;
+                }
+
+                var login = FindProcessWindowByTitle(process, automation, "Sign In");
+                if (login != null)
+                {
+                    output?.WriteLine("Startup gating: completing 'Sign In'.");
+                    FillAndSubmitLogin(login, output);
+                    gateHandled = true;
+                    consentHandled = true;
+                    Thread.Sleep(300);
+                    continue;
+                }
+            }
+
+            // 3) Main window (+ first-run "Create Categories" prompt that appears after load)
+            if (gateHandled)
+            {
+                var main = FindProcessWindowByTitle(process, automation, "Kitchen Inventory", excludeWin32ErrorDialogs: true);
+                if (main != null)
+                {
+                    mainSeenAt ??= DateTime.UtcNow;
+
+                    var prompt = FindProcessWindowByTitle(process, automation, "Create Categories");
+                    if (prompt != null)
+                    {
+                        output?.WriteLine("Startup gating: dismissing 'Create Categories' prompt.");
+                        ClickButtonByNameOrId(prompt, new[] { "No", "NoButton" }, output);
+                        promptHandled = true;
+                        Thread.Sleep(200);
+                    }
+                    else if (DateTime.UtcNow - mainSeenAt.Value > TimeSpan.FromSeconds(6))
+                    {
+                        // Give the post-load prompt a moment to appear before handing back control.
+                        promptHandled = true;
+                    }
+
+                    if (promptHandled)
+                    {
+                        return main;
+                    }
+                }
+            }
+
+            Thread.Sleep(150);
+        }
+
+        throw new TimeoutException("Timed out waiting for the 'Kitchen Inventory' main window after startup gating.");
+    }
+
+    /// <summary>Kills the launched app process if it is still running (best effort).</summary>
+    public static void KillIfRunning(Process process)
+    {
+        try
+        {
+            if (process != null && !process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        }
+        catch { }
+    }
+
+    private const uint WM_CLOSE = 0x0010;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+    private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    /// <summary>
+    /// Closes the application's main window so the WPF app actually shuts down.
+    /// FlaUI's <c>Window.Close()</c> (UI Automation WindowPattern.Close) does not reliably
+    /// close this WPF window — the window stays open and the process never exits. Posting a
+    /// real WM_CLOSE to the native window handle closes it and the app exits cleanly.
+    /// </summary>
+    public static void CloseAppWindow(Window window, Process process, ITestOutputHelper? output = null)
+    {
+        try
+        {
+            var hwnd = window.Properties.NativeWindowHandle.ValueOrDefault;
+            if (hwnd != IntPtr.Zero && PostMessage(hwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero))
+            {
+                return;
+            }
+            output?.WriteLine("PostMessage(WM_CLOSE) unavailable; falling back to FlaUI Close().");
+        }
+        catch (Exception ex)
+        {
+            output?.WriteLine($"WM_CLOSE post failed: {ex.Message}");
+        }
+
+        try { window.Close(); } catch { }
+        try { process.CloseMainWindow(); } catch { }
     }
 }

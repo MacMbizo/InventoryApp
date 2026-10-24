@@ -5,17 +5,29 @@ using Xunit;
 
 namespace KitchenInventory.Desktop.Tests;
 
-public class PreferencesServiceTests
+public class PreferencesServiceTests : IDisposable
 {
-    private static string PreferencesPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "InventoryApp",
-        "preferences.json");
+    private readonly string _dataDir;
+
+    public PreferencesServiceTests()
+    {
+        _dataDir = Path.Combine(UiTestHelpers.GetRepoRoot(), "artifacts", "ui-test-dbs", Guid.NewGuid().ToString("N"), "appdata");
+        Directory.CreateDirectory(_dataDir);
+    }
+
+    private string PreferencesPath => Path.Combine(_dataDir, "preferences.json");
+
+    private PreferencesService CreateService() => new(_dataDir);
+
+    public void Dispose()
+    {
+        try { Directory.Delete(_dataDir, recursive: true); } catch { }
+    }
 
     [Fact]
     public void Set_Then_Get_RoundTripsTypedValues()
     {
-        var svc = new PreferencesService();
+        var svc = CreateService();
 
         svc.Set("test.int", 42);
         svc.Set("test.decimal", 12.5m);
@@ -31,7 +43,7 @@ public class PreferencesServiceTests
     [Fact]
     public void Get_MissingKey_ReturnsProvidedDefault()
     {
-        var svc = new PreferencesService();
+        var svc = CreateService();
 
         Assert.Equal(-1, svc.Get<int>("definitely.missing.key", -1));
         Assert.Equal("fallback", svc.Get<string>("definitely.missing.key", "fallback"));
@@ -40,7 +52,7 @@ public class PreferencesServiceTests
     [Fact]
     public void Get_KeyOverwritesPreviousValue()
     {
-        var svc = new PreferencesService();
+        var svc = CreateService();
 
         svc.Set("overwrite.me", 1);
         svc.Set("overwrite.me", 2);
@@ -49,36 +61,17 @@ public class PreferencesServiceTests
     }
 
     [Fact]
-    public void Save_PersistsAcrossInstances_AndRestoresOriginalFile()
+    public void Save_PersistsAcrossInstances()
     {
-        var existed = File.Exists(PreferencesPath);
-        var original = existed ? File.ReadAllBytes(PreferencesPath) : null;
-        try
-        {
-            var svc = new PreferencesService();
-            svc.Set("roundtrip.key", "persisted-value");
-            svc.Set("roundtrip.num", 7);
-            svc.Save();
+        var svc = CreateService();
+        svc.Set("roundtrip.key", "persisted-value");
+        svc.Set("roundtrip.num", 7);
+        svc.Save();
 
-            Assert.True(File.Exists(PreferencesPath));
+        Assert.True(File.Exists(PreferencesPath));
 
-            var reloaded = new PreferencesService();
-            Assert.Equal("persisted-value", reloaded.Get<string>("roundtrip.key"));
-            Assert.Equal(7, reloaded.Get<int>("roundtrip.num"));
-        }
-        finally
-        {
-            if (original != null)
-            {
-                File.WriteAllBytes(PreferencesPath, original);
-            }
-            else if (File.Exists(PreferencesPath))
-            {
-                File.Delete(PreferencesPath);
-            }
-
-            var tmp = PreferencesPath + ".tmp";
-            if (File.Exists(tmp)) File.Delete(tmp);
-        }
+        var reloaded = CreateService();
+        Assert.Equal("persisted-value", reloaded.Get<string>("roundtrip.key"));
+        Assert.Equal(7, reloaded.Get<int>("roundtrip.num"));
     }
 }

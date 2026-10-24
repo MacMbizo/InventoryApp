@@ -34,11 +34,16 @@ public partial class App : Application
     private bool _headlessMode = false;
     private IDisposable? _sentry;
     private bool _crashTest = false;
+    private bool _startupCompleted = false;
     public IServiceProvider Services => _host?.Services ?? throw new InvalidOperationException("Host not initialized");
 
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // Resolve headless/CI intent up-front so a failure before the UI is built still
+        // honours headless/CI and never leaves a windowless process behind.
+        _headlessMode = ComputeHeadless(e);
 
         // Ensure the application only exits when we explicitly call Shutdown (important for headless mode)
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
@@ -64,12 +69,8 @@ public partial class App : Application
         AppDomain.CurrentDomain.UnhandledException += App_UnhandledException;
         TaskScheduler.UnobservedTaskException += App_UnobservedTaskException;
 
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var baseDir = Path.Combine(appData, "InventoryApp");
-        Directory.CreateDirectory(baseDir);
-
-        var logsDir = Path.Combine(baseDir, "logs");
-        Directory.CreateDirectory(logsDir);
+        var baseDir = AppPaths.GetDataDirectory();
+        var logsDir = AppPaths.GetLogsDirectory();
         var logPath = Path.Combine(logsDir, "log-.txt");
 
         _host = Host.CreateDefaultBuilder()
@@ -733,22 +734,12 @@ public partial class App : Application
 
         // Headless/CI smoke mode: don't create UI, just verify startup and DB and exit 0
         // Respect explicit INVENTORY_HEADLESS override even when CI=true
-        bool? envHeadless = null;
-        var envHeadlessRaw = Environment.GetEnvironmentVariable("INVENTORY_HEADLESS");
-        if (!string.IsNullOrEmpty(envHeadlessRaw))
-        {
-            if (string.Equals(envHeadlessRaw, "1", StringComparison.OrdinalIgnoreCase) || string.Equals(envHeadlessRaw, "true", StringComparison.OrdinalIgnoreCase))
-                envHeadless = true;
-            else if (string.Equals(envHeadlessRaw, "0", StringComparison.OrdinalIgnoreCase) || string.Equals(envHeadlessRaw, "false", StringComparison.OrdinalIgnoreCase))
-                envHeadless = false;
-        }
-        var argHeadless = e.Args.Any(a => string.Equals(a, "--headless", StringComparison.OrdinalIgnoreCase));
-        var ci = string.Equals(Environment.GetEnvironmentVariable("CI"), "true", StringComparison.OrdinalIgnoreCase);
-        var headless = envHeadless ?? (argHeadless || ci);
+        var headless = ComputeHeadless(e);
         _headlessMode = headless;
         if (headless)
         {
-            Log.Information("Headless mode: startup + DB migration succeeded; exiting without UI (INVENTORY_HEADLESS={Env}, CI={CI})", envHeadlessRaw, ci);
+            Log.Information("Headless mode: startup + DB migration succeeded; exiting without UI (INVENTORY_HEADLESS={Env}, CI={CI})",
+                Environment.GetEnvironmentVariable("INVENTORY_HEADLESS"), Environment.GetEnvironmentVariable("CI"));
             Environment.ExitCode = ExitCodes.Success;
             Shutdown(ExitCodes.Success);
             return;
@@ -844,6 +835,7 @@ public partial class App : Application
             MainWindow = mainWindow;
             // In UI mode, revert to normal shutdown behavior tied to main window
             ShutdownMode = ShutdownMode.OnMainWindowClose;
+            _startupCompleted = true;
             mainWindow.Show();
         }
         catch (Exception ex)
@@ -860,6 +852,23 @@ public partial class App : Application
             Environment.ExitCode = ExitCodes.GeneralError;
             Shutdown(ExitCodes.GeneralError);
         }
+    }
+
+    private static bool ComputeHeadless(StartupEventArgs e)
+    {
+        bool? envHeadless = null;
+        var raw = Environment.GetEnvironmentVariable("INVENTORY_HEADLESS");
+        if (!string.IsNullOrEmpty(raw))
+        {
+            if (string.Equals(raw, "1", StringComparison.OrdinalIgnoreCase) || string.Equals(raw, "true", StringComparison.OrdinalIgnoreCase))
+                envHeadless = true;
+            else if (string.Equals(raw, "0", StringComparison.OrdinalIgnoreCase) || string.Equals(raw, "false", StringComparison.OrdinalIgnoreCase))
+                envHeadless = false;
+        }
+
+        var argHeadless = e.Args.Any(a => string.Equals(a, "--headless", StringComparison.OrdinalIgnoreCase));
+        var ci = string.Equals(Environment.GetEnvironmentVariable("CI"), "true", StringComparison.OrdinalIgnoreCase);
+        return envHeadless ?? (argHeadless || ci);
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -886,7 +895,7 @@ public partial class App : Application
             MessageBox.Show($"Unexpected error: {e.Exception.Message}", "Kitchen Inventory", MessageBoxButton.OK, MessageBoxImage.Error);
     }
         e.Handled = true; // prevent crash when possible
-        if (_headlessMode || _crashTest)
+        if (_headlessMode || _crashTest || !_startupCompleted)
         {
             Environment.ExitCode = ExitCodes.GeneralError;
             Shutdown(ExitCodes.GeneralError);
@@ -905,7 +914,7 @@ public partial class App : Application
             Log.Fatal("UnhandledException: {Error}", e.ExceptionObject);
             SentrySdk.CaptureMessage($"UnhandledException (non-Exception): {e.ExceptionObject}", SentryLevel.Fatal);
         }
-        if (_headlessMode || _crashTest)
+        if (_headlessMode || _crashTest || !_startupCompleted)
         {
             Environment.ExitCode = ExitCodes.GeneralError;
             Shutdown(ExitCodes.GeneralError);
@@ -917,7 +926,7 @@ public partial class App : Application
         Log.Fatal(e.Exception, "UnobservedTaskException");
         SentrySdk.CaptureException(e.Exception);
         e.SetObserved();
-        if (_headlessMode || _crashTest)
+        if (_headlessMode || _crashTest || !_startupCompleted)
         {
             Environment.ExitCode = ExitCodes.GeneralError;
             Shutdown(ExitCodes.GeneralError);

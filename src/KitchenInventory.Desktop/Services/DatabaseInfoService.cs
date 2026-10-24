@@ -50,7 +50,7 @@ public class DatabaseInfoService : IDatabaseInfoService
         }
 
         string target = GetTarget(provider, cs);
-        string logsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "InventoryApp", "logs");
+        string logsDir = Utilities.AppPaths.GetLogsDirectory();
         string? dbPath = provider == DatabaseProvider.Sqlite ? ExtractSqlitePath(cs) : null;
         var redacted = RedactConnectionString(cs);
 

@@ -17,13 +17,13 @@
         </Grid.ColumnDefinitions>
 
         <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,0,8,8" VerticalAlignment="Center">Admin Username</TextBlock>
-        <TextBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,8" Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"/>
+        <TextBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,8" Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="AdminUsernameTextBox"/>
 
         <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,0,8,8" VerticalAlignment="Center">Password</TextBlock>
-        <PasswordBox x:Name="PasswordBox" Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" PasswordChanged="OnPasswordChanged"/>
+        <PasswordBox x:Name="PasswordBox" Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" PasswordChanged="OnPasswordChanged" AutomationProperties.AutomationId="AdminPasswordBox"/>
 
         <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,0,8,8" VerticalAlignment="Center">Confirm Password</TextBlock>
-        <PasswordBox x:Name="ConfirmBox" Grid.Row="2" Grid.Column="1" Margin="0,0,0,8" PasswordChanged="OnConfirmChanged"/>
+        <PasswordBox x:Name="ConfirmBox" Grid.Row="2" Grid.Column="1" Margin="0,0,0,8" PasswordChanged="OnConfirmChanged" AutomationProperties.AutomationId="AdminConfirmPasswordBox"/>
 
         <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Foreground="Red" Text="{Binding Error}"/>
 

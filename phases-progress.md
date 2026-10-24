@@ -143,9 +143,12 @@ This document tracks the implementation phases for the Kitchen Inventory Desktop
 
 ### Gate 0 — Run and validate the current build (do this first)
 - **Task**: Launch the WPF app against a scratch database and walk the real workflows end to end: first-run admin setup → sign-in → add/edit/delete item → consume/adjust via `StockOperationDialog` → category/location management → CSV import (valid **and** invalid rows, then download the error CSV) → CSV export → Alerts tab → Unit Converter → new **Reports** dialog (all four reports, CSV export, PDF export, open the PDF in a reader)
-- **Task**: Run the existing FlaUI UI suite (`--filter "Category=UI"`), which currently covers launch/smoke, Add Item, category management and privacy consent
+- ✅ **Task**: Run the existing FlaUI UI suite (`--filter "Category=UI"`) — 10/10 passing (launch/smoke, Add Item, category management, privacy consent, headless export exit codes)
 - **Acceptance**: Every workflow above completes with no unhandled exception in the log; the exported PDF opens; the ledger matches item quantities after a mixed session
 - **Why first**: the 270 coverage-gated tests cover logic only. The Reports dialog in particular has never been opened, so its XAML wiring, DataGrid column generation and `SaveFileDialog` paths are unverified.
+
+> **Test isolation (resolved):** all app state now resolves through `AppPaths.GetDataDirectory()`, which honours the `INVENTORY_DATA_DIR` environment variable and otherwise defaults to `%LOCALAPPDATA%\InventoryApp`. The UI suite points every launched app at `artifacts/ui-test-dbs/{guid}/appdata`, so runs no longer write to — or depend on access to — the developer's profile. This removes the "access to the path …\logs\log-YYYYMMDD.txt is denied" failure caused by sandboxed runs and the >20 s process linger that accompanied it.
+
 
 ### Gate 1 — Product hardening (get to "happy with the app")
 1. **Data integrity / audit reconciliation** — confirm item quantity and ledger sum agree after imports, deletes and stock operations; close the known architectural gap (soft-delete `IsDeleted` + `RowVersion` optimistic concurrency)

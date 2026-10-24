@@ -24,6 +24,14 @@ public class HeadlessExportExitCodeTests
         psi.Environment["CI"] = "true";
         psi.Environment["INVENTORY_HEADLESS"] = "1";
         psi.Environment["INVENTORY_SUPPRESS_FIRST_RUN"] = "1";
+        // Keep all app state (daily log, preferences, default DB) beside an isolated
+        // per-test DB under the repo instead of the developer's %LOCALAPPDATA%\InventoryApp.
+        var connection = UiTestHelpers.CreateIsolatedSqliteConnectionString();
+        psi.Environment["INVENTORY_DATA_DIR"] = UiTestHelpers.ResolveDataDirectory(connection);
+        psi.Environment["INVENTORY_DB_PROVIDER"] = "sqlite";
+        psi.Environment["INVENTORY_DB_CONNECTION"] = connection;
+        psi.Environment["ConnectionStrings__KitchenDb"] = connection;
+        psi.Environment["Database__Provider"] = "Sqlite";
         psi.Environment.Remove("INVENTORY_EXPORT_DIAGNOSTICS");
         psi.Environment.Remove("INVENTORY_CRASH_TEST");
         psi.Environment.Remove("INVENTORY_IMPORT_CSV");
