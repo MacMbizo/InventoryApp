@@ -64,12 +64,12 @@ This document tracks the implementation phases for the Kitchen Inventory Desktop
 
 ---
 
-## Phase 3: Reporting and Packaging ❌ (PLANNED)
+## Phase 3: Reporting and Packaging 🚧 (IN PROGRESS)
 *Generate business reports and deploy as professional Windows application.*
 
 ### Features
-- **Reports**: Stock on hand, low stock, expiring soon, movement history
-- **Export Options**: CSV and PDF output for reports
+- [x] **Reports**: Stock on hand, low stock, expiring soon, movement history
+- [x] **Export Options**: CSV and PDF output for reports
 - **MSI Packaging (WiX)**: Dev/testing installer available today
 - **MSIX Packaging**: Per-user installation with code signing hooks (planned)
 - **App Distribution**: winget manifest for Microsoft Store or enterprise deployment
@@ -82,6 +82,9 @@ This document tracks the implementation phases for the Kitchen Inventory Desktop
 - App installs per-user under %LocalAppData%\InventoryApp
 - App data persists across updates and uninstalls (unless "Reset" chosen)
 - Users receive update notifications when new versions available
+
+### Recent Changes
+- **2026-10-24**: Added the reports engine and export pipeline: `ReportingService` (stock on hand, low stock, expiring soon, movement history) producing a WPF-free `ReportTable`, `ReportExporter` for CSV/plain-text/dependency-free PDF output, a `Reports` dialog (`ReportsWindow`/`ReportsViewModel`) with threshold, expiry-window and date-range inputs wired from preferences, and a Reports toolbar button + `_Reports` menu item. `IFileSaveService` gained `SaveBytesAsAsync` for binary PDF output; 47 new report tests (270 non-UI tests passing, 86.77% logic line coverage)
 
 ---
 

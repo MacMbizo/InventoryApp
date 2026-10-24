@@ -172,6 +172,9 @@ public sealed class InventoryAlertTests
     private sealed class NullFileSaveService : IFileSaveService
     {
         public Task<bool> SaveTextAsAsync(string suggestedFileName, string content) => Task.FromResult(false);
+
+        public Task<bool> SaveBytesAsAsync(string suggestedFileName, byte[] content, string filter, string defaultExt)
+            => Task.FromResult(false);
     }
 
     private sealed class NullFileOpenService : IFileOpenService

@@ -39,6 +39,12 @@ public sealed class ExportTests
             LastContent = content;
             return Task.FromResult(false);
         }
+
+        public Task<bool> SaveBytesAsAsync(string suggestedFileName, byte[] content, string filter, string defaultExt)
+        {
+            LastSuggestedName = suggestedFileName;
+            return Task.FromResult(false);
+        }
     }
 
     private sealed class NullFileOpenService : IFileOpenService

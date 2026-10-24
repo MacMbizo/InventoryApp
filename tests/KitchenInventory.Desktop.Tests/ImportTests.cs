@@ -54,6 +54,9 @@ public sealed class ImportTests
             LastContent = content;
             return Task.FromResult(false);
         }
+
+        public Task<bool> SaveBytesAsAsync(string suggestedFileName, byte[] content, string filter, string defaultExt)
+            => Task.FromResult(false);
     }
 
     private static (IDbContextFactory<KitchenInventoryDbContext> factory, SqliteConnection conn, DbContextOptions<KitchenInventoryDbContext> options)

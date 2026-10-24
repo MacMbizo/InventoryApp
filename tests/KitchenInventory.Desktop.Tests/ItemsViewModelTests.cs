@@ -128,6 +128,12 @@ public class ItemsViewModelTests : IDisposable
             Saved.Add((suggestedFileName, content));
             return Task.FromResult(true);
         }
+
+        public Task<bool> SaveBytesAsAsync(string suggestedFileName, byte[] content, string filter, string defaultExt)
+        {
+            Saved.Add((suggestedFileName, string.Empty));
+            return Task.FromResult(true);
+        }
     }
 
     private sealed class FakeFileOpen : IFileOpenService

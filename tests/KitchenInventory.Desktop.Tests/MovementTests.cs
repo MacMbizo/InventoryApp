@@ -39,6 +39,9 @@ public sealed class MovementTests
             // Simulate user cancelled save to avoid any filesystem I/O during tests
             return Task.FromResult(false);
         }
+
+        public Task<bool> SaveBytesAsAsync(string suggestedFileName, byte[] content, string filter, string defaultExt)
+            => Task.FromResult(false);
     }
 
     private sealed class FakeFileOpenService : IFileOpenService

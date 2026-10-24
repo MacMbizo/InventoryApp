@@ -167,6 +167,9 @@ public partial class App : Application
 
                 // Windows and other services
                 services.AddSingleton<MainWindow>();
+                // Reports are per-invocation so each dialog starts from a clean state
+                services.AddTransient<ReportsViewModel>();
+                services.AddTransient<ReportsWindow>();
             })
             .Build();
 

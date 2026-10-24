@@ -159,6 +159,21 @@ namespace KitchenInventory.Desktop
             }
         }
 
+        private void Open_Reports_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var sp = ((App)Application.Current).Services;
+                var window = sp.GetRequiredService<ReportsWindow>();
+                WindowOwnerHelper.SetSafeOwner(window, this);
+                window.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"Failed to open reports: {ex.Message}", "Reports", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private void Help_Diagnostics_Click(object sender, RoutedEventArgs e)
         {
             try

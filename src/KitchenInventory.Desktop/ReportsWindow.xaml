@@ -1,0 +1,73 @@
+<Window x:Class="KitchenInventory.Desktop.ReportsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Reports" Height="620" Width="960"
+        WindowStartupLocation="CenterOwner">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </Window.Resources>
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <WrapPanel Grid.Row="0" Orientation="Horizontal">
+            <TextBlock Text="Report:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+            <ComboBox Width="180" Margin="0,0,12,0" VerticalAlignment="Center"
+                      ItemsSource="{Binding ReportOptions}"
+                      DisplayMemberPath="Name"
+                      SelectedItem="{Binding SelectedOption, Mode=TwoWay}"
+                      AutomationProperties.AutomationId="ReportsKindCombo"/>
+
+            <StackPanel Orientation="Horizontal" Margin="0,0,12,0" VerticalAlignment="Center"
+                        Visibility="{Binding ShowThreshold, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="Low stock below:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <TextBox Width="60" Text="{Binding LowStockThreshold}"
+                         AutomationProperties.AutomationId="ReportsThresholdBox"/>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Margin="0,0,12,0" VerticalAlignment="Center"
+                        Visibility="{Binding ShowExpiringDays, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="Expiring within (days):" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <TextBox Width="60" Text="{Binding ExpiringSoonDays}"
+                         AutomationProperties.AutomationId="ReportsDaysBox"/>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Margin="0,0,12,0" VerticalAlignment="Center"
+                        Visibility="{Binding ShowDateRange, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="From:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <DatePicker Width="130" SelectedDate="{Binding FromDate, Mode=TwoWay}"
+                            AutomationProperties.AutomationId="ReportsFromPicker"/>
+                <TextBlock Text="To:" VerticalAlignment="Center" Margin="8,0,4,0"/>
+                <DatePicker Width="130" SelectedDate="{Binding ToDate, Mode=TwoWay}"
+                            AutomationProperties.AutomationId="ReportsToPicker"/>
+            </StackPanel>
+
+            <Button Content="Generate" Width="90" Margin="0,0,8,0" VerticalAlignment="Center"
+                    Command="{Binding GenerateCommand}"
+                    AutomationProperties.AutomationId="ReportsGenerateButton"/>
+            <Button Content="Export CSV" Width="100" Margin="0,0,8,0" VerticalAlignment="Center"
+                    Command="{Binding ExportCsvCommand}"
+                    AutomationProperties.AutomationId="ReportsExportCsvButton"/>
+            <Button Content="Export PDF" Width="100" VerticalAlignment="Center"
+                    Command="{Binding ExportPdfCommand}"
+                    AutomationProperties.AutomationId="ReportsExportPdfButton"/>
+        </WrapPanel>
+
+        <DataGrid x:Name="ReportGrid" Grid.Row="1" Margin="0,12,0,8"
+                  AutoGenerateColumns="False" IsReadOnly="True"
+                  CanUserAddRows="False" CanUserDeleteRows="False"
+                  HeadersVisibility="Column" GridLinesVisibility="All"
+                  HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                  AutomationProperties.AutomationId="ReportsDataGrid"/>
+
+        <DockPanel Grid.Row="2">
+            <Button DockPanel.Dock="Right" Content="Close" Width="90" IsCancel="True"
+                    AutomationProperties.AutomationId="ReportsCloseButton"/>
+            <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0"
+                       AutomationProperties.AutomationId="ReportsStatusText"/>
+        </DockPanel>
+    </Grid>
+</Window>

@@ -25,6 +25,7 @@
             <Menu DockPanel.Dock="Top">
                 <MenuItem Header="_Settings" Click="Open_Settings_Click" />
                 <MenuItem x:Name="ManageUsersMenuItem" Header="_Manage Users" Click="Manage_Users_Click" AutomationProperties.AutomationId="ManageUsersMenuItem" />
+                <MenuItem Header="_Reports" Click="Open_Reports_Click" AutomationProperties.AutomationId="ReportsMenuItem" />
                 <MenuItem Header="_Help">
                     <MenuItem Header="_About"/>
                     <Separator/>
@@ -62,6 +63,9 @@
 
                         <!-- Unit Converter -->
                         <Button Content="Unit Converter" Click="Open_UnitConverter_Click" Margin="0,0,8,0" ToolTip="Convert between kg/g/mg and l/ml/cl/dl" AutomationProperties.AutomationId="UnitConverterButton" />
+
+                        <!-- Reports -->
+                        <Button Content="Reports" Click="Open_Reports_Click" Margin="0,0,8,0" ToolTip="Generate and export inventory reports" AutomationProperties.AutomationId="ReportsButton" />
 
                         <!-- Category Filter -->
                         <TextBlock Text="Category:" VerticalAlignment="Center" Margin="8,0,4,0" />
