@@ -65,3 +65,11 @@ _ReSharper*/
 
 # Others
 .localhistory/
+
+# Scratch / diagnostic artifacts (not source)
+_cabextract/
+_ai-list.txt
+_cab-list.txt
+_diag-*.txt
+headless.out*.txt
+Inv1.webp
