@@ -58,6 +58,7 @@ This document tracks the implementation phases for the Kitchen Inventory Desktop
 - **2026-10-24**: Added Location catalog end-to-end (entity, EF migration `AddLocation`, `LocationManagementDialog`, Items/AddItem VM wiring, CSV export/import/preview and headless paths); items CSV header now includes `LocationId,LocationName`
 - **2026-10-24**: Added `UnitConversionService` (kg↔g, l↔ml with aliases) and a "Unit Converter" toolbar dialog
 - **2026-10-24**: Added alerts pane with badge counts, `InventoryAlertService` evaluator, and a background refresh timer
+- **2026-10-24**: Added a Coverlet-based code-coverage gate (80% line floor scoped to testable logic; XAML code-behind, EF migrations and generated code excluded). Measured logic coverage: Domain 100%, Data 77.5%, Desktop 44.6% (weighted total 48.2%) — below the floor; gate is opt-in (`/p:CollectCoverage=true`) and not yet wired into CI
 
 ---
 
