@@ -2,6 +2,8 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Win32;
+using KitchenInventory.Desktop.Utilities;
+using System.Windows;
 
 namespace KitchenInventory.Desktop.Services
 {
@@ -17,7 +19,8 @@ namespace KitchenInventory.Desktop.Services
                 AddExtension = true,
                 OverwritePrompt = true
             };
-            var result = dlg.ShowDialog();
+            Window? owner = WindowOwnerHelper.GetSafeOwner();
+            bool? result = owner != null ? dlg.ShowDialog(owner) : dlg.ShowDialog();
             if (result != true) return false;
 
             var path = dlg.FileName;

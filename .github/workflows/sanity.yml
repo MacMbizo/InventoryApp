@@ -1,0 +1,14 @@
+name: Sanity CI
+
+on:
+  push:
+    branches:
+      - ci/*
+  workflow_dispatch: {}
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Say hello
+        run: echo "ok $(date) on $GITHUB_REF by $GITHUB_ACTOR"

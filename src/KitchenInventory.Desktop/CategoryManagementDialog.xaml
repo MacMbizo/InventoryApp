@@ -22,12 +22,26 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <DataGrid x:Name="CategoriesGrid" ItemsSource="{Binding Categories}" AutoGenerateColumns="False" IsReadOnly="False"
+            <DataGrid x:Name="CategoriesGrid"
+                      AutomationProperties.AutomationId="CategoriesGrid"
+                      ItemsSource="{Binding Categories}" AutoGenerateColumns="False" IsReadOnly="False"
                       CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Single" SelectionUnit="FullRow"
-                      Margin="0,6,0,6" Grid.Row="0" IsSynchronizedWithCurrentItem="True">
+                      Margin="0,6,0,6" Grid.Row="0" IsSynchronizedWithCurrentItem="True"
+                      EnableRowVirtualization="False" EnableColumnVirtualization="False" VirtualizingPanel.IsVirtualizing="False">
+                <DataGrid.RowStyle>
+                    <Style TargetType="DataGridRow">
+                        <Setter Property="AutomationProperties.Name" Value="{Binding Name}"/>
+                    </Style>
+                </DataGrid.RowStyle>
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Id" Binding="{Binding Id}" IsReadOnly="True" Width="60"/>
-                    <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
+                    <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="*">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="AutomationProperties.Name" Value="{Binding Name}"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
                     <DataGridTextColumn Header="Created" Binding="{Binding CreatedAtUtc}" IsReadOnly="True" Width="150"/>
                     <DataGridTextColumn Header="Updated" Binding="{Binding UpdatedAtUtc}" IsReadOnly="True" Width="150"/>
                 </DataGrid.Columns>

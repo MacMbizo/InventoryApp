@@ -73,3 +73,5 @@ _cab-list.txt
 _diag-*.txt
 headless.out*.txt
 Inv1.webp
+
+.env

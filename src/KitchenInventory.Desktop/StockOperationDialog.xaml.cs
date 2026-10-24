@@ -14,6 +14,7 @@ using KitchenInventory.Data;
 using KitchenInventory.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using KitchenInventory.Desktop.Utilities;
 
 namespace KitchenInventory.Desktop
 {
@@ -288,8 +289,9 @@ namespace KitchenInventory.Desktop
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to load stock operation dialog");
-                MessageBox.Show(this, $"Failed to load data: {ex.Message}", "Error", 
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(WindowOwnerHelper.GetSafeOwner(this) ?? this,
+                                $"Failed to load data: {ex.Message}", "Error",
+                                MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 

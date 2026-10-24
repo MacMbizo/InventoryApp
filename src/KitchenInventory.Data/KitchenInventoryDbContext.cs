@@ -13,6 +13,7 @@ public class KitchenInventoryDbContext : DbContext
     public DbSet<Item> Items => Set<Item>();
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
     public DbSet<Category> Categories => Set<Category>();
+    public DbSet<User> Users => Set<User>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -52,6 +53,23 @@ public class KitchenInventoryDbContext : DbContext
 
             b.HasIndex(x => new { x.ItemId, x.TimestampUtc });
         });
+
+        // User entity
+        modelBuilder.Entity<User>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Username).IsRequired().HasMaxLength(100);
+            b.Property(x => x.PasswordHash).IsRequired().HasMaxLength(512);
+            b.Property(x => x.Role).IsRequired().HasMaxLength(32);
+            b.Property(x => x.FailedLoginCount).HasDefaultValue(0);
+            b.Property(x => x.LockoutUntil).HasConversion<DateTime?>();
+            b.Property(x => x.IsDeleted).HasDefaultValue(false);
+            b.Property(x => x.CreatedAtUtc).IsRequired();
+            b.Property(x => x.UpdatedAtUtc).IsRequired();
+
+            b.HasIndex(x => x.Username).IsUnique();
+            b.HasIndex(x => x.Role);
+        });
     }
 
     // Apply auditing timestamps for entities
@@ -83,6 +101,22 @@ public class KitchenInventoryDbContext : DbContext
                 {
                     entry.Entity.TimestampUtc = nowUtc;
                 }
+            }
+        }
+
+        foreach (var entry in ChangeTracker.Entries<User>())
+        {
+            if (entry.State == EntityState.Added)
+            {
+                if (entry.Entity.CreatedAtUtc == default)
+                {
+                    entry.Entity.CreatedAtUtc = nowUtc;
+                }
+                entry.Entity.UpdatedAtUtc = nowUtc;
+            }
+            else if (entry.State == EntityState.Modified)
+            {
+                entry.Entity.UpdatedAtUtc = nowUtc;
             }
         }
     }

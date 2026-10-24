@@ -24,6 +24,7 @@ using System.IO.Compression;
 using KitchenInventory.Desktop.Constants;
 using KitchenInventory.Desktop.Utilities;
 using KitchenInventory.Domain.Entities;
+using Microsoft.Extensions.Logging;
 
 namespace KitchenInventory.Desktop;
 
@@ -35,7 +36,7 @@ public partial class App : Application
     private bool _crashTest = false;
     public IServiceProvider Services => _host?.Services ?? throw new InvalidOperationException("Host not initialized");
 
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
@@ -81,8 +82,22 @@ public partial class App : Application
                     .WriteTo.File(logPath, rollingInterval: RollingInterval.Day);
 
                 var dsn = Environment.GetEnvironmentVariable("SENTRY_DSN") ?? ctx.Configuration["Sentry:Dsn"];
-                if (!string.IsNullOrWhiteSpace(dsn))
+
+                // Respect user preference for error/crash reporting
+                bool errorReportingEnabled = false;
+                try
                 {
+                    var prefs = new PreferencesService();
+                    errorReportingEnabled = prefs.Get<bool>("privacy.errorReportingEnabled", false);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Failed to read error reporting preference; defaulting to disabled");
+                }
+
+                if (!string.IsNullOrWhiteSpace(dsn) && errorReportingEnabled)
+                {
+                    Log.Information("Initializing Sentry crash reporting");
                     _sentry = SentrySdk.Init(o =>
                     {
                         o.Dsn = dsn;
@@ -97,6 +112,14 @@ public partial class App : Application
                         o.MinimumBreadcrumbLevel = Serilog.Events.LogEventLevel.Information;
                         o.MinimumEventLevel = Serilog.Events.LogEventLevel.Error;
                     });
+                }
+                else if (!errorReportingEnabled)
+                {
+                    Log.Information("Crash reporting is disabled by preference");
+                }
+                else
+                {
+                    Log.Warning("Sentry DSN is not configured; crash reporting will not be initialized");
                 }
             })
             .ConfigureServices((ctx, services) =>
@@ -116,43 +139,33 @@ public partial class App : Application
                     {
                         var cs = !string.IsNullOrWhiteSpace(configuredCs)
                             ? configuredCs
-                            : Environment.GetEnvironmentVariable("INVENTORY_DB_CONNECTION");
-                        if (string.IsNullOrWhiteSpace(cs))
-                        {
-                            Log.Warning("No KitchenDb connection string provided for Npgsql; falling back to SQLite at {Path}", sqlitePath);
-                            options.UseSqlite(sqliteCs);
-                        }
-                        else
-                        {
-                            options.UseNpgsql(cs);
-                        }
+                            : ctx.Configuration.GetConnectionString("KitchenDb") ?? Environment.GetEnvironmentVariable("INVENTORY_DB_CONNECTION") ?? "";
+                        options.UseNpgsql(cs);
                     }
                     else
                     {
-                        var cs = !string.IsNullOrWhiteSpace(configuredCs) ? configuredCs : sqliteCs;
+                        var cs = !string.IsNullOrWhiteSpace(configuredCs)
+                            ? configuredCs
+                            : sqliteCs;
                         options.UseSqlite(cs);
                     }
                 }
 
-                // Keep AddDbContext for migration scope usage
-                services.AddDbContext<KitchenInventory.Data.KitchenInventoryDbContext>(Configure);
-
-                // Add factory for WPF usage (create contexts on-demand per operation)
                 services.AddDbContextFactory<KitchenInventory.Data.KitchenInventoryDbContext>(Configure);
-
-                // Diagnostics service and window
                 services.AddSingleton<IDatabaseInfoService, DatabaseInfoService>();
-                services.AddTransient<DiagnosticsWindow>();
-                services.AddSingleton<IDiagnosticsExporter, DiagnosticsExporter>();
-                
-                // Preferences and Settings
                 services.AddSingleton<IPreferencesService, PreferencesService>();
-                services.AddTransient<SettingsWindow>();
-
-                services.AddSingleton<IFileSaveService, FileSaveService>();
+                services.AddSingleton<IDialogService, DialogService>();
+                // Register authentication and session services
+                services.AddSingleton<IAuthenticationService, AuthenticationService>();
+                services.AddSingleton<ISessionService, SessionService>();
+                // File and CSV services
                 services.AddSingleton<IFileOpenService, FileOpenService>();
+                services.AddSingleton<IFileSaveService, FileSaveService>();
                 services.AddSingleton<ICsvImportService, CsvImportService>();
-                services.AddTransient<ItemsViewModel>();
+                // ViewModels
+                services.AddSingleton<ItemsViewModel>();
+
+                // Windows and other services
                 services.AddSingleton<MainWindow>();
             })
             .Build();
@@ -198,13 +211,30 @@ public partial class App : Application
         var envCrash = Environment.GetEnvironmentVariable("INVENTORY_CRASH_TEST");
         if (!string.IsNullOrWhiteSpace(envCrash))
         {
-            if (string.Equals(envCrash, "1", StringComparison.OrdinalIgnoreCase) || string.Equals(envCrash, "true", StringComparison.OrdinalIgnoreCase))
+            var ec = envCrash.Trim().Trim('"');
+            if (string.Equals(ec, "1", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(ec, "true", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(ec, "sentry", StringComparison.OrdinalIgnoreCase))
             {
                 crashMode ??= "sentry";
             }
+            else if (string.Equals(ec, "dump", StringComparison.OrdinalIgnoreCase))
+            {
+                crashMode ??= "dump";
+            }
+            else if (string.Equals(ec, "0", StringComparison.OrdinalIgnoreCase)
+                     || string.Equals(ec, "false", StringComparison.OrdinalIgnoreCase)
+                     || string.Equals(ec, "off", StringComparison.OrdinalIgnoreCase)
+                     || string.Equals(ec, "no", StringComparison.OrdinalIgnoreCase)
+                     || string.Equals(ec, "none", StringComparison.OrdinalIgnoreCase))
+            {
+                // Explicitly disabled via environment variable; do nothing
+                Log.Information("Crash-test disabled via INVENTORY_CRASH_TEST='{Value}'", ec);
+            }
             else
             {
-                crashMode ??= envCrash;
+                // Unrecognized value; ignore to avoid accidental crash
+                Log.Warning("Unrecognized INVENTORY_CRASH_TEST value '{Value}'. Ignoring.", ec);
             }
         }
         if (!string.IsNullOrWhiteSpace(crashMode) && exportRequested)
@@ -357,6 +387,7 @@ public partial class App : Application
 
                 var dbFactory = _host.Services.GetRequiredService<IDbContextFactory<KitchenInventory.Data.KitchenInventoryDbContext>>();
                 using var db = dbFactory.CreateDbContext();
+
                 var items = db.Items.AsNoTracking().Include(i => i.Category).OrderBy(i => i.Id).ToList();
                 var csv = KitchenInventory.Desktop.Services.CsvExportService.ExportItems(items);
 
@@ -470,10 +501,9 @@ public partial class App : Application
                 var dbFactory = _host.Services.GetRequiredService<IDbContextFactory<KitchenInventory.Data.KitchenInventoryDbContext>>();
                 using var db = dbFactory.CreateDbContext();
 
-                var movements = db.StockMovements.AsNoTracking().OrderByDescending(m => m.CreatedAt).Take(movementsTake).ToList();
-                 var itemNames = db.Items.AsNoTracking().ToDictionary(i => i.Id, i => i.Name);
-                 string MapName(int id) => itemNames.TryGetValue(id, out var n) ? n : string.Empty;
-                 var csv = KitchenInventory.Desktop.Services.CsvExportService.ExportMovements(movements, MapName);
+                var movements = db.StockMovements.AsNoTracking().OrderByDescending(m => m.TimestampUtc).Take(movementsTake).ToList();
+                var itemNames = db.Items.AsNoTracking().ToDictionary(i => i.Id, i => i.Name);
+                var csv = KitchenInventory.Desktop.Services.CsvExportService.ExportMovements(movements, itemNames);
  
                  System.IO.File.WriteAllText(exportMovementsPath!, csv, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
                 Log.Information("Movements CSV exported to {Path}. Count={Count}", exportMovementsPath, movements.Count);
@@ -695,15 +725,109 @@ public partial class App : Application
         }
 
         // Headless/CI smoke mode: don't create UI, just verify startup and DB and exit 0
-        var headless = e.Args.Any(a => string.Equals(a, "--headless", StringComparison.OrdinalIgnoreCase))
-                       || string.Equals(Environment.GetEnvironmentVariable("INVENTORY_HEADLESS"), "1", StringComparison.OrdinalIgnoreCase)
-                       || string.Equals(Environment.GetEnvironmentVariable("CI"), "true", StringComparison.OrdinalIgnoreCase);
+        // Respect explicit INVENTORY_HEADLESS override even when CI=true
+        bool? envHeadless = null;
+        var envHeadlessRaw = Environment.GetEnvironmentVariable("INVENTORY_HEADLESS");
+        if (!string.IsNullOrEmpty(envHeadlessRaw))
+        {
+            if (string.Equals(envHeadlessRaw, "1", StringComparison.OrdinalIgnoreCase) || string.Equals(envHeadlessRaw, "true", StringComparison.OrdinalIgnoreCase))
+                envHeadless = true;
+            else if (string.Equals(envHeadlessRaw, "0", StringComparison.OrdinalIgnoreCase) || string.Equals(envHeadlessRaw, "false", StringComparison.OrdinalIgnoreCase))
+                envHeadless = false;
+        }
+        var argHeadless = e.Args.Any(a => string.Equals(a, "--headless", StringComparison.OrdinalIgnoreCase));
+        var ci = string.Equals(Environment.GetEnvironmentVariable("CI"), "true", StringComparison.OrdinalIgnoreCase);
+        var headless = envHeadless ?? (argHeadless || ci);
         _headlessMode = headless;
         if (headless)
         {
-            Log.Information("Headless mode: startup + DB migration succeeded; exiting without UI");
+            Log.Information("Headless mode: startup + DB migration succeeded; exiting without UI (INVENTORY_HEADLESS={Env}, CI={CI})", envHeadlessRaw, ci);
             Environment.ExitCode = ExitCodes.Success;
             Shutdown(ExitCodes.Success);
+            return;
+        }
+
+        // First-run privacy consent for crash reporting (UI mode only)
+        try
+        {
+            var prefs = _host.Services.GetRequiredService<IPreferencesService>();
+            var alreadyPrompted = prefs.Get<bool>("privacy.errorReportingPrompted", false);
+            if (!alreadyPrompted && !_crashTest)
+            {
+                var dlg = new PrivacyConsentWindow
+                {
+                    // Default fallback; will switch to CenterOwner if we set a valid owner below
+                    WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen
+                };
+
+                // Assign safe owner and center if possible
+                WindowOwnerHelper.SetSafeOwner(dlg);
+
+                var result = dlg.ShowDialog();
+                var enable = dlg.EnableReporting;
+                prefs.Set("privacy.errorReportingPrompted", true);
+                prefs.Set("privacy.errorReportingEnabled", enable);
+                prefs.Save();
+                Log.Information("Crash reporting consent: Enabled={Enabled}", enable);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Privacy consent prompt failed; continuing without enabling crash reporting");
+        }
+
+        // Authentication gating: Admin setup on first run, otherwise login
+        try
+        {
+            var auth = _host.Services.GetRequiredService<IAuthenticationService>();
+            var session = _host.Services.GetRequiredService<ISessionService>();
+            var dbFactory = _host.Services.GetRequiredService<IDbContextFactory<KitchenInventory.Data.KitchenInventoryDbContext>>();
+            var loggerFactory = _host.Services.GetRequiredService<ILoggerFactory>();
+
+            var hasUsers = await auth.HasAnyUsersAsync();
+            if (!hasUsers)
+            {
+                var dlgLogger = loggerFactory.CreateLogger<AdminSetupViewModel>();
+                var setupDlg = new AdminSetupDialog(auth, session, dlgLogger)
+                {
+                    WindowStartupLocation = WindowStartupLocation.CenterScreen
+                };
+                WindowOwnerHelper.SetSafeOwner(setupDlg);
+                var setupResult = setupDlg.ShowDialog();
+                if (setupResult != true)
+                {
+                    Environment.ExitCode = ExitCodes.GeneralError;
+                    Shutdown(ExitCodes.GeneralError);
+                    return;
+                }
+            }
+            else
+            {
+                var dlgLogger = loggerFactory.CreateLogger<LoginViewModel>();
+                var loginDlg = new LoginDialog(auth, dbFactory, session, dlgLogger)
+                {
+                    WindowStartupLocation = WindowStartupLocation.CenterScreen
+                };
+                WindowOwnerHelper.SetSafeOwner(loginDlg);
+                var loginResult = loginDlg.ShowDialog();
+                if (loginResult != true)
+                {
+                    Environment.ExitCode = ExitCodes.GeneralError;
+                    Shutdown(ExitCodes.GeneralError);
+                    return;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal(ex, "Authentication gating failed");
+            var owner = WindowOwnerHelper.GetSafeOwner() ?? MainWindow;
+            if (owner != null)
+                MessageBox.Show(owner, $"Failed to authenticate: {ex.Message}", "Kitchen Inventory", MessageBoxButton.OK, MessageBoxImage.Error);
+            else
+                MessageBox.Show($"Failed to authenticate: {ex.Message}", "Kitchen Inventory", MessageBoxButton.OK, MessageBoxImage.Error);
+            Environment.ExitCode = ExitCodes.GeneralError;
+            Shutdown(ExitCodes.GeneralError);
             return;
         }
 
@@ -720,7 +844,11 @@ public partial class App : Application
             Log.Fatal(ex, "Failed to show MainWindow");
             if (!_headlessMode)
             {
-                MessageBox.Show($"Failed to start application: {ex.Message}", "Kitchen Inventory", MessageBoxButton.OK, MessageBoxImage.Error);
+                var owner = WindowOwnerHelper.GetSafeOwner() ?? MainWindow;
+                if (owner != null)
+                    MessageBox.Show(owner, $"Failed to start application: {ex.Message}", "Kitchen Inventory", MessageBoxButton.OK, MessageBoxImage.Error);
+                else
+                    MessageBox.Show($"Failed to start application: {ex.Message}", "Kitchen Inventory", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             Environment.ExitCode = ExitCodes.GeneralError;
             Shutdown(ExitCodes.GeneralError);
@@ -743,9 +871,13 @@ public partial class App : Application
         Log.Fatal(e.Exception, "DispatcherUnhandledException");
         SentrySdk.CaptureException(e.Exception);
         if (!_headlessMode)
-        {
+    {
+        var owner = WindowOwnerHelper.GetSafeOwner() ?? MainWindow;
+        if (owner != null)
+            MessageBox.Show(owner, $"Unexpected error: {e.Exception.Message}", "Kitchen Inventory", MessageBoxButton.OK, MessageBoxImage.Error);
+        else
             MessageBox.Show($"Unexpected error: {e.Exception.Message}", "Kitchen Inventory", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
+    }
         e.Handled = true; // prevent crash when possible
         if (_headlessMode || _crashTest)
         {

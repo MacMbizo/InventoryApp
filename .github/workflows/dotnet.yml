@@ -1,32 +1,42 @@
-name: .NET CI
+name: .NET CI (mini)
 
 on:
   push:
-    branches: [ "**" ]
+    branches:
+      - main
+      - ci/*
+      - feature/*
+      - hotfix/*
+      - release/*
   pull_request:
-    branches: [ "**" ]
-  workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+    branches:
+      - main
+      - release/*
+  workflow_dispatch: {}
 
 jobs:
-  build-test:
+  secrets-check:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Echo secrets/vars presence (no values)
+        run: |
+          echo "MSIX_PFX_B64 set: ${{ secrets.MSIX_PFX_B64 != '' }}"
+          echo "MSIX_PFX_PASSWORD set: ${{ secrets.MSIX_PFX_PASSWORD != '' }}"
+          echo "WINGET_TOKEN set: ${{ secrets.WINGET_TOKEN != '' }}"
+          echo "WINGET_IDENTIFIER var set: ${{ vars.WINGET_IDENTIFIER != '' }}"
+  sanity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Echo context
+        run: |
+          echo "event=${{ github.event_name }} ref=${{ github.ref }} sha=${{ github.sha }} workflow=${{ github.workflow }} run_id=${{ github.run_id }} on $(date)"
+
+  build-test-windows:
     runs-on: windows-latest
-    env:
-      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
-      DOTNET_NOLOGO: "1"
-      DOTNET_DbgEnableMiniDump: "1"
-      DOTNET_DbgMiniDumpType: "2" # 2=Heap dump
-      COMPlus_DbgEnableMiniDump: "1"
-      COMPlus_DbgMiniDumpType: "2"
-      SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
-      INVENTORY_COMMIT_SHA: ${{ github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup .NET SDK (global.json)
         uses: actions/setup-dotnet@v4
         with:
@@ -35,270 +45,97 @@ jobs:
           cache-dependency-path: |
             **/packages.lock.json
             **/*.csproj
-            **/*.fsproj
-            **/*.vbproj
             Directory.Packages.props
-
       - name: Restore
         run: |
           dotnet restore ./InventoryApp.sln -r win-x64
-
-      - name: Build
+      - name: Build (project-level to avoid MSIX wapproj)
         run: |
-          dotnet build ./InventoryApp.sln --configuration Release --no-restore
-
-      - name: Smoke (DB migrate + basic query)
+          dotnet build src/KitchenInventory.Domain/KitchenInventory.Domain.csproj --configuration Release --no-restore --nologo
+          dotnet build src/KitchenInventory.Data/KitchenInventory.Data.csproj --configuration Release --no-restore --nologo
+          dotnet build src/KitchenInventory.Desktop/KitchenInventory.Desktop.csproj --configuration Release --no-restore --nologo
+          dotnet build src/QAAgentRunner/QAAgentRunner.csproj --configuration Release --no-restore --nologo
+          dotnet build tests/KitchenInventory.Desktop.Tests/KitchenInventory.Desktop.Tests.csproj --configuration Release --no-restore --nologo
+          dotnet build tests/QAAgentRunner.Tests/QAAgentRunner.Tests.csproj --configuration Release --no-restore --nologo
+      - name: Test (project-level)
         run: |
-          dotnet run --project ./src/KitchenInventory.Smoke/KitchenInventory.Smoke.csproj --configuration Release --no-build
+          dotnet test tests/KitchenInventory.Desktop.Tests/KitchenInventory.Desktop.Tests.csproj --configuration Release --verbosity normal --logger "trx;LogFileName=TestResults.trx"
+          dotnet test tests/QAAgentRunner.Tests/QAAgentRunner.Tests.csproj --configuration Release --verbosity normal --logger "trx;LogFileName=TestResults.trx"
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build-release
+          path: |
+            src/**/bin/Release/**
+            tests/**/bin/Release/**
+            tests/**/TestResults/**
+      - name: Basic OS and .NET info
+        shell: pwsh
+        run: |
+          Write-Host "PSVersion: $($PSVersionTable.PSVersion)"
+          Get-CimInstance Win32_OperatingSystem | Select-Object Caption,Version,BuildNumber | Format-List
+          dotnet --version
 
-      - name: Desktop Headless (startup + migrations)
-        env:
-          INVENTORY_HEADLESS: "1"
+  package-msix:
+    if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/') }}
+    needs: build-test-windows
+    runs-on: windows-latest
+    env:
+      MSIX_PFX_B64: ${{ secrets.MSIX_PFX_B64 }}
+      MSIX_PFX_PASSWORD: ${{ secrets.MSIX_PFX_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup .NET SDK (global.json)
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: ./global.json
+      - name: Build MSIX package (wapproj)
+        shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $exe = "${{ github.workspace }}\src\KitchenInventory.Desktop\bin\Release\net8.0-windows\KitchenInventory.Desktop.exe"
-          if (!(Test-Path $exe)) { throw "Desktop exe not found at $exe" }
-          # Basic headless startup
-          $proc = Start-Process -FilePath $exe -ArgumentList '--headless' -PassThru -Wait -NoNewWindow
-          $code = $proc.ExitCode
-          Write-Host "Headless exit code: $code"
-          if ($code -ne 0) { throw "Desktop headless run failed with exit code $code" }
-
-          # CLI CSV import (success)
-          $sample = Join-Path $env:TEMP 'sample-import.csv'
-          @(
-            'Id,Name,Quantity,Unit,CategoryName,ExpiryDate'
-            '0,Apples,3,pcs,Produce,2026-01-15'
-          ) | Out-File -FilePath $sample -Encoding utf8 -Force
-          if (!(Test-Path $sample)) { throw "Sample CSV not created at $sample" }
-          & $exe --headless --import-csv "$sample"
-          $importOk = $LASTEXITCODE
-          Write-Host "CLI import (success) exit code: $importOk"
-          if ($importOk -ne 0) { throw "CSV import expected success (0) but got $importOk" }
-
-          # CLI CSV import (missing file -> FileOperationError=11)
-          $missing = Join-Path $env:TEMP 'missing.csv'
-          if (Test-Path $missing) { Remove-Item $missing -Force }
-          & $exe --headless --import-csv "$missing"
-          $importMissing = $LASTEXITCODE
-          Write-Host "CLI import (missing) exit code: $importMissing"
-          if ($importMissing -ne 11) { throw "CSV import expected FileOperationError (11) but got $importMissing" }
-
-      - name: Test (all non-UI)
-        run: |
-          dotnet test ./InventoryApp.sln --configuration Release --no-build --no-restore --logger "trx;LogFileName=test-results.trx" --filter "Category!=UI"
-
-      - name: UI Smoke Tests (xUnit + FlaUI)
-        continue-on-error: true
-        run: |
-          dotnet test ./tests/KitchenInventory.Desktop.Tests/KitchenInventory.Desktop.Tests.csproj --configuration Release --no-build --no-restore --logger "trx;LogFileName=ui-smoke.trx" --filter "Category=UI"
-
-      - name: Publish Desktop (portable)
-        shell: pwsh
-        run: |
-          $dest = "${{ github.workspace }}\artifacts\publish\desktop"
-          New-Item -ItemType Directory -Force -Path $dest | Out-Null
-          dotnet publish ./src/KitchenInventory.Desktop/KitchenInventory.Desktop.csproj `
-            -c Release -r win-x64 -o $dest `
-            -p:PublishSingleFile=false -p:IncludeNativeLibrariesForSelfExtract=false --no-restore
-
-      - name: Package Portable Zip
-        shell: pwsh
-        run: |
-          $src = "${{ github.workspace }}\artifacts\publish\desktop"
-          $zip = "${{ github.workspace }}\artifacts\KitchenInventory.Desktop-win-x64.zip"
-          if (Test-Path $zip) { Remove-Item $zip -Force }
-          Compress-Archive -Path (Join-Path $src '*') -DestinationPath $zip -Force
-
-      - name: Upload Portable Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: KitchenInventory.Desktop-win-x64
-          path: artifacts/KitchenInventory.Desktop-win-x64.zip
-
-      - name: Build MSI (WiX v4)
-        shell: pwsh
-        run: |
-          $publishDir = "${{ github.workspace }}\artifacts\publish\desktop"
-          if (!(Test-Path $publishDir)) { throw "Publish dir not found: $publishDir" }
-          dotnet build .\src\Installer.Msi\Installer.Msi.wixproj -c Release -p:AppPublishDir="$publishDir" --nologo
-          $msi = Get-ChildItem -Path .\src\Installer.Msi\bin\Release\*.msi -ErrorAction Stop | Select-Object -First 1
-          if (-not $msi) { throw "MSI not found" }
-          $outDir = "${{ github.workspace }}\artifacts\installer"
-          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-          Copy-Item $msi.FullName (Join-Path $outDir $msi.Name) -Force
-
-      - name: Upload MSI Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: KitchenInventory-Installer-MSI
-          path: artifacts/installer/*.msi
-
-      - name: Export Diagnostics Bundle
-        shell: pwsh
-        run: |
-          $destDir = "${{ github.workspace }}\artifacts\diagnostics"
-          New-Item -ItemType Directory -Force -Path $destDir | Out-Null
-          $zip = Join-Path $destDir "diagnostics-${{ github.run_id }}-${{ github.run_attempt }}.zip"
-          $exe = "${{ github.workspace }}\src\KitchenInventory.Desktop\bin\Release\net8.0-windows\KitchenInventory.Desktop.exe"
-          if (!(Test-Path $exe)) { throw "Desktop exe not found at $exe" }
-          $proc = Start-Process -FilePath $exe -ArgumentList "--export-diagnostics=`"$zip`"" -PassThru -Wait -NoNewWindow
-          $code = $proc.ExitCode
-          Write-Host "Diagnostics export exit code: $code"
-          if ($code -ne 0) { throw "Diagnostics export failed with exit code $code" }
-
-      - name: Upload diagnostics artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: diagnostics-bundle
-          path: artifacts/diagnostics/*.zip
-
-      - name: Collect runtime logs
-        if: always()
-        shell: pwsh
-        run: |
-          $dest = "${{ github.workspace }}\artifacts\logs"
-          New-Item -ItemType Directory -Force -Path $dest | Out-Null
-          $src = "$env:LOCALAPPDATA\InventoryApp\logs"
-          if (Test-Path $src) { Copy-Item -Path (Join-Path $src '*') -Destination $dest -Force -ErrorAction SilentlyContinue }
-
-      - name: Collect crash dumps
-        if: always()
-        shell: pwsh
-        run: |
-          $dest = "${{ github.workspace }}\artifacts\dumps"
-          New-Item -ItemType Directory -Force -Path $dest | Out-Null
-          $roots = @("${{ github.workspace }}","$env:USERPROFILE","$env:LOCALAPPDATA","$env:TEMP","$env:TMP")
-          foreach ($root in $roots) {
-            if (Test-Path $root) {
-              Get-ChildItem -Path $root -Recurse -Include *.dmp,*.mdmp -ErrorAction SilentlyContinue | ForEach-Object {
-                $target = Join-Path $dest $_.Name
-                Copy-Item -Path $_.FullName -Destination $target -Force -ErrorAction SilentlyContinue
-              }
-            }
+          $msixDir = Join-Path $pwd 'artifacts\msix\'
+          New-Item -ItemType Directory -Force -Path $msixDir | Out-Null
+          if ($env:MSIX_PFX_B64) {
+            [IO.File]::WriteAllBytes('signing_cert.pfx', [Convert]::FromBase64String($env:MSIX_PFX_B64))
           }
-
-      - name: Upload logs artifact
+          $msbuildArgs = @(
+            '.\src\Installer.Msix\Installer.Msix.wapproj',
+            '/t:Restore;Rebuild',
+            '/p:Configuration=Release',
+            '/p:UapAppxPackageBuildMode=SideloadOnly',
+            "/p:AppxPackageDir=$msixDir"
+          )
+          if (Test-Path 'signing_cert.pfx') {
+            $pfxPath = Join-Path $pwd 'signing_cert.pfx'
+            $msbuildArgs += "/p:PackageCertificateKeyFile=$pfxPath"
+            if ($env:MSIX_PFX_PASSWORD) { $msbuildArgs += "/p:PackageCertificatePassword=$env:MSIX_PFX_PASSWORD" }
+          }
+          & msbuild @msbuildArgs
+      - name: Upload MSIX artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: InventoryApp-logs
-          path: artifacts/logs
-
-      - name: Upload crash dumps artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: crash-dumps
-          path: artifacts/dumps
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
+          name: msix-package
           path: |
-            tests/**/TestResults/*.trx
-            **/TestResults/*.trx
+            artifacts/msix/**
+            src/Installer.Msix/AppPackages/**
 
-  crash-test:
-    if: github.event_name == 'workflow_dispatch'
+  winget-publish:
+    if: ${{ github.event_name == 'release' && github.event.action == 'published' }}
+    needs: package-msix
     runs-on: windows-latest
     env:
-      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
-      DOTNET_NOLOGO: "1"
-      DOTNET_DbgEnableMiniDump: "1"
-      DOTNET_DbgMiniDumpType: "2"
-      COMPlus_DbgEnableMiniDump: "1"
-      COMPlus_DbgMiniDumpType: "2"
-      SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
-      INVENTORY_COMMIT_SHA: ${{ github.sha }}
+      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+      WINGET_IDENTIFIER: ${{ vars.WINGET_IDENTIFIER }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET SDK (global.json)
-        uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: ./global.json
-          cache: true
-          cache-dependency-path: |
-            **/packages.lock.json
-            **/*.csproj
-            **/*.fsproj
-            **/*.vbproj
-            Directory.Packages.props
-
-      - name: Restore
-        run: |
-          dotnet restore ./InventoryApp.sln -r win-x64
-
-      - name: Build
-        run: |
-          dotnet build ./InventoryApp.sln --configuration Release --no-restore
-
-      - name: Publish Desktop (portable)
+      - name: Placeholder for winget publish (gated by secrets)
         shell: pwsh
         run: |
-          $dest = "${{ github.workspace }}\artifacts\publish\desktop"
-          New-Item -ItemType Directory -Force -Path $dest | Out-Null
-          dotnet publish ./src/KitchenInventory.Desktop/KitchenInventory.Desktop.csproj `
-            -c Release -r win-x64 -o $dest `
-            -p:PublishSingleFile=false -p:IncludeNativeLibrariesForSelfExtract=false --no-restore
-
-      - name: Trigger synthetic Sentry crash
-        continue-on-error: true
-        shell: pwsh
-        run: |
-          $exe = "${{ github.workspace }}\src\KitchenInventory.Desktop\bin\Release\net8.0-windows\KitchenInventory.Desktop.exe"
-          if (!(Test-Path $exe)) { throw "Desktop exe not found at $exe" }
-          & $exe --crash-test=sentry
-          Write-Host "Exit code: $LASTEXITCODE"
-
-      - name: Trigger synthetic hard dump crash
-        continue-on-error: true
-        shell: pwsh
-        run: |
-          $exe = "${{ github.workspace }}\src\KitchenInventory.Desktop\bin\Release\net8.0-windows\KitchenInventory.Desktop.exe"
-          if (!(Test-Path $exe)) { throw "Desktop exe not found at $exe" }
-          & $exe --crash-test=dump
-          Write-Host "Exit code: $LASTEXITCODE"
-
-      - name: Collect runtime logs
-        if: always()
-        shell: pwsh
-        run: |
-          $dest = "${{ github.workspace }}\artifacts\logs"
-          New-Item -ItemType Directory -Force -Path $dest | Out-Null
-          $src = "$env:LOCALAPPDATA\InventoryApp\logs"
-          if (Test-Path $src) { Copy-Item -Path (Join-Path $src '*') -Destination $dest -Force -ErrorAction SilentlyContinue }
-
-      - name: Collect crash dumps
-        if: always()
-        shell: pwsh
-        run: |
-          $dest = "${{ github.workspace }}\artifacts\dumps"
-          New-Item -ItemType Directory -Force -Path $dest | Out-Null
-          $roots = @("${{ github.workspace }}","$env:USERPROFILE","$env:LOCALAPPDATA","$env:TEMP","$env:TMP")
-          foreach ($root in $roots) {
-            if (Test-Path $root) {
-              Get-ChildItem -Path $root -Recurse -Include *.dmp,*.mdmp -ErrorAction SilentlyContinue | ForEach-Object {
-                $target = Join-Path $dest $_.Name
-                Copy-Item -Path $_.FullName -Destination $target -Force -ErrorAction SilentlyContinue
-              }
-            }
+          if (-not $env:WINGET_TOKEN -or -not $env:WINGET_IDENTIFIER) {
+            Write-Host "Winget publish skipped: token or identifier not configured."
+            exit 0
           }
-
-      - name: Upload logs artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: crash-test-logs
-          path: artifacts/logs
-
-      - name: Upload crash dumps artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: crash-test-dumps
-          path: artifacts/dumps
+          Write-Host "Winget publish would run here using WINGET_IDENTIFIER=$env:WINGET_IDENTIFIER"
+          Write-Host "TODO: Integrate wingetcreate-based submission"

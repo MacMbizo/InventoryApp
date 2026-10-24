@@ -2,6 +2,8 @@ using Microsoft.Win32;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using KitchenInventory.Desktop.Utilities;
+using System.Windows;
 
 namespace KitchenInventory.Desktop.Services
 {
@@ -15,8 +17,12 @@ namespace KitchenInventory.Desktop.Services
                 CheckFileExists = true,
                 Multiselect = false
             };
-            var result = dlg.ShowDialog();
+
+            // Prefer an owner to keep dialog modal to the app and properly centered
+            Window? owner = WindowOwnerHelper.GetSafeOwner();
+            bool? result = owner != null ? dlg.ShowDialog(owner) : dlg.ShowDialog();
             if (result != true) return null;
+
             using var stream = dlg.OpenFile();
             using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
             return await reader.ReadToEndAsync();

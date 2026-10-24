@@ -5,10 +5,13 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Automation;
 using KitchenInventory.Data;
 using KitchenInventory.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using KitchenInventory.Desktop.Utilities;
+using System.Windows.Threading;
 
 namespace KitchenInventory.Desktop
 {
@@ -17,6 +20,9 @@ namespace KitchenInventory.Desktop
         private readonly IDbContextFactory<KitchenInventoryDbContext> _dbFactory;
         private readonly ILogger<CategoryManagementDialog> _logger;
         public ObservableCollection<Category> Categories { get; } = new();
+
+        // Guard against race where initial load overwrites in-memory mutations
+        private int _mutationEpoch = 0;
 
         public event PropertyChangedEventHandler? PropertyChanged;
         private void OnPropertyChanged(string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
@@ -38,8 +44,15 @@ namespace KitchenInventory.Desktop
         {
             try
             {
+                // Capture epoch at start; if any mutation occurs before apply, skip stale results
+                var epochAtStart = _mutationEpoch;
                 using var db = await _dbFactory.CreateDbContextAsync();
                 var cats = await db.Categories.AsNoTracking().OrderBy(c => c.Name).ToListAsync();
+                if (epochAtStart != _mutationEpoch)
+                {
+                    // Stale load; a mutation happened while we were fetching
+                    return;
+                }
                 Categories.Clear();
                 foreach (var c in cats) Categories.Add(c);
                 _logger.LogInformation("Loaded {Count} categories", Categories.Count);
@@ -67,7 +80,7 @@ namespace KitchenInventory.Desktop
 
         private async void Add_Click(object sender, RoutedEventArgs e)
         {
-            var name = PromptText("Enter new category name:");
+            var name = PromptText("Enter new category name");
             if (name == null) return;
             name = name.Trim();
             if (string.IsNullOrWhiteSpace(name)) { ShowError("Name is required."); return; }
@@ -85,7 +98,23 @@ namespace KitchenInventory.Desktop
                 var entity = new Category { Name = name, CreatedAtUtc = now, UpdatedAtUtc = now };
                 db.Categories.Add(entity);
                 await db.SaveChangesAsync();
+
+                // Increment epoch before applying to in-memory collection so any in-flight loads skip stale apply
+                _mutationEpoch++;
+
                 Categories.Add(entity);
+
+                // Ensure the newly added row is realized and visible for both users and UIA tests
+                await Dispatcher.Yield(DispatcherPriority.Background);
+                try
+                {
+                    CategoriesGrid.SelectedItem = entity;
+                    CategoriesGrid.UpdateLayout();
+                    CategoriesGrid.ScrollIntoView(entity);
+                    CategoriesGrid.UpdateLayout();
+                }
+                catch { /* non-fatal UI realization attempt */ }
+
                 ShowError(null);
             }
             catch (Exception ex)
@@ -147,9 +176,13 @@ namespace KitchenInventory.Desktop
                 return;
             }
 
-            var confirm = MessageBox.Show(this,
-                $"Delete category '{selected.Name}'? Items in this category will not be deleted. Their category will be cleared.",
-                "Confirm Delete", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            var owner = WindowOwnerHelper.GetSafeOwner(this) ?? this;
+            var confirm = MessageBox.Show(owner,
+                "Are you sure you want to delete the selected category? This will remove the category assignment from items, but items will not be deleted.",
+                "Confirm Delete",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                MessageBoxResult.No);
             if (confirm != MessageBoxResult.Yes) return;
 
             try
@@ -197,8 +230,7 @@ namespace KitchenInventory.Desktop
                 Title = prompt,
                 Width = 420,
                 Height = 140,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Owner = this,
+                WindowStartupLocation = WindowStartupLocation.CenterScreen,
                 ResizeMode = ResizeMode.NoResize,
                 Content = new Grid
                 {
@@ -215,8 +247,13 @@ namespace KitchenInventory.Desktop
                 }
             };
 
+            // Safely assign an owner (prefer the hosting dialog) and center accordingly
+            WindowOwnerHelper.SetSafeOwner(dlg, this);
+
             var grid = (Grid)dlg.Content;
             var input = (TextBox)grid.Children[0];
+            // Ensure UI Automation can find by AutomationId("Input")
+            AutomationProperties.SetAutomationId(input, "Input");
             var panel = new StackPanel{Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right};
             var ok = new Button{Content = "OK", Width = 80, IsDefault = true, Margin = new Thickness(0,0,6,0)};
             var cancel = new Button{Content = "Cancel", Width = 80, IsCancel = true};
