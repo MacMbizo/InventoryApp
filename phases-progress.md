@@ -97,22 +97,26 @@ This document tracks the implementation phases for the Kitchen Inventory Desktop
 
 ---
 
-## Phase 5: Security and Multi-User ❌ (OPTIONAL)
+## Phase 5: Security and Multi-User ⚠️ (IN PROGRESS)
 *Enterprise security and collaboration features based on requirements.*
 
 ### Features
-- **Authentication**: Local accounts or Active Directory/Azure AD integration
-- **Role-Based Access**: Admin/User/ReadOnly permissions
-- **Central Synchronization**: Sync to central database or API
-- **Conflict Resolution**: Detect and resolve concurrent edit conflicts
-- **Audit Compliance**: Full audit trails for regulatory requirements
+- ✅ **Authentication**: Local accounts with PBKDF2-SHA256 hashing, 5-attempt/15-min lockout; first-run Admin setup
+- ✅ **Role-Based Access**: Admin/Manager/Staff permissions with UI gating; Admin-only user management dialog (create/edit role/reset password/unlock/delete)
+- ❌ **Central Synchronization**: Sync to central database or API
+- ❌ **Conflict Resolution**: Detect and resolve concurrent edit conflicts
+- 🚧 **Audit Compliance**: Stock movement ledger provides change audit trail; full compliance logging pending
 
 ### Acceptance Criteria
-- Users authenticate before accessing application
-- Permissions control feature access (add/edit/delete/export)
-- Multiple users can work with shared inventory data
-- Conflicts resolved through merge strategies or user choice
-- All actions logged for compliance and security audits
+- [x] Users authenticate before accessing application
+- [x] Permissions control feature access (add/edit/delete/export)
+- [ ] Multiple users can work with shared inventory data
+- [ ] Conflicts resolved through merge strategies or user choice
+- [ ] All actions logged for compliance and security audits
+
+### Recent Changes
+- **2026-10-24**: Added Admin-only User Management dialog (create user, change role, reset password, unlock, soft-delete) with self-modification and last-admin protections; RBAC-gated "Manage Users" menu item; 9 service tests added (52 non-UI tests passing)
+- **2026-10-24**: Added local authentication (PBKDF2-SHA256, account lockout) and Admin/Manager/Staff role-based access control with login/first-run setup dialogs
 
 ---
 

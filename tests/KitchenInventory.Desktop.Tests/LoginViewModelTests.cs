@@ -41,6 +41,16 @@ namespace KitchenInventory.Desktop.Tests
                 => Task.FromResult((true, (string?)null));
             public Task SignOutAsync() => Task.CompletedTask;
             public Task<bool> HasAnyUsersAsync(System.Threading.CancellationToken ct = default) => Task.FromResult(true);
+            public Task<System.Collections.Generic.IReadOnlyList<User>> GetUsersAsync(System.Threading.CancellationToken ct = default)
+                => Task.FromResult<System.Collections.Generic.IReadOnlyList<User>>(Array.Empty<User>());
+            public Task<(bool Success, string? Error)> UpdateUserRoleAsync(int userId, string newRole, string actingUsername, System.Threading.CancellationToken ct = default)
+                => Task.FromResult((true, (string?)null));
+            public Task<(bool Success, string? Error)> ResetPasswordAsync(int userId, string newPassword, System.Threading.CancellationToken ct = default)
+                => Task.FromResult((true, (string?)null));
+            public Task<(bool Success, string? Error)> DeleteUserAsync(int userId, string actingUsername, System.Threading.CancellationToken ct = default)
+                => Task.FromResult((true, (string?)null));
+            public Task<(bool Success, string? Error)> UnlockUserAsync(int userId, System.Threading.CancellationToken ct = default)
+                => Task.FromResult((true, (string?)null));
         }
 
         [Fact]

@@ -2,11 +2,14 @@ using System;
 using System.Windows;
 using System.Windows.Controls;
 using KitchenInventory.Desktop.ViewModels;
+using KitchenInventory.Desktop.Services;
+using KitchenInventory.Domain.Constants;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Windows.Data;
 using System.Windows.Input;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using KitchenInventory.Desktop.Utilities;
 
 namespace KitchenInventory.Desktop
@@ -30,6 +33,16 @@ namespace KitchenInventory.Desktop
         private async void MainWindow_OnLoaded(object sender, RoutedEventArgs e)
         {
             await _viewModel.LoadAsync();
+
+            // Gate the user management entry point to Administrators only
+            try
+            {
+                var session = ((App)Application.Current).Services.GetRequiredService<ISessionService>();
+                ManageUsersMenuItem.Visibility = string.Equals(session.CurrentRole, Roles.Admin, StringComparison.Ordinal)
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
+            catch { }
 
             // Respect automation/test runs: allow suppressing first-run prompt via env var
             bool suppressFirstRunPrompt = false;
@@ -133,6 +146,35 @@ namespace KitchenInventory.Desktop
             {
                 var owner = WindowOwnerHelper.GetSafeOwner(this) ?? this;
                 MessageBox.Show(owner, $"Failed to open diagnostics: {ex.Message}", "Diagnostics", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void Manage_Users_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var sp = ((App)Application.Current).Services;
+                var session = sp.GetRequiredService<ISessionService>();
+                if (!string.Equals(session.CurrentRole, Roles.Admin, StringComparison.Ordinal))
+                {
+                    MessageBox.Show(this, "Only administrators can manage users.", "Manage Users", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                var auth = sp.GetRequiredService<IAuthenticationService>();
+                using var loggerFactory = LoggerFactory.Create(builder =>
+                {
+                    builder.AddConsole();
+                    builder.SetMinimumLevel(LogLevel.Information);
+                });
+                var dialogLogger = loggerFactory.CreateLogger<UserManagementDialog>();
+
+                var dialog = new UserManagementDialog(auth, session, dialogLogger) { Owner = this };
+                dialog.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"Failed to open Manage Users: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 

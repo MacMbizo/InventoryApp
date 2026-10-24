@@ -100,6 +100,127 @@ namespace KitchenInventory.Desktop.Services
             return await db.Users.AnyAsync(u => !u.IsDeleted, ct);
         }
 
+        public async Task<IReadOnlyList<User>> GetUsersAsync(CancellationToken ct = default)
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            return await db.Users.AsNoTracking()
+                .Where(u => !u.IsDeleted)
+                .OrderBy(u => u.Username)
+                .ToListAsync(ct);
+        }
+
+        public async Task<(bool Success, string? Error)> UpdateUserRoleAsync(int userId, string newRole, string actingUsername, CancellationToken ct = default)
+        {
+            if (!IsValidRole(newRole))
+            {
+                return (false, "Invalid role");
+            }
+
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            var user = await db.Users.SingleOrDefaultAsync(u => u.Id == userId && !u.IsDeleted, ct);
+            if (user == null)
+            {
+                return (false, "User not found");
+            }
+
+            if (IsSelf(user.Username, actingUsername) && !string.Equals(newRole, Roles.Admin, StringComparison.Ordinal))
+            {
+                return (false, "You cannot change your own role");
+            }
+
+            if (string.Equals(user.Role, Roles.Admin, StringComparison.Ordinal) && !string.Equals(newRole, Roles.Admin, StringComparison.Ordinal))
+            {
+                var adminCount = await db.Users.CountAsync(u => !u.IsDeleted && u.Role == Roles.Admin, ct);
+                if (adminCount <= 1)
+                {
+                    return (false, "Cannot change the last administrator's role");
+                }
+            }
+
+            user.Role = newRole;
+            user.UpdatedAtUtc = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+            _logger.LogInformation("Role for user '{User}' changed to '{Role}' by '{Actor}'", user.Username, newRole, actingUsername);
+            return (true, null);
+        }
+
+        public async Task<(bool Success, string? Error)> ResetPasswordAsync(int userId, string newPassword, CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(newPassword))
+            {
+                return (false, "Password is required");
+            }
+
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            var user = await db.Users.SingleOrDefaultAsync(u => u.Id == userId && !u.IsDeleted, ct);
+            if (user == null)
+            {
+                return (false, "User not found");
+            }
+
+            user.PasswordHash = HashPassword(newPassword);
+            user.FailedLoginCount = 0;
+            user.LockoutUntil = null;
+            user.UpdatedAtUtc = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+            _logger.LogInformation("Password reset for user '{User}'", user.Username);
+            return (true, null);
+        }
+
+        public async Task<(bool Success, string? Error)> DeleteUserAsync(int userId, string actingUsername, CancellationToken ct = default)
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            var user = await db.Users.SingleOrDefaultAsync(u => u.Id == userId && !u.IsDeleted, ct);
+            if (user == null)
+            {
+                return (false, "User not found");
+            }
+
+            if (IsSelf(user.Username, actingUsername))
+            {
+                return (false, "You cannot delete your own account");
+            }
+
+            if (string.Equals(user.Role, Roles.Admin, StringComparison.Ordinal))
+            {
+                var adminCount = await db.Users.CountAsync(u => !u.IsDeleted && u.Role == Roles.Admin, ct);
+                if (adminCount <= 1)
+                {
+                    return (false, "Cannot delete the last administrator");
+                }
+            }
+
+            user.IsDeleted = true;
+            user.UpdatedAtUtc = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+            _logger.LogInformation("User '{User}' deleted by '{Actor}'", user.Username, actingUsername);
+            return (true, null);
+        }
+
+        public async Task<(bool Success, string? Error)> UnlockUserAsync(int userId, CancellationToken ct = default)
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            var user = await db.Users.SingleOrDefaultAsync(u => u.Id == userId && !u.IsDeleted, ct);
+            if (user == null)
+            {
+                return (false, "User not found");
+            }
+
+            user.FailedLoginCount = 0;
+            user.LockoutUntil = null;
+            user.UpdatedAtUtc = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+            _logger.LogInformation("User '{User}' unlocked", user.Username);
+            return (true, null);
+        }
+
+        private static bool IsValidRole(string role)
+            => role == Roles.Admin || role == Roles.Manager || role == Roles.Staff;
+
+        private static bool IsSelf(string username, string actingUsername)
+            => !string.IsNullOrWhiteSpace(actingUsername)
+               && string.Equals(username, actingUsername, StringComparison.OrdinalIgnoreCase);
+
         private static string HashPassword(string password)
         {
             using var rng = RandomNumberGenerator.Create();
