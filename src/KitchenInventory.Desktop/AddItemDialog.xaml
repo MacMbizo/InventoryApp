@@ -111,8 +111,24 @@
 
         <StackPanel Grid.Row="6" Grid.ColumnSpan="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,22,0,0">
             <Button Content="_Cancel" Width="90" Margin="0,0,10,0" IsCancel="True" AutomationProperties.AutomationId="CancelAddItemButton"/>
-            <Button Content="_Add" Width="120" IsDefault="True" Click="OnAddClick" AutomationProperties.AutomationId="ConfirmAddItemButton"
-                    IsEnabled="{Binding HasErrors, Converter={StaticResource InverseBooleanConverter}}"/>
+            <Button x:Name="ConfirmAddButton" Content="_Add" Width="120" IsDefault="True" Click="OnAddClick" AutomationProperties.AutomationId="ConfirmAddItemButton" Command="{Binding AddCommand}">
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Setter Property="IsEnabled" Value="True"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding ElementName=ItemNameTextBox, Path=(Validation.HasError)}" Value="True">
+                                <Setter Property="IsEnabled" Value="False"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding ElementName=QuantityTextBox, Path=(Validation.HasError)}" Value="True">
+                                <Setter Property="IsEnabled" Value="False"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding ElementName=UnitTextBox, Path=(Validation.HasError)}" Value="True">
+                                <Setter Property="IsEnabled" Value="False"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
         </StackPanel>
     </Grid>
 </Window>

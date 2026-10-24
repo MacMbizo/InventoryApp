@@ -17,6 +17,7 @@ using System.Globalization;
 using KitchenInventory.Desktop;
 using KitchenInventory.Desktop.ViewModels;
 using KitchenInventory.Desktop.Utilities;
+using KitchenInventory.Domain.Constants;
 
 namespace KitchenInventory.Desktop.ViewModels;
 
@@ -29,6 +30,7 @@ public class ItemsViewModel : INotifyPropertyChanged
     private readonly ICsvImportService _csvImport;
     private readonly IPreferencesService? _preferences;
     private readonly IDialogService? _dialogs;
+    private readonly ISessionService? _session;
     private decimal _lowStockThreshold;
     private int _expiringSoonDays;
 
@@ -199,7 +201,7 @@ public class ItemsViewModel : INotifyPropertyChanged
     // Category Management
     public ICommand ManageCategoriesCommand { get; }
 
-    public ItemsViewModel(IDbContextFactory<KitchenInventoryDbContext> dbFactory, ILogger<ItemsViewModel> logger, IFileSaveService fileSave, IFileOpenService fileOpen, ICsvImportService csvImport, IConfiguration? configuration = null, IPreferencesService? preferences = null, IDialogService? dialogs = null)
+    public ItemsViewModel(IDbContextFactory<KitchenInventoryDbContext> dbFactory, ILogger<ItemsViewModel> logger, IFileSaveService fileSave, IFileOpenService fileOpen, ICsvImportService csvImport, IConfiguration? configuration = null, IPreferencesService? preferences = null, IDialogService? dialogs = null, ISessionService? session = null)
     {
         _dbFactory = dbFactory;
         _logger = logger;
@@ -208,7 +210,12 @@ public class ItemsViewModel : INotifyPropertyChanged
         _csvImport = csvImport;
         _preferences = preferences;
         _dialogs = dialogs;
+        _session = session;
         _logger.LogInformation("ItemsViewModel constructed. DialogService injected: {HasDialog}", _dialogs != null);
+        if (_session != null)
+        {
+            _session.SessionChanged += (_, __) => { CommandManager.InvalidateRequerySuggested(); };
+        }
 
         // thresholds from preferences > config; defaults: LowStockThreshold=5, ExpiringSoonDays=7
         var prefLow = _preferences?.Get<decimal>("inventory.lowStockThreshold", default);
@@ -225,21 +232,23 @@ public class ItemsViewModel : INotifyPropertyChanged
         _crashReportingEnabled = _preferences?.Get<bool>("privacy.errorReportingEnabled", false) ?? false;
 
         RefreshCommand = new AsyncRelayCommand(LoadAsync);
-        AddItemCommand = _dialogs != null ? new AsyncRelayCommand(AddItemAsync) : new RelayCommand(AddItem);
-        DeleteItemCommand = new AsyncRelayCommand(DeleteSelectedAsync, () => SelectedItem != null);
-        SaveChangesCommand = new AsyncRelayCommand(SaveChangesAsync, () => Items.Count > 0 && AreItemsValid() && !HasValidationErrors);
-        ImportItemsCsvCommand = new AsyncRelayCommand(ImportItemsCsvAsync);
+        AddItemCommand = _dialogs != null
+            ? new AsyncRelayCommand(AddItemAsync, () => HasRole(Roles.Admin, Roles.Manager))
+            : new RelayCommand(AddItem, () => HasRole(Roles.Admin, Roles.Manager));
+        DeleteItemCommand = new AsyncRelayCommand(DeleteSelectedAsync, () => SelectedItem != null && HasRole(Roles.Admin));
+        SaveChangesCommand = new AsyncRelayCommand(SaveChangesAsync, () => Items.Count > 0 && AreItemsValid() && !HasValidationErrors && HasRole(Roles.Admin, Roles.Manager));
+        ImportItemsCsvCommand = new AsyncRelayCommand(ImportItemsCsvAsync, () => HasRole(Roles.Admin, Roles.Manager));
         ExportItemsCsvCommand = new AsyncRelayCommand(ExportItemsCsvAsync, () => ItemsView?.Cast<object>().Any() ?? false);
         ExportSelectedMovementsCsvCommand = new AsyncRelayCommand(ExportSelectedMovementsCsvAsync, () => SelectedItem != null && SelectedMovements.Count > 0);
         ExportRecentMovementsCsvCommand = new AsyncRelayCommand(ExportRecentMovementsCsvAsync, () => RecentMovements.Count > 0);
 
         // Initialize stock operation commands
-        AddStockCommand = new AsyncRelayCommand(() => ShowStockOperationDialogAsync("Add Stock"), () => SelectedItem != null);
-        ConsumeStockCommand = new AsyncRelayCommand(() => ShowStockOperationDialogAsync("Consume Stock"), () => SelectedItem != null);
-        AdjustStockCommand = new AsyncRelayCommand(() => ShowStockOperationDialogAsync("Adjust Stock"), () => SelectedItem != null);
+        AddStockCommand = new AsyncRelayCommand(() => ShowStockOperationDialogAsync("Add Stock"), () => SelectedItem != null && HasRole(Roles.Admin, Roles.Manager));
+        ConsumeStockCommand = new AsyncRelayCommand(() => ShowStockOperationDialogAsync("Consume Stock"), () => SelectedItem != null && HasRole(Roles.Admin, Roles.Manager, Roles.Staff));
+        AdjustStockCommand = new AsyncRelayCommand(() => ShowStockOperationDialogAsync("Adjust Stock"), () => SelectedItem != null && HasRole(Roles.Admin, Roles.Manager));
 
         // Initialize category management command
-        ManageCategoriesCommand = new AsyncRelayCommand(ShowManageCategoriesDialogAsync);
+        ManageCategoriesCommand = new AsyncRelayCommand(ShowManageCategoriesDialogAsync, () => HasRole(Roles.Admin, Roles.Manager));
         // Initialize view
         ItemsView = CollectionViewSource.GetDefaultView(Items);
         if (ItemsView != null)
@@ -906,5 +915,13 @@ public class ItemsViewModel : INotifyPropertyChanged
             _logger.LogError(ex, "Failed to open category management dialog");
             StatusText = $"Failed to open categories dialog: {ex.Message}";
         }
+    }
+
+    private bool HasRole(params string[] roles)
+    {
+        // If no session service is available (e.g., unit tests), allow operations to preserve legacy behavior
+        if (_session == null) return true;
+        var role = _session.CurrentRole;
+        return _session.IsAuthenticated && !string.IsNullOrWhiteSpace(role) && roles.Contains(role);
     }
 }

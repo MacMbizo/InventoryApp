@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Windows.Input;
 using KitchenInventory.Domain.Entities;
 
 namespace KitchenInventory.Desktop.ViewModels
@@ -15,6 +16,7 @@ namespace KitchenInventory.Desktop.ViewModels
 
         private readonly Dictionary<string, List<string>> _errors = new();
         public bool HasErrors => _errors.Values.Any(v => v.Count > 0);
+        public bool CanAdd => !HasErrors;
         public event EventHandler<DataErrorsChangedEventArgs>? ErrorsChanged;
         public IEnumerable GetErrors(string? propertyName)
         {
@@ -35,6 +37,8 @@ namespace KitchenInventory.Desktop.ViewModels
             }
             ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(propertyName));
             OnPropertyChanged(nameof(HasErrors));
+            OnPropertyChanged(nameof(CanAdd));
+            _addCommand?.RaiseCanExecuteChanged();
         }
 
         private void ValidateProperty(string propertyName)
@@ -154,12 +158,31 @@ namespace KitchenInventory.Desktop.ViewModels
             }
         }
 
+        private RelayCommand? _addCommand;
+        public ICommand AddCommand => _addCommand!;
+
         public AddItemViewModel(List<Category> categories)
         {
             Categories = categories;
+            _addCommand = new RelayCommand(() => { /* actual add handled by Click handler */ }, () => !HasErrors);
             ValidateProperty(nameof(ItemName));
             ValidateProperty(nameof(Quantity));
             ValidateProperty(nameof(Unit));
         }
+    }
+
+    internal class RelayCommand : ICommand
+    {
+        private readonly Action _execute;
+        private readonly Func<bool> _canExecute;
+        public event EventHandler? CanExecuteChanged;
+        public RelayCommand(Action execute, Func<bool> canExecute)
+        {
+            _execute = execute ?? throw new ArgumentNullException(nameof(execute));
+            _canExecute = canExecute ?? throw new ArgumentNullException(nameof(canExecute));
+        }
+        public bool CanExecute(object? parameter) => _canExecute();
+        public void Execute(object? parameter) => _execute();
+        public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
     }
 }

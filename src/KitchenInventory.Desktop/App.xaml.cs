@@ -24,6 +24,7 @@ using System.IO.Compression;
 using KitchenInventory.Desktop.Constants;
 using KitchenInventory.Desktop.Utilities;
 using KitchenInventory.Domain.Entities;
+using Microsoft.Extensions.Logging;
 
 namespace KitchenInventory.Desktop;
 
@@ -35,7 +36,7 @@ public partial class App : Application
     private bool _crashTest = false;
     public IServiceProvider Services => _host?.Services ?? throw new InvalidOperationException("Host not initialized");
 
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
@@ -138,49 +139,34 @@ public partial class App : Application
                     {
                         var cs = !string.IsNullOrWhiteSpace(configuredCs)
                             ? configuredCs
-                            : Environment.GetEnvironmentVariable("INVENTORY_DB_CONNECTION");
-                        if (string.IsNullOrWhiteSpace(cs))
-                        {
-                            Log.Warning("No KitchenDb connection string provided for Npgsql; falling back to SQLite at {Path}", sqlitePath);
-                            options.UseSqlite(sqliteCs);
-                        }
-                        else
-                        {
-                            options.UseNpgsql(cs);
-                        }
+                            : ctx.Configuration.GetConnectionString("KitchenDb") ?? Environment.GetEnvironmentVariable("INVENTORY_DB_CONNECTION") ?? "";
+                        options.UseNpgsql(cs);
                     }
                     else
                     {
-                        // Prefer explicit env var for UI tests and isolated runs; then appsettings; then default path
-                        var envCs = Environment.GetEnvironmentVariable("INVENTORY_DB_CONNECTION");
-                        var cs = !string.IsNullOrWhiteSpace(envCs)
-                            ? envCs
-                            : (!string.IsNullOrWhiteSpace(configuredCs) ? configuredCs : sqliteCs);
+                        var cs = !string.IsNullOrWhiteSpace(configuredCs)
+                            ? configuredCs
+                            : sqliteCs;
                         options.UseSqlite(cs);
                     }
                 }
 
-                // Keep AddDbContext for migration scope usage
-                services.AddDbContext<KitchenInventory.Data.KitchenInventoryDbContext>(Configure);
-
-                // Add factory for WPF usage (create contexts on-demand per operation)
                 services.AddDbContextFactory<KitchenInventory.Data.KitchenInventoryDbContext>(Configure);
-
-                // Diagnostics service and window
                 services.AddSingleton<IDatabaseInfoService, DatabaseInfoService>();
-                services.AddTransient<DiagnosticsWindow>();
-                services.AddSingleton<IDiagnosticsExporter, DiagnosticsExporter>();
-                
-                // Preferences and Settings
                 services.AddSingleton<IPreferencesService, PreferencesService>();
-                services.AddTransient<SettingsWindow>();
-
-                services.AddSingleton<IFileSaveService, FileSaveService>();
+                services.AddSingleton<IDialogService, DialogService>();
+                // Register authentication and session services
+                services.AddSingleton<IAuthenticationService, AuthenticationService>();
+                services.AddSingleton<ISessionService, SessionService>();
+                // File and CSV services
                 services.AddSingleton<IFileOpenService, FileOpenService>();
+                services.AddSingleton<IFileSaveService, FileSaveService>();
                 services.AddSingleton<ICsvImportService, CsvImportService>();
-                services.AddTransient<ItemsViewModel>();
-services.AddSingleton<IDialogService, DialogService>();
-services.AddSingleton<MainWindow>();
+                // ViewModels
+                services.AddSingleton<ItemsViewModel>();
+
+                // Windows and other services
+                services.AddSingleton<MainWindow>();
             })
             .Build();
 
@@ -788,6 +774,61 @@ services.AddSingleton<MainWindow>();
         catch (Exception ex)
         {
             Log.Warning(ex, "Privacy consent prompt failed; continuing without enabling crash reporting");
+        }
+
+        // Authentication gating: Admin setup on first run, otherwise login
+        try
+        {
+            var auth = _host.Services.GetRequiredService<IAuthenticationService>();
+            var session = _host.Services.GetRequiredService<ISessionService>();
+            var dbFactory = _host.Services.GetRequiredService<IDbContextFactory<KitchenInventory.Data.KitchenInventoryDbContext>>();
+            var loggerFactory = _host.Services.GetRequiredService<ILoggerFactory>();
+
+            var hasUsers = await auth.HasAnyUsersAsync();
+            if (!hasUsers)
+            {
+                var dlgLogger = loggerFactory.CreateLogger<AdminSetupViewModel>();
+                var setupDlg = new AdminSetupDialog(auth, session, dlgLogger)
+                {
+                    WindowStartupLocation = WindowStartupLocation.CenterScreen
+                };
+                WindowOwnerHelper.SetSafeOwner(setupDlg);
+                var setupResult = setupDlg.ShowDialog();
+                if (setupResult != true)
+                {
+                    Environment.ExitCode = ExitCodes.GeneralError;
+                    Shutdown(ExitCodes.GeneralError);
+                    return;
+                }
+            }
+            else
+            {
+                var dlgLogger = loggerFactory.CreateLogger<LoginViewModel>();
+                var loginDlg = new LoginDialog(auth, dbFactory, session, dlgLogger)
+                {
+                    WindowStartupLocation = WindowStartupLocation.CenterScreen
+                };
+                WindowOwnerHelper.SetSafeOwner(loginDlg);
+                var loginResult = loginDlg.ShowDialog();
+                if (loginResult != true)
+                {
+                    Environment.ExitCode = ExitCodes.GeneralError;
+                    Shutdown(ExitCodes.GeneralError);
+                    return;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal(ex, "Authentication gating failed");
+            var owner = WindowOwnerHelper.GetSafeOwner() ?? MainWindow;
+            if (owner != null)
+                MessageBox.Show(owner, $"Failed to authenticate: {ex.Message}", "Kitchen Inventory", MessageBoxButton.OK, MessageBoxImage.Error);
+            else
+                MessageBox.Show($"Failed to authenticate: {ex.Message}", "Kitchen Inventory", MessageBoxButton.OK, MessageBoxImage.Error);
+            Environment.ExitCode = ExitCodes.GeneralError;
+            Shutdown(ExitCodes.GeneralError);
+            return;
         }
 
         try

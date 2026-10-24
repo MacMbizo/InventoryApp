@@ -1,0 +1,35 @@
+<Window x:Class="KitchenInventory.Desktop.AdminSetupDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Initial Admin Setup" Height="260" Width="420" WindowStartupLocation="CenterOwner">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,0,8,8" VerticalAlignment="Center">Admin Username</TextBlock>
+        <TextBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,8" Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"/>
+
+        <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,0,8,8" VerticalAlignment="Center">Password</TextBlock>
+        <PasswordBox x:Name="PasswordBox" Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" PasswordChanged="OnPasswordChanged"/>
+
+        <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,0,8,8" VerticalAlignment="Center">Confirm Password</TextBlock>
+        <PasswordBox x:Name="ConfirmBox" Grid.Row="2" Grid.Column="1" Margin="0,0,0,8" PasswordChanged="OnConfirmChanged"/>
+
+        <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Foreground="Red" Text="{Binding Error}"/>
+
+        <StackPanel Grid.Row="5" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Create Admin" Margin="0,12,8,0" IsDefault="True" Click="OnCreateClick"/>
+            <Button Content="Cancel" Margin="0,12,0,0" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -20,6 +20,12 @@ namespace KitchenInventory.Desktop
             Categories = categories;
             Vm = new AddItemViewModel(categories);
             DataContext = Vm;
+            Vm.ErrorsChanged += Vm_ErrorsChanged;
+        }
+
+        private void Vm_ErrorsChanged(object? sender, System.ComponentModel.DataErrorsChangedEventArgs e)
+        {
+            // No explicit IsEnabled manipulation; XAML style triggers respond to Validation.HasError
         }
 
         private void OnAddClick(object sender, RoutedEventArgs e)
