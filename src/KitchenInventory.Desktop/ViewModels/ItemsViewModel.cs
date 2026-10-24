@@ -947,6 +947,8 @@ public class ItemsViewModel : INotifyPropertyChanged
     private async Task ShowStockOperationDialogAsync(string operationType)
     {
         if (SelectedItem == null) return;
+        // Capture before the reload below; LoadAsync() clears Items and nulls SelectedItem.
+        var itemName = SelectedItem.Name;
 
         try
         {
@@ -971,10 +973,10 @@ public class ItemsViewModel : INotifyPropertyChanged
                 CommandManager.InvalidateRequerySuggested();
                 
                 // Update status to show operation completed
-                StatusText = $"{operationType} completed for {SelectedItem.Name}";
+                StatusText = $"{operationType} completed for {itemName}";
                 
                 _logger.LogInformation("Stock operation '{Operation}' completed for item '{ItemName}'", 
-                    operationType, SelectedItem.Name);
+                    operationType, itemName);
             }
         }
         catch (Exception ex)

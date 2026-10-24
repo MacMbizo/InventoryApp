@@ -27,6 +27,9 @@ namespace KitchenInventory.Desktop
                 if (confirm != true)
                     return;
             }
+            // DialogService.ShowAsync returns the dialog's Tag, so a confirmation must be
+            // signalled through Tag (mirrors AddItemDialog) for the caller to see it.
+            Tag = true;
             DialogResult = true;
             Close();
         }
