@@ -32,68 +32,65 @@
                     <MenuItem Header="_Diagnostics" Click="Help_Diagnostics_Click"/>
                 </MenuItem>
             </Menu>
-            <!-- Toolbar with two columns: left = actions; right = search -->
-            <ToolBar>
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
+            <!-- Toolbar: a wrapping panel keeps every action visible and clickable at any
+                 window width. A ToolBar holding a single Grid moves that whole child into
+                 its overflow popup, which left every action unreachable at the default size. -->
+            <Border Padding="8,4,8,6" BorderThickness="0,0,0,1"
+                    BorderBrush="{x:Static SystemColors.ControlDarkBrush}">
+                <WrapPanel Orientation="Horizontal">
+                    <Button Content="Refresh" Command="{Binding RefreshCommand}" Margin="0,0,8,4" AutomationProperties.AutomationId="RefreshButton" />
+                    <Button Content="Add" Command="{Binding AddItemCommand}" Margin="0,0,8,4" AutomationProperties.AutomationId="AddItemButton" />
+                    <Button Content="Delete" Command="{Binding DeleteItemCommand}" Margin="0,0,8,4" AutomationProperties.AutomationId="DeleteItemButton" />
+                    <Button Content="Save" Command="{Binding SaveChangesCommand}" Margin="0,0,16,4" AutomationProperties.AutomationId="SaveChangesButton"/>
 
-                    <!-- Left actions group -->
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button Content="Refresh" Command="{Binding RefreshCommand}" Margin="0,0,8,0" />
-                        <Button Content="Add" Command="{Binding AddItemCommand}" Margin="0,0,8,0" AutomationProperties.AutomationId="AddItemButton" />
-                        <Button Content="Delete" Command="{Binding DeleteItemCommand}" Margin="0,0,8,0" AutomationProperties.AutomationId="DeleteItemButton" />
-                        <Button Content="Save" Command="{Binding SaveChangesCommand}" Margin="0,0,16,0" AutomationProperties.AutomationId="SaveChangesButton"/>
-                        
-                        <!-- Stock Operations -->
-                        <Button Content="Add Stock" Command="{Binding AddStockCommand}" Margin="0,0,4,0" ToolTip="Add stock to selected item" AutomationProperties.AutomationId="AddStockButton" />
-                        <Button Content="Consume Stock" Command="{Binding ConsumeStockCommand}" Margin="0,0,4,0" ToolTip="Consume stock from selected item" AutomationProperties.AutomationId="ConsumeStockButton" />
-                        <Button Content="Adjust Stock" Command="{Binding AdjustStockCommand}" Margin="0,0,16,0" ToolTip="Adjust stock for selected item" AutomationProperties.AutomationId="AdjustStockButton" />
-                        
-                        <Button Content="Import Items (CSV)" Command="{Binding ImportItemsCsvCommand}" Margin="0,0,4,0" />
-                        <Button Content="Export Items (CSV)" Command="{Binding ExportItemsCsvCommand}" Margin="0,0,16,0" />
+                    <!-- Stock Operations -->
+                    <Button Content="Add Stock" Command="{Binding AddStockCommand}" Margin="0,0,4,4" ToolTip="Add stock to selected item" AutomationProperties.AutomationId="AddStockButton" />
+                    <Button Content="Consume Stock" Command="{Binding ConsumeStockCommand}" Margin="0,0,4,4" ToolTip="Consume stock from selected item" AutomationProperties.AutomationId="ConsumeStockButton" />
+                    <Button Content="Adjust Stock" Command="{Binding AdjustStockCommand}" Margin="0,0,16,4" ToolTip="Adjust stock for selected item" AutomationProperties.AutomationId="AdjustStockButton" />
 
-                        <!-- Manage Categories -->
-                        <Button Content="Manage Categories" Command="{Binding ManageCategoriesCommand}" Margin="0,0,8,0" AutomationProperties.AutomationId="ManageCategoriesButton" />
+                    <Button Content="Import Items (CSV)" Command="{Binding ImportItemsCsvCommand}" Margin="0,0,4,4" AutomationProperties.AutomationId="ImportItemsCsvButton" />
+                    <Button Content="Export Items (CSV)" Command="{Binding ExportItemsCsvCommand}" Margin="0,0,16,4" AutomationProperties.AutomationId="ExportItemsCsvButton" />
 
-                        <!-- Manage Locations -->
-                        <Button Content="Manage Locations" Command="{Binding ManageLocationsCommand}" Margin="0,0,8,0" AutomationProperties.AutomationId="ManageLocationsButton" />
+                    <!-- Manage Categories -->
+                    <Button Content="Manage Categories" Command="{Binding ManageCategoriesCommand}" Margin="0,0,8,4" AutomationProperties.AutomationId="ManageCategoriesButton" />
 
-                        <!-- Unit Converter -->
-                        <Button Content="Unit Converter" Click="Open_UnitConverter_Click" Margin="0,0,8,0" ToolTip="Convert between kg/g/mg and l/ml/cl/dl" AutomationProperties.AutomationId="UnitConverterButton" />
+                    <!-- Manage Locations -->
+                    <Button Content="Manage Locations" Command="{Binding ManageLocationsCommand}" Margin="0,0,8,4" AutomationProperties.AutomationId="ManageLocationsButton" />
 
-                        <!-- Reports -->
-                        <Button Content="Reports" Click="Open_Reports_Click" Margin="0,0,8,0" ToolTip="Generate and export inventory reports" AutomationProperties.AutomationId="ReportsButton" />
+                    <!-- Unit Converter -->
+                    <Button Content="Unit Converter" Click="Open_UnitConverter_Click" Margin="0,0,8,4" ToolTip="Convert between kg/g/mg and l/ml/cl/dl" AutomationProperties.AutomationId="UnitConverterButton" />
 
-                        <!-- Category Filter -->
-                        <TextBlock Text="Category:" VerticalAlignment="Center" Margin="8,0,4,0" />
-                        <ComboBox Width="180"
-                                  ItemsSource="{Binding Categories}"
-                                  SelectedValuePath="Id"
-                                  DisplayMemberPath="Name"
-                                  SelectedValue="{Binding SelectedCategoryId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                  AutomationProperties.AutomationId="CategoryFilterCombo"/>
+                    <!-- Reports -->
+                    <Button Content="Reports" Click="Open_Reports_Click" Margin="0,0,8,4" ToolTip="Generate and export inventory reports" AutomationProperties.AutomationId="ReportsButton" />
 
-                        <!-- Location Filter -->
-                        <TextBlock Text="Location:" VerticalAlignment="Center" Margin="8,0,4,0" />
-                        <ComboBox Width="180"
-                                  ItemsSource="{Binding Locations}"
-                                  SelectedValuePath="Id"
-                                  DisplayMemberPath="Name"
-                                  SelectedValue="{Binding SelectedLocationId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                  AutomationProperties.AutomationId="LocationFilterCombo"/>
-                    </StackPanel>
+                    <!-- Category Filter -->
+                    <TextBlock Text="Category:" VerticalAlignment="Center" Margin="8,0,4,4" />
+                    <ComboBox Width="180" Margin="0,0,0,4"
+                              ItemsSource="{Binding Categories}"
+                              SelectedValuePath="Id"
+                              DisplayMemberPath="Name"
+                              SelectedValue="{Binding SelectedCategoryId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                              AutomationProperties.AutomationId="CategoryFilterCombo"/>
 
-                    <!-- Right search group -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="Search:" VerticalAlignment="Center" Margin="8,0,4,0" />
-                        <TextBox Width="320" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"/>
-                        <CheckBox Content="Needs Attention only" Margin="8,0,0,0" IsChecked="{Binding ShowNeedsAttentionOnly}"/>
-                    </StackPanel>
-                </Grid>
-            </ToolBar>
+                    <!-- Location Filter -->
+                    <TextBlock Text="Location:" VerticalAlignment="Center" Margin="8,0,4,4" />
+                    <ComboBox Width="180" Margin="0,0,0,4"
+                              ItemsSource="{Binding Locations}"
+                              SelectedValuePath="Id"
+                              DisplayMemberPath="Name"
+                              SelectedValue="{Binding SelectedLocationId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                              AutomationProperties.AutomationId="LocationFilterCombo"/>
+
+                    <!-- Search -->
+                    <TextBlock Text="Search:" VerticalAlignment="Center" Margin="16,0,4,4" />
+                    <TextBox Width="240" Margin="0,0,0,4" VerticalContentAlignment="Center"
+                             Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                             AutomationProperties.AutomationId="SearchBox"/>
+                    <CheckBox Content="Needs Attention only" Margin="8,0,0,4" VerticalAlignment="Center"
+                              IsChecked="{Binding ShowNeedsAttentionOnly}"
+                              AutomationProperties.AutomationId="NeedsAttentionOnlyCheckBox"/>
+                </WrapPanel>
+            </Border>
         </DockPanel>
 
         <!-- Main content -->
