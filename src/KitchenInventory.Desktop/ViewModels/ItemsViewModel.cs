@@ -38,6 +38,8 @@ public class ItemsViewModel : INotifyPropertyChanged
     public ObservableCollection<StockMovement> SelectedMovements { get; } = new();
     public ObservableCollection<StockMovement> RecentMovements { get; } = new();
     public ObservableCollection<Category> Categories { get; } = new();
+    public ObservableCollection<Location> Locations { get; } = new();
+    public ObservableCollection<InventoryAlert> Alerts { get; } = new();
 
     private ICollectionView? _itemsView;
     public ICollectionView? ItemsView
@@ -125,6 +127,41 @@ public class ItemsViewModel : INotifyPropertyChanged
         private set { _needsAttentionCount = value; OnPropertyChanged(); UpdateStatus(); }
     }
 
+    private int _alertsCount;
+    public int AlertsCount
+    {
+        get => _alertsCount;
+        private set { if (_alertsCount != value) { _alertsCount = value; OnPropertyChanged(); } }
+    }
+
+    private int _criticalAlertsCount;
+    public int CriticalAlertsCount
+    {
+        get => _criticalAlertsCount;
+        private set { if (_criticalAlertsCount != value) { _criticalAlertsCount = value; OnPropertyChanged(); } }
+    }
+
+    private int _lowStockCount;
+    public int LowStockCount
+    {
+        get => _lowStockCount;
+        private set { if (_lowStockCount != value) { _lowStockCount = value; OnPropertyChanged(); } }
+    }
+
+    private int _expiringSoonCount;
+    public int ExpiringSoonCount
+    {
+        get => _expiringSoonCount;
+        private set { if (_expiringSoonCount != value) { _expiringSoonCount = value; OnPropertyChanged(); } }
+    }
+
+    private int _expiredCount;
+    public int ExpiredCount
+    {
+        get => _expiredCount;
+        private set { if (_expiredCount != value) { _expiredCount = value; OnPropertyChanged(); } }
+    }
+
     private int _totalCount;
     public int TotalCount
     {
@@ -177,6 +214,23 @@ public class ItemsViewModel : INotifyPropertyChanged
         }
     }
 
+    private int? _selectedLocationId;
+    public int? SelectedLocationId
+    {
+        get => _selectedLocationId;
+        set
+        {
+            if (_selectedLocationId != value)
+            {
+                _selectedLocationId = value;
+                OnPropertyChanged();
+                _preferences?.Set("ui.selectedLocationId", value ?? 0);
+                _preferences?.Save();
+                ApplyFilter();
+            }
+        }
+    }
+
     private Item? _selectedItem;
     public Item? SelectedItem
     {
@@ -200,6 +254,9 @@ public class ItemsViewModel : INotifyPropertyChanged
 
     // Category Management
     public ICommand ManageCategoriesCommand { get; }
+
+    // Location Management
+    public ICommand ManageLocationsCommand { get; }
 
     public ItemsViewModel(IDbContextFactory<KitchenInventoryDbContext> dbFactory, ILogger<ItemsViewModel> logger, IFileSaveService fileSave, IFileOpenService fileOpen, ICsvImportService csvImport, IConfiguration? configuration = null, IPreferencesService? preferences = null, IDialogService? dialogs = null, ISessionService? session = null)
     {
@@ -229,6 +286,8 @@ public class ItemsViewModel : INotifyPropertyChanged
         _showNeedsAttentionOnly = _preferences?.Get<bool>("ui.showNeedsAttentionOnly", false) ?? false;
         var prefCat = _preferences?.Get<int>("ui.selectedCategoryId", 0) ?? 0;
         _selectedCategoryId = (prefCat > 0) ? prefCat : (int?)null;
+        var prefLoc = _preferences?.Get<int>("ui.selectedLocationId", 0) ?? 0;
+        _selectedLocationId = (prefLoc > 0) ? prefLoc : (int?)null;
         _crashReportingEnabled = _preferences?.Get<bool>("privacy.errorReportingEnabled", false) ?? false;
 
         RefreshCommand = new AsyncRelayCommand(LoadAsync);
@@ -249,6 +308,8 @@ public class ItemsViewModel : INotifyPropertyChanged
 
         // Initialize category management command
         ManageCategoriesCommand = new AsyncRelayCommand(ShowManageCategoriesDialogAsync, () => HasRole(Roles.Admin, Roles.Manager));
+        // Initialize location management command
+        ManageLocationsCommand = new AsyncRelayCommand(ShowManageLocationsDialogAsync, () => HasRole(Roles.Admin, Roles.Manager));
         // Initialize view
         ItemsView = CollectionViewSource.GetDefaultView(Items);
         if (ItemsView != null)
@@ -284,6 +345,12 @@ public class ItemsViewModel : INotifyPropertyChanged
             if (it.CategoryId != SelectedCategoryId.Value) return false;
         }
 
+        // Location filter
+        if (SelectedLocationId.HasValue && SelectedLocationId.Value > 0)
+        {
+            if (it.LocationId != SelectedLocationId.Value) return false;
+        }
+
         if (ShowNeedsAttentionOnly)
         {
             return IsNeedsAttention(it);
@@ -304,6 +371,25 @@ public class ItemsViewModel : INotifyPropertyChanged
         TotalCount = Items.Count;
         FilteredCount = ItemsView?.Cast<object>().Count() ?? Items.Count;
         NeedsAttentionCount = Items.Count(IsNeedsAttention);
+        RefreshAlerts();
+    }
+
+    /// <summary>
+    /// Rebuilds the alerts collection from the currently loaded items.
+    /// Exposed publicly so a background timer can refresh day-based alerts (e.g. across midnight).
+    /// </summary>
+    public void RefreshAlerts()
+    {
+        var alerts = InventoryAlertService.Evaluate(Items, _lowStockThreshold, _expiringSoonDays, DateTime.Today);
+
+        Alerts.Clear();
+        foreach (var a in alerts) Alerts.Add(a);
+
+        AlertsCount = alerts.Count;
+        CriticalAlertsCount = alerts.Count(a => a.Severity == AlertSeverity.Critical);
+        LowStockCount = alerts.Count(a => a.Kind == AlertKind.LowStock || a.Kind == AlertKind.OutOfStock);
+        ExpiringSoonCount = alerts.Count(a => a.Kind == AlertKind.ExpiringSoon);
+        ExpiredCount = alerts.Count(a => a.Kind == AlertKind.Expired);
     }
 
     private void UpdateStatus()
@@ -341,8 +427,15 @@ public class ItemsViewModel : INotifyPropertyChanged
             foreach (var c in cats) Categories.Add(c);
             OnPropertyChanged(nameof(Categories));
 
-            // Load items with Category included for display
-            var items = await db.Items.AsNoTracking().Include(i => i.Category).OrderBy(i => i.Name).ToListAsync();
+            // Load locations
+            var locs = await db.Locations.AsNoTracking().OrderBy(l => l.Name).ToListAsync();
+            Locations.Clear();
+            Locations.Add(new Location { Id = 0, Name = "All" });
+            foreach (var l in locs) Locations.Add(l);
+            OnPropertyChanged(nameof(Locations));
+
+            // Load items with Category and Location included for display
+            var items = await db.Items.AsNoTracking().Include(i => i.Category).Include(i => i.Location).OrderBy(i => i.Name).ToListAsync();
             Items.Clear();
             foreach (var it in items)
                 Items.Add(it);
@@ -387,12 +480,15 @@ public class ItemsViewModel : INotifyPropertyChanged
         {
             _logger.LogInformation("AddItemAsync() using dialog flow");
             var catList = Categories.Where(c => c.Id > 0).OrderBy(c => c.Name).ToList();
-            var dialog = new AddItemDialog(catList);
+            var locList = Locations.Where(l => l.Id > 0).OrderBy(l => l.Name).ToList();
+            var dialog = new AddItemDialog(catList, locList);
             var result = await _dialogs.ShowAsync(dialog);
             if (result is Item newItem)
             {
                 if (!newItem.CategoryId.HasValue && SelectedCategoryId.HasValue && SelectedCategoryId.Value > 0)
                     newItem.CategoryId = SelectedCategoryId.Value;
+                if (!newItem.LocationId.HasValue && SelectedLocationId.HasValue && SelectedLocationId.Value > 0)
+                    newItem.LocationId = SelectedLocationId.Value;
 
                 Items.Add(newItem);
                 SelectedItem = newItem;
@@ -685,9 +781,11 @@ public class ItemsViewModel : INotifyPropertyChanged
 
             // Categories available for parsing (exclude sentinel All with Id=0)
             var availableCategories = Categories.Where(c => c.Id > 0).ToList();
+            // Locations available for parsing (exclude sentinel All with Id=0)
+            var availableLocations = Locations.Where(l => l.Id > 0).ToList();
 
             // First, parse via ICsvImportService to keep legacy/test behavior
-            var parsed = (await _csvImport.ParseItemsAsync(text, availableCategories)).ToList();
+            var parsed = (await _csvImport.ParseItemsAsync(text, availableCategories, availableLocations)).ToList();
             if (parsed.Count == 0)
             {
                 StatusText = "No items found in CSV.";
@@ -706,7 +804,7 @@ public class ItemsViewModel : INotifyPropertyChanged
                 }
 
                 var previewAnalyzer = new CsvImportPreviewAnalyzer();
-                var preview = await previewAnalyzer.AnalyzeAsync(text, availableCategories, existingItems);
+                var preview = await previewAnalyzer.AnalyzeAsync(text, availableCategories, existingItems, availableLocations);
 
                 var previewDialog = new CsvImportPreviewDialog(preview, _fileSave);
                 WindowOwnerHelper.SetSafeOwner(previewDialog, System.Windows.Application.Current.MainWindow);
@@ -770,6 +868,7 @@ public class ItemsViewModel : INotifyPropertyChanged
                         Quantity = imp.Quantity,
                         Unit = string.IsNullOrWhiteSpace(imp.Unit) ? "pcs" : imp.Unit!,
                         CategoryId = imp.CategoryId, // may be null
+                        LocationId = imp.LocationId, // may be null
                         ExpiryDate = imp.ExpiryDate,
                         CreatedAtUtc = imp.CreatedAtUtc == default ? nowUtc : imp.CreatedAtUtc,
                         UpdatedAtUtc = nowUtc
@@ -800,6 +899,7 @@ public class ItemsViewModel : INotifyPropertyChanged
                     target.Unit = string.IsNullOrWhiteSpace(imp.Unit) ? target.Unit : imp.Unit!;
                     target.ExpiryDate = imp.ExpiryDate;
                     target.CategoryId = imp.CategoryId; // allow updating category if provided
+                    target.LocationId = imp.LocationId; // allow updating location if provided
                     target.Quantity = newQty;
                     target.UpdatedAtUtc = nowUtc;
 
@@ -914,6 +1014,39 @@ public class ItemsViewModel : INotifyPropertyChanged
         {
             _logger.LogError(ex, "Failed to open category management dialog");
             StatusText = $"Failed to open categories dialog: {ex.Message}";
+        }
+    }
+
+    // Location Management
+    private async Task ShowManageLocationsDialogAsync()
+    {
+        try
+        {
+            using var loggerFactory = LoggerFactory.Create(builder =>
+            {
+                builder.AddConsole();
+                builder.SetMinimumLevel(LogLevel.Information);
+            });
+            var dialogLogger = loggerFactory.CreateLogger<LocationManagementDialog>();
+
+            var dialog = new LocationManagementDialog(_dbFactory, dialogLogger);
+            WindowOwnerHelper.SetSafeOwner(dialog, System.Windows.Application.Current.MainWindow);
+
+            var result = dialog.ShowDialog();
+            if (result == true)
+            {
+                // Reload items and locations after changes
+                await LoadAsync();
+                ApplyFilter();
+                CommandManager.InvalidateRequerySuggested();
+                StatusText = "Locations updated.";
+                _logger.LogInformation("Locations were updated via management dialog");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to open location management dialog");
+            StatusText = $"Failed to open locations dialog: {ex.Message}";
         }
     }
 

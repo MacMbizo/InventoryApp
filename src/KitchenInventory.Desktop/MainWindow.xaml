@@ -57,6 +57,12 @@
                         <!-- Manage Categories -->
                         <Button Content="Manage Categories" Command="{Binding ManageCategoriesCommand}" Margin="0,0,8,0" AutomationProperties.AutomationId="ManageCategoriesButton" />
 
+                        <!-- Manage Locations -->
+                        <Button Content="Manage Locations" Command="{Binding ManageLocationsCommand}" Margin="0,0,8,0" AutomationProperties.AutomationId="ManageLocationsButton" />
+
+                        <!-- Unit Converter -->
+                        <Button Content="Unit Converter" Click="Open_UnitConverter_Click" Margin="0,0,8,0" ToolTip="Convert between kg/g/mg and l/ml/cl/dl" AutomationProperties.AutomationId="UnitConverterButton" />
+
                         <!-- Category Filter -->
                         <TextBlock Text="Category:" VerticalAlignment="Center" Margin="8,0,4,0" />
                         <ComboBox Width="180"
@@ -65,6 +71,15 @@
                                   DisplayMemberPath="Name"
                                   SelectedValue="{Binding SelectedCategoryId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                   AutomationProperties.AutomationId="CategoryFilterCombo"/>
+
+                        <!-- Location Filter -->
+                        <TextBlock Text="Location:" VerticalAlignment="Center" Margin="8,0,4,0" />
+                        <ComboBox Width="180"
+                                  ItemsSource="{Binding Locations}"
+                                  SelectedValuePath="Id"
+                                  DisplayMemberPath="Name"
+                                  SelectedValue="{Binding SelectedLocationId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  AutomationProperties.AutomationId="LocationFilterCombo"/>
                     </StackPanel>
 
                     <!-- Right search group -->
@@ -167,6 +182,30 @@
                         </DataGridTemplateColumn.CellEditingTemplate>
                     </DataGridTemplateColumn>
                     <DataGridTextColumn Header="Expiry Date" Binding="{Binding ExpiryDate, UpdateSourceTrigger=PropertyChanged, StringFormat=yyyy-MM-dd}" Width="*"/>
+                    <!-- Location column -->
+                    <DataGridTemplateColumn Header="Location" Width="*">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Location.Name}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                        <DataGridTemplateColumn.CellEditingTemplate>
+                            <DataTemplate>
+                                <ComboBox
+                                    ItemsSource="{Binding DataContext.Locations, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    SelectedValuePath="Id"
+                                    DisplayMemberPath="Name"
+                                    SelectedValue="{Binding LocationId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    >
+                                    <ComboBox.ItemContainerStyle>
+                                        <Style TargetType="ComboBoxItem">
+                                            <Setter Property="Visibility" Value="{Binding Id, Converter={StaticResource HideZeroIdConverter}}"/>
+                                        </Style>
+                                    </ComboBox.ItemContainerStyle>
+                                </ComboBox>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellEditingTemplate>
+                    </DataGridTemplateColumn>
                 </DataGrid.Columns>
             </DataGrid>
 
@@ -175,6 +214,40 @@
                 <DockPanel>
                     <TextBlock Text="Activity" FontWeight="Bold" Margin="0,0,0,8" />
                     <TabControl>
+                        <TabItem>
+                            <TabItem.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Alerts" />
+                                    <TextBlock Text="{Binding AlertsCount, StringFormat=' ({0})'}" Foreground="#B00" FontWeight="Bold" />
+                                </StackPanel>
+                            </TabItem.Header>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <StackPanel Grid.Row="0" Margin="0,0,0,4">
+                                    <TextBlock Text="Low stock, expiring and expired items" FontStyle="Italic" />
+                                    <TextBlock>
+                                        <Run Text="Low: " /><Run Text="{Binding LowStockCount, Mode=OneWay}" />
+                                        <Run Text="  Expiring: " /><Run Text="{Binding ExpiringSoonCount, Mode=OneWay}" />
+                                        <Run Text="  Expired: " /><Run Text="{Binding ExpiredCount, Mode=OneWay}" />
+                                        <Run Text="  Critical: " /><Run Text="{Binding CriticalAlertsCount, Mode=OneWay}" FontWeight="Bold" />
+                                    </TextBlock>
+                                </StackPanel>
+                                <ListView Grid.Row="1" ItemsSource="{Binding Alerts}" AutomationProperties.AutomationId="AlertsList">
+                                    <ListView.View>
+                                        <GridView>
+                                            <GridViewColumn Header="Severity" Width="80" DisplayMemberBinding="{Binding Severity}" />
+                                            <GridViewColumn Header="Type" Width="100" DisplayMemberBinding="{Binding Kind}" />
+                                            <GridViewColumn Header="Item" Width="140" DisplayMemberBinding="{Binding Name}" />
+                                            <GridViewColumn Header="Details" Width="180" DisplayMemberBinding="{Binding Message}" />
+                                            <GridViewColumn Header="Location" Width="100" DisplayMemberBinding="{Binding Location}" />
+                                        </GridView>
+                                    </ListView.View>
+                                </ListView>
+                            </Grid>
+                        </TabItem>
                         <TabItem Header="Audit Trail">
                             <Grid>
                                 <Grid.RowDefinitions>

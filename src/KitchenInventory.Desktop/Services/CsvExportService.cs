@@ -10,11 +10,11 @@ namespace KitchenInventory.Desktop.Services
     public static class CsvExportService
     {
         // Export Items to CSV with stable header order
-        // Header: Id,Name,Quantity,Unit,CategoryId,CategoryName,ExpiryDate,CreatedAtUtc,UpdatedAtUtc
+        // Header: Id,Name,Quantity,Unit,CategoryId,CategoryName,LocationId,LocationName,ExpiryDate,CreatedAtUtc,UpdatedAtUtc
         public static string ExportItems(IEnumerable<Item> items)
         {
             var sb = new StringBuilder();
-            sb.Append("Id,Name,Quantity,Unit,CategoryId,CategoryName,ExpiryDate,CreatedAtUtc,UpdatedAtUtc\n");
+            sb.Append("Id,Name,Quantity,Unit,CategoryId,CategoryName,LocationId,LocationName,ExpiryDate,CreatedAtUtc,UpdatedAtUtc\n");
             foreach (var it in items ?? Enumerable.Empty<Item>())
             {
                 var id = it.Id.ToString(CultureInfo.InvariantCulture);
@@ -23,6 +23,8 @@ namespace KitchenInventory.Desktop.Services
                 var unit = Escape(it.Unit);
                 var categoryId = it.CategoryId.HasValue ? it.CategoryId.Value.ToString(CultureInfo.InvariantCulture) : string.Empty;
                 var categoryName = Escape(it.Category?.Name);
+                var locationId = it.LocationId.HasValue ? it.LocationId.Value.ToString(CultureInfo.InvariantCulture) : string.Empty;
+                var locationName = Escape(it.Location?.Name);
                 var expiry = it.ExpiryDate.HasValue
                     ? it.ExpiryDate.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
                     : string.Empty;
@@ -38,6 +40,8 @@ namespace KitchenInventory.Desktop.Services
                   .Append(unit).Append(',')
                   .Append(categoryId).Append(',')
                   .Append(categoryName).Append(',')
+                  .Append(locationId).Append(',')
+                  .Append(locationName).Append(',')
                   .Append(expiry).Append(',')
                   .Append(created).Append(',')
                   .Append(updated)

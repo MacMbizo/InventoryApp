@@ -11,12 +11,12 @@ namespace KitchenInventory.Desktop.Services
 {
     public sealed class CsvImportService : ICsvImportService
     {
-        public async Task<IReadOnlyList<Item>> ParseItemsAsync(string csvContent, List<Category> categories)
+        public async Task<IReadOnlyList<Item>> ParseItemsAsync(string csvContent, List<Category> categories, List<Location>? locations = null)
         {
-            return await ParseItemsInternalAsync(csvContent, categories);
+            return await ParseItemsInternalAsync(csvContent, categories, locations);
         }
 
-        public static async Task<List<Item>> ParseItemsInternalAsync(string csvContent, List<Category> categories)
+        public static async Task<List<Item>> ParseItemsInternalAsync(string csvContent, List<Category> categories, List<Location>? locations = null)
         {
             var results = new List<Item>();
             if (string.IsNullOrWhiteSpace(csvContent)) return results;
@@ -32,6 +32,8 @@ namespace KitchenInventory.Desktop.Services
             int idxUnit = Array.FindIndex(headers, h => string.Equals(h.Trim(), "Unit", StringComparison.OrdinalIgnoreCase));
             int idxCategoryId = Array.FindIndex(headers, h => string.Equals(h.Trim(), "CategoryId", StringComparison.OrdinalIgnoreCase));
             int idxCategoryName = Array.FindIndex(headers, h => string.Equals(h.Trim(), "CategoryName", StringComparison.OrdinalIgnoreCase));
+            int idxLocationId = Array.FindIndex(headers, h => string.Equals(h.Trim(), "LocationId", StringComparison.OrdinalIgnoreCase));
+            int idxLocationName = Array.FindIndex(headers, h => string.Equals(h.Trim(), "LocationName", StringComparison.OrdinalIgnoreCase));
             int idxExpiry = Array.FindIndex(headers, h => string.Equals(h.Trim(), "ExpiryDate", StringComparison.OrdinalIgnoreCase));
             int idxCreated = Array.FindIndex(headers, h => string.Equals(h.Trim(), "CreatedAtUtc", StringComparison.OrdinalIgnoreCase));
             int idxUpdated = Array.FindIndex(headers, h => string.Equals(h.Trim(), "UpdatedAtUtc", StringComparison.OrdinalIgnoreCase));
@@ -75,6 +77,21 @@ namespace KitchenInventory.Desktop.Services
                     }
                 }
 
+                int? locationId = null;
+                if (idxLocationId >= 0 && idxLocationId < cols.Count && int.TryParse(cols[idxLocationId], NumberStyles.Integer, CultureInfo.InvariantCulture, out var locIdVal))
+                {
+                    if (locations != null && locations.Any(l => l.Id == locIdVal)) locationId = locIdVal;
+                }
+                else if (idxLocationName >= 0 && idxLocationName < cols.Count && locations != null)
+                {
+                    var locName = cols[idxLocationName];
+                    if (!string.IsNullOrWhiteSpace(locName))
+                    {
+                        var match = locations.FirstOrDefault(l => string.Equals(l.Name, locName, StringComparison.OrdinalIgnoreCase));
+                        if (match != null) locationId = match.Id;
+                    }
+                }
+
                 DateTime created = DateTime.UtcNow;
                 if (idxCreated >= 0 && idxCreated < cols.Count && DateTime.TryParse(cols[idxCreated], CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var createdVal))
                     created = createdVal.ToUniversalTime();
@@ -90,6 +107,7 @@ namespace KitchenInventory.Desktop.Services
                     Quantity = qty,
                     Unit = unit,
                     CategoryId = categoryId,
+                    LocationId = locationId,
                     ExpiryDate = expiry,
                     CreatedAtUtc = created,
                     UpdatedAtUtc = updated

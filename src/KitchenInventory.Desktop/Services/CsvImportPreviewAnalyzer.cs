@@ -27,6 +27,7 @@ namespace KitchenInventory.Desktop.Services
         public bool IsValid => Issues.Count == 0;
         public string IssueSummary => Issues.Count == 0 ? string.Empty : string.Join("; ", Issues.Select(i => i.Message));
         public string? CategoryDisplay { get; set; }
+        public string? LocationDisplay { get; set; }
     }
 
     public sealed class CsvImportPreviewResult
@@ -43,7 +44,7 @@ namespace KitchenInventory.Desktop.Services
     public sealed class CsvImportPreviewAnalyzer
     {
         // Analyze CSV content line-by-line, producing per-row validation and action (Add/Update)
-        public async Task<CsvImportPreviewResult> AnalyzeAsync(string csvContent, List<Category> categories, List<Item> existingItems)
+        public async Task<CsvImportPreviewResult> AnalyzeAsync(string csvContent, List<Category> categories, List<Item> existingItems, List<Location>? locations = null)
         {
             var result = new CsvImportPreviewResult();
             if (string.IsNullOrWhiteSpace(csvContent)) return result;
@@ -59,6 +60,8 @@ namespace KitchenInventory.Desktop.Services
             int idxUnit = Array.FindIndex(headers, h => string.Equals(h.Trim(), "Unit", StringComparison.OrdinalIgnoreCase));
             int idxCategoryId = Array.FindIndex(headers, h => string.Equals(h.Trim(), "CategoryId", StringComparison.OrdinalIgnoreCase));
             int idxCategoryName = Array.FindIndex(headers, h => string.Equals(h.Trim(), "CategoryName", StringComparison.OrdinalIgnoreCase));
+            int idxLocationId = Array.FindIndex(headers, h => string.Equals(h.Trim(), "LocationId", StringComparison.OrdinalIgnoreCase));
+            int idxLocationName = Array.FindIndex(headers, h => string.Equals(h.Trim(), "LocationName", StringComparison.OrdinalIgnoreCase));
             int idxExpiry = Array.FindIndex(headers, h => string.Equals(h.Trim(), "ExpiryDate", StringComparison.OrdinalIgnoreCase));
             int idxCreated = Array.FindIndex(headers, h => string.Equals(h.Trim(), "CreatedAtUtc", StringComparison.OrdinalIgnoreCase));
             int idxUpdated = Array.FindIndex(headers, h => string.Equals(h.Trim(), "UpdatedAtUtc", StringComparison.OrdinalIgnoreCase));
@@ -155,6 +158,41 @@ namespace KitchenInventory.Desktop.Services
                 if (idxUpdated >= 0 && idxUpdated < cols.Count && DateTime.TryParse(cols[idxUpdated], CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var updatedVal))
                     updated = updatedVal.ToUniversalTime();
 
+                int? locationId = null;
+                string? locationDisplay = null;
+                if (locations != null)
+                {
+                    if (idxLocationId >= 0 && idxLocationId < cols.Count && int.TryParse(cols[idxLocationId], NumberStyles.Integer, CultureInfo.InvariantCulture, out var locIdVal))
+                    {
+                        if (locations.Any(l => l.Id == locIdVal))
+                        {
+                            locationId = locIdVal;
+                            locationDisplay = locations.First(l => l.Id == locIdVal).Name;
+                        }
+                        else
+                        {
+                            issues.Add(new CsvImportIssue { RowNumber = rowNumber, Field = "LocationId", Message = "Unknown location id.", Value = cols[idxLocationId] });
+                        }
+                    }
+                    else if (idxLocationName >= 0 && idxLocationName < cols.Count)
+                    {
+                        var locName = cols[idxLocationName];
+                        if (!string.IsNullOrWhiteSpace(locName))
+                        {
+                            var match = locations.FirstOrDefault(l => string.Equals(l.Name, locName, StringComparison.OrdinalIgnoreCase));
+                            if (match != null)
+                            {
+                                locationId = match.Id;
+                                locationDisplay = match.Name;
+                            }
+                            else
+                            {
+                                issues.Add(new CsvImportIssue { RowNumber = rowNumber, Field = "LocationName", Message = "Unknown location name.", Value = locName });
+                            }
+                        }
+                    }
+                }
+
                 var item = new Item
                 {
                     Id = id.GetValueOrDefault(),
@@ -162,6 +200,7 @@ namespace KitchenInventory.Desktop.Services
                     Quantity = qty,
                     Unit = unit ?? string.Empty,
                     CategoryId = categoryId,
+                    LocationId = locationId,
                     ExpiryDate = expiry,
                     CreatedAtUtc = created,
                     UpdatedAtUtc = updated
@@ -172,7 +211,8 @@ namespace KitchenInventory.Desktop.Services
                     RowNumber = rowNumber,
                     ParsedItem = item,
                     Issues = issues,
-                    CategoryDisplay = categoryDisplay
+                    CategoryDisplay = categoryDisplay,
+                    LocationDisplay = locationDisplay
                 };
 
                 // Determine action

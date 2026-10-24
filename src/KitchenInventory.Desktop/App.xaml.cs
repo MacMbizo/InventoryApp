@@ -388,7 +388,7 @@ public partial class App : Application
                 var dbFactory = _host.Services.GetRequiredService<IDbContextFactory<KitchenInventory.Data.KitchenInventoryDbContext>>();
                 using var db = dbFactory.CreateDbContext();
 
-                var items = db.Items.AsNoTracking().Include(i => i.Category).OrderBy(i => i.Id).ToList();
+                var items = db.Items.AsNoTracking().Include(i => i.Category).Include(i => i.Location).OrderBy(i => i.Id).ToList();
                 var csv = KitchenInventory.Desktop.Services.CsvExportService.ExportItems(items);
 
                 System.IO.File.WriteAllText(exportItemsPath!, csv, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
@@ -601,8 +601,10 @@ public partial class App : Application
 
                 // Load categories for mapping in parser (exclude sentinel if any)
                 var categories = db.Categories.AsNoTracking().ToList();
+                // Load locations for mapping in parser
+                var locations = db.Locations.AsNoTracking().ToList();
                 // Parse items
-                var parsed = csvImporter.ParseItemsAsync(csvText, categories).GetAwaiter().GetResult();
+                var parsed = csvImporter.ParseItemsAsync(csvText, categories, locations).GetAwaiter().GetResult();
 
                 if (parsed.Count == 0)
                 {
@@ -649,6 +651,7 @@ public partial class App : Application
                             Quantity = imp.Quantity,
                             Unit = string.IsNullOrWhiteSpace(imp.Unit) ? "pcs" : imp.Unit!,
                             CategoryId = imp.CategoryId,
+                            LocationId = imp.LocationId,
                             ExpiryDate = imp.ExpiryDate,
                             CreatedAtUtc = imp.CreatedAtUtc == default ? nowUtc : imp.CreatedAtUtc,
                             UpdatedAtUtc = nowUtc
@@ -679,6 +682,7 @@ public partial class App : Application
                         target.Unit = string.IsNullOrWhiteSpace(imp.Unit) ? target.Unit : imp.Unit!;
                         target.ExpiryDate = imp.ExpiryDate;
                         target.CategoryId = imp.CategoryId;
+                        target.LocationId = imp.LocationId;
                         target.Quantity = newQty;
                         target.UpdatedAtUtc = nowUtc;
 

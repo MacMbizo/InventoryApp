@@ -44,6 +44,7 @@
                 <DataGridTextColumn Header="Quantity" Binding="{Binding ParsedItem.Quantity}" Width="100"/>
                 <DataGridTextColumn Header="Unit" Binding="{Binding ParsedItem.Unit}" Width="100"/>
                 <DataGridTextColumn Header="Category" Binding="{Binding CategoryDisplay}" Width="160"/>
+                <DataGridTextColumn Header="Location" Binding="{Binding LocationDisplay}" Width="160"/>
                 <DataGridTextColumn Header="Expiry" Binding="{Binding ParsedItem.ExpiryDate, StringFormat=yyyy-MM-dd}" Width="120"/>
                 <DataGridTextColumn Header="Issues" Binding="{Binding IssueSummary}" Width="300"/>
             </DataGrid.Columns>

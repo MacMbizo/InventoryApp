@@ -13,6 +13,7 @@ public class KitchenInventoryDbContext : DbContext
     public DbSet<Item> Items => Set<Item>();
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
     public DbSet<Category> Categories => Set<Category>();
+    public DbSet<Location> Locations => Set<Location>();
     public DbSet<User> Users => Set<User>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -28,9 +29,22 @@ public class KitchenInventoryDbContext : DbContext
              .HasForeignKey(x => x.CategoryId)
              .OnDelete(DeleteBehavior.SetNull);
             b.HasIndex(x => x.CategoryId);
+
+            b.HasOne(x => x.Location)
+             .WithMany()
+             .HasForeignKey(x => x.LocationId)
+             .OnDelete(DeleteBehavior.SetNull);
+            b.HasIndex(x => x.LocationId);
         });
 
         modelBuilder.Entity<Category>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Name).IsRequired().HasMaxLength(100);
+            b.HasIndex(x => x.Name).IsUnique();
+        });
+
+        modelBuilder.Entity<Location>(b =>
         {
             b.HasKey(x => x.Id);
             b.Property(x => x.Name).IsRequired().HasMaxLength(100);

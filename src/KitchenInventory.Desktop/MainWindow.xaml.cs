@@ -8,6 +8,7 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using KitchenInventory.Desktop.Utilities;
@@ -20,6 +21,7 @@ namespace KitchenInventory.Desktop
         private static readonly string DecimalSeparator = CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator;
         private static readonly Regex QuantityRegex = new($"^\\d*(?:{Regex.Escape(DecimalSeparator)}\\d{{0,3}})?$");
         private int _validationErrorCount = 0;
+        private readonly DispatcherTimer _alertsTimer;
 
         public MainWindow(ItemsViewModel viewModel)
         {
@@ -28,6 +30,15 @@ namespace KitchenInventory.Desktop
             _viewModel = viewModel;
             // Replace inline lambda to allow post-load logic for first-run categories
             Loaded += MainWindow_OnLoaded;
+
+            // Periodically re-evaluate alerts so day-based alerts (expiring/expired) stay current.
+            _alertsTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(5) };
+            _alertsTimer.Tick += (_, __) =>
+            {
+                try { _viewModel.RefreshAlerts(); }
+                catch { /* alerts refresh is best-effort */ }
+            };
+            Closed += (_, __) => _alertsTimer.Stop();
         }
 
         private async void MainWindow_OnLoaded(object sender, RoutedEventArgs e)
@@ -71,6 +82,21 @@ namespace KitchenInventory.Desktop
                 {
                     _viewModel.ManageCategoriesCommand.Execute(null);
                 }
+            }
+
+            _alertsTimer.Start();
+        }
+
+        private void Open_UnitConverter_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var dialog = new UnitConverterDialog { Owner = WindowOwnerHelper.GetSafeOwner(this) ?? this };
+                dialog.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"Failed to open unit converter: {ex.Message}", "Unit Converter", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 

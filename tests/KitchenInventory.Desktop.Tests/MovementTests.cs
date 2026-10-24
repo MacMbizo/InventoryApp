@@ -52,7 +52,7 @@ public sealed class MovementTests
         private readonly IReadOnlyList<Item> _items;
         public FakeCsvImportService() { _items = Array.Empty<Item>(); }
         public FakeCsvImportService(IReadOnlyList<Item> items) { _items = items; }
-        public Task<IReadOnlyList<Item>> ParseItemsAsync(string csvContent, List<Category> categories)
+        public Task<IReadOnlyList<Item>> ParseItemsAsync(string csvContent, List<Category> categories, List<Location>? locations = null)
             => Task.FromResult(_items);
     }
 

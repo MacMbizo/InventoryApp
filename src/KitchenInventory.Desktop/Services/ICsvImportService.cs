@@ -6,6 +6,6 @@ namespace KitchenInventory.Desktop.Services
 {
     public interface ICsvImportService
     {
-        Task<IReadOnlyList<Item>> ParseItemsAsync(string csvContent, List<Category> categories);
+        Task<IReadOnlyList<Item>> ParseItemsAsync(string csvContent, List<Category> categories, List<Location>? locations = null);
     }
 }

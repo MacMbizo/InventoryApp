@@ -28,18 +28,18 @@ public class CsvExportTests
         var lines = csv.TrimEnd().Split('\n');
 
         Assert.True(lines.Length >= 4, $"Expected at least 4 lines, got {lines.Length}\n{csv}");
-        Assert.Equal("Id,Name,Quantity,Unit,CategoryId,CategoryName,ExpiryDate,CreatedAtUtc,UpdatedAtUtc", lines[0]);
+        Assert.Equal("Id,Name,Quantity,Unit,CategoryId,CategoryName,LocationId,LocationName,ExpiryDate,CreatedAtUtc,UpdatedAtUtc", lines[0]);
 
-        // First item line (CategoryId empty, CategoryName empty, Expiry empty)
-        Assert.Contains("1,Apple,5,pcs,,,," + fixedCreated.ToString("o", CultureInfo.InvariantCulture) + "," + fixedUpdated.ToString("o", CultureInfo.InvariantCulture), lines[1]);
+        // First item line (CategoryId, CategoryName, LocationId, LocationName, Expiry all empty)
+        Assert.Contains("1,Apple,5,pcs,,,,,," + fixedCreated.ToString("o", CultureInfo.InvariantCulture) + "," + fixedUpdated.ToString("o", CultureInfo.InvariantCulture), lines[1]);
 
-        // Second item line with escaping and date (CategoryId empty, CategoryName empty)
+        // Second item line with escaping and date (CategoryId, CategoryName, LocationId, LocationName empty)
         var expectedName = "\"Cheese, \"\"Gouda\"\"\""; // quotes doubled and field quoted
         var expectedExpiry = "2025-12-31";
-        Assert.Contains($"2,{expectedName},2.5,kg,,,{expectedExpiry},{fixedCreated:o},{fixedUpdated:o}", lines[2]);
+        Assert.Contains($"2,{expectedName},2.5,kg,,,,,{expectedExpiry},{fixedCreated:o},{fixedUpdated:o}", lines[2]);
 
-        // Third item line with empty optional fields (CategoryId empty, CategoryName empty, Expiry empty)
-        Assert.StartsWith("3,,0,,,", lines[3]);
+        // Third item line with empty optional fields (CategoryId, CategoryName, LocationId, LocationName, Expiry empty)
+        Assert.StartsWith("3,,0,,,,,,", lines[3]);
     }
 
     [Fact]
@@ -128,6 +128,6 @@ public class CsvExportTests
         var header = csv.Split('\n')[0];
     
         // Assert
-        header.Should().Be("Id,Name,Quantity,Unit,CategoryId,CategoryName,ExpiryDate,CreatedAtUtc,UpdatedAtUtc");
+        header.Should().Be("Id,Name,Quantity,Unit,CategoryId,CategoryName,LocationId,LocationName,ExpiryDate,CreatedAtUtc,UpdatedAtUtc");
     }
 }

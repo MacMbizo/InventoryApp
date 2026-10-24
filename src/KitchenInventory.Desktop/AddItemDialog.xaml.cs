@@ -12,13 +12,15 @@ namespace KitchenInventory.Desktop
     public partial class AddItemDialog : Window
     {
         public List<Category> Categories { get; }
+        public List<Location> Locations { get; }
         public AddItemViewModel Vm { get; }
 
-        public AddItemDialog(List<Category> categories)
+        public AddItemDialog(List<Category> categories, List<Location>? locations = null)
         {
             InitializeComponent();
             Categories = categories;
-            Vm = new AddItemViewModel(categories);
+            Locations = locations ?? new List<Location>();
+            Vm = new AddItemViewModel(categories, Locations);
             DataContext = Vm;
             Vm.ErrorsChanged += Vm_ErrorsChanged;
         }
@@ -43,6 +45,7 @@ namespace KitchenInventory.Desktop
                 Quantity = Vm.Quantity,
                 Unit = string.IsNullOrWhiteSpace(Vm.Unit) ? "pcs" : Vm.Unit.Trim(),
                 CategoryId = Vm.SelectedCategoryId > 0 ? Vm.SelectedCategoryId : null,
+                LocationId = Vm.SelectedLocationId > 0 ? Vm.SelectedLocationId : null,
                 ExpiryDate = Vm.ExpiryDate
             };
 

@@ -35,24 +35,29 @@ This document tracks the implementation phases for the Kitchen Inventory Desktop
 
 ---
 
-## Phase 2: Alerts and Catalogs ❌ (PLANNED)
+## Phase 2: Alerts and Catalogs 🚧 (IN PROGRESS)
 *Organize inventory with categories, locations, and proactive alerts.*
 
 ### Features
-- Item categories and locations for organization
-- Unit catalog with conversion rules (kg ↔ g, liters ↔ ml)
-- Low stock thresholds with configurable alerts
-- Expiring soon notifications with background timer
-- Dedicated alerts pane with badge counts
-- CSV import/export with validation preview and error reporting (PARTIAL: core import/export implemented with tests; preview + detailed error reporting pending)
+- ✅ **Categories and Locations**: Item categories and a Locations catalog for organization; both manageable from the toolbar and applied as grid filters
+- ✅ **Unit Catalog with Conversions**: Pure `UnitConversionService` (mass: mg/g/kg; volume: ml/cl/dl/l) with alias support and a "Unit Converter" dialog
+- ✅ **Low Stock Thresholds**: Configurable threshold (default 5) with alert generation
+- ✅ **Expiring Soon Notifications**: Days-to-expiry alerts with a background refresh timer (5 min) so alerts stay current across day boundaries
+- ✅ **Alerts Pane with Badge Counts**: Dedicated "Alerts" tab listing low/out-of-stock, expiring and expired items plus Low/Expiring/Expired/Critical badge counts
+- 🚧 **CSV import/export with validation preview**: core import/export implemented with tests (items export now includes location columns); detailed error reporting pending
 
 ### Acceptance Criteria
-- User can organize items by category and location
-- Unit conversions work automatically (e.g., 1.5 kg = 1500 g)
-- Low stock alerts appear when quantity falls below threshold
-- Expiring items highlighted with days-to-expiry
-- CSV export includes all item data; import validates and shows preview
-- Import errors downloadable as CSV with issue descriptions
+- [x] User can organize items by category and location
+- [x] Unit conversions work automatically (e.g., 1.5 kg = 1500 g)
+- [x] Low stock alerts appear when quantity falls below threshold
+- [x] Expiring items highlighted with days-to-expiry
+- [x] CSV export includes all item data (including location); import validates and shows preview
+- [ ] Import errors downloadable as CSV with issue descriptions
+
+### Recent Changes
+- **2026-10-24**: Added Location catalog end-to-end (entity, EF migration `AddLocation`, `LocationManagementDialog`, Items/AddItem VM wiring, CSV export/import/preview and headless paths); items CSV header now includes `LocationId,LocationName`
+- **2026-10-24**: Added `UnitConversionService` (kg↔g, l↔ml with aliases) and a "Unit Converter" toolbar dialog
+- **2026-10-24**: Added alerts pane with badge counts, `InventoryAlertService` evaluator, and a background refresh timer
 
 ---
 

@@ -11,6 +11,8 @@ public class Item
     public DateTime? ExpiryDate { get; set; }
     public int? CategoryId { get; set; }
     public Category? Category { get; set; }
+    public int? LocationId { get; set; }
+    public Location? Location { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAtUtc { get; set; }
 }

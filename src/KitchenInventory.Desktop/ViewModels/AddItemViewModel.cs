@@ -73,6 +73,11 @@ namespace KitchenInventory.Desktop.ViewModels
                         SetErrors(nameof(SelectedCategoryId), Array.Empty<string>());
                         break;
                     }
+                case nameof(SelectedLocationId):
+                    {
+                        SetErrors(nameof(SelectedLocationId), Array.Empty<string>());
+                        break;
+                    }
                 case nameof(ExpiryDate):
                     {
                         SetErrors(nameof(ExpiryDate), Array.Empty<string>());
@@ -82,6 +87,7 @@ namespace KitchenInventory.Desktop.ViewModels
         }
 
         public List<Category> Categories { get; }
+        public List<Location> Locations { get; }
 
         private string _itemName = string.Empty;
         public string ItemName
@@ -143,6 +149,21 @@ namespace KitchenInventory.Desktop.ViewModels
             }
         }
 
+        private int _selectedLocationId;
+        public int SelectedLocationId
+        {
+            get => _selectedLocationId;
+            set
+            {
+                if (_selectedLocationId != value)
+                {
+                    _selectedLocationId = value;
+                    OnPropertyChanged();
+                    ValidateProperty(nameof(SelectedLocationId));
+                }
+            }
+        }
+
         private DateTime? _expiryDate;
         public DateTime? ExpiryDate
         {
@@ -161,9 +182,10 @@ namespace KitchenInventory.Desktop.ViewModels
         private RelayCommand? _addCommand;
         public ICommand AddCommand => _addCommand!;
 
-        public AddItemViewModel(List<Category> categories)
+        public AddItemViewModel(List<Category> categories, List<Location>? locations = null)
         {
             Categories = categories;
+            Locations = locations ?? new List<Location>();
             _addCommand = new RelayCommand(() => { /* actual add handled by Click handler */ }, () => !HasErrors);
             ValidateProperty(nameof(ItemName));
             ValidateProperty(nameof(Quantity));
