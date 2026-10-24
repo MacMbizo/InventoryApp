@@ -1,0 +1,117 @@
+using System;
+using System.Globalization;
+using FluentAssertions;
+using KitchenInventory.Desktop.Utilities;
+using KitchenInventory.Desktop.Validations;
+using Xunit;
+
+namespace KitchenInventory.Desktop.Tests;
+
+public sealed class ValidationAndUtilityTests
+{
+    // ---------- NotEmptyValidationRule ----------
+
+    private static readonly NotEmptyValidationRule Rule = new();
+
+    [Fact]
+    public void NotEmpty_Null_IsInvalid()
+    {
+        var result = Rule.Validate(null!, CultureInfo.InvariantCulture);
+
+        result.IsValid.Should().BeFalse();
+        result.ErrorContent.Should().Be("Value is required.");
+    }
+
+    [Fact]
+    public void NotEmpty_EmptyString_IsInvalid()
+        => Rule.Validate(string.Empty, CultureInfo.InvariantCulture).IsValid.Should().BeFalse();
+
+    [Fact]
+    public void NotEmpty_Whitespace_IsInvalid_ByDefault()
+        => Rule.Validate("   ", CultureInfo.InvariantCulture).IsValid.Should().BeFalse();
+
+    [Fact]
+    public void NotEmpty_Whitespace_IsValid_WhenAllowed()
+    {
+        var rule = new NotEmptyValidationRule { AllowWhitespace = true };
+
+        rule.Validate("   ", CultureInfo.InvariantCulture).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void NotEmpty_Content_IsValid()
+        => Rule.Validate("Flour", CultureInfo.InvariantCulture).IsValid.Should().BeTrue();
+
+    // ---------- VersionInfo ----------
+
+    [Fact]
+    public void AppVersion_HasSemanticShape()
+        => VersionInfo.AppVersion.Should().MatchRegex(@"^\d+\.\d+\.\d+$");
+
+    [Fact]
+    public void InformationalVersion_IsPopulated()
+        => VersionInfo.InformationalVersion.Should().NotBeNullOrWhiteSpace();
+
+    [Fact]
+    public void Commit_IsNeverBlank()
+        => VersionInfo.Commit.Should().NotBeNullOrWhiteSpace();
+
+    [Fact]
+    public void ShortCommit_IsEitherUnknownOrEightChars()
+    {
+        var shortCommit = VersionInfo.ShortCommit;
+
+        if (shortCommit == "unknown")
+        {
+            VersionInfo.Commit.Should().Be("unknown");
+        }
+        else
+        {
+            shortCommit.Should().HaveLength(8);
+        }
+    }
+
+    [Fact]
+    public void GetDefaultDiagnosticsFileName_HasExpectedShape()
+    {
+        var name = VersionInfo.GetDefaultDiagnosticsFileName();
+
+        name.Should().StartWith("diagnostics-").And.EndWith(".zip");
+    }
+
+    [Fact]
+    public void Commit_ReflectsEnvironmentVariable()
+    {
+        var original = Environment.GetEnvironmentVariable("INVENTORY_COMMIT_SHA");
+        try
+        {
+            Environment.SetEnvironmentVariable("INVENTORY_COMMIT_SHA", "abcdef0123456789");
+
+            VersionInfo.Commit.Should().Be("abcdef0123456789");
+            VersionInfo.ShortCommit.Should().Be("abcdef01");
+            VersionInfo.GetDefaultDiagnosticsFileName().Should().Contain("abcdef01");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("INVENTORY_COMMIT_SHA", original);
+        }
+    }
+
+    [Fact]
+    public void Commit_IsUnknown_WhenEnvironmentVariableMissing()
+    {
+        var original = Environment.GetEnvironmentVariable("INVENTORY_COMMIT_SHA");
+        try
+        {
+            Environment.SetEnvironmentVariable("INVENTORY_COMMIT_SHA", null);
+
+            VersionInfo.Commit.Should().Be("unknown");
+            VersionInfo.ShortCommit.Should().Be("unknown");
+            VersionInfo.GetDefaultDiagnosticsFileName().Should().Contain("-dev-");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("INVENTORY_COMMIT_SHA", original);
+        }
+    }
+}

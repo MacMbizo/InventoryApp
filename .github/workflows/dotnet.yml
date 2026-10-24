@@ -61,6 +61,20 @@ jobs:
         run: |
           dotnet test tests/KitchenInventory.Desktop.Tests/KitchenInventory.Desktop.Tests.csproj --configuration Release --verbosity normal --logger "trx;LogFileName=TestResults.trx"
           dotnet test tests/QAAgentRunner.Tests/QAAgentRunner.Tests.csproj --configuration Release --verbosity normal --logger "trx;LogFileName=TestResults.trx"
+      - name: Test with coverage gate (80% line floor on logic)
+        # Enforces the 80% minimum test-coverage floor from project-documentation/development-rules.md.
+        # Coverage is scoped to testable logic: WPF XAML code-behind, EF migrations and generated code
+        # are excluded from the denominator (that surface is covered by UI automation). Threshold config
+        # lives in tests/KitchenInventory.Desktop.Tests/KitchenInventory.Desktop.Tests.csproj.
+        shell: pwsh
+        run: |
+          dotnet test tests/KitchenInventory.Desktop.Tests/KitchenInventory.Desktop.Tests.csproj `
+            --configuration Release `
+            --filter "Category!=UI" `
+            --nologo `
+            /p:CollectCoverage=true `
+            /p:CoverletOutputFormat=cobertura `
+            /p:CoverletOutput=./.coverage/ci-coverage
       - name: Upload build artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -70,6 +84,7 @@ jobs:
             src/**/bin/Release/**
             tests/**/bin/Release/**
             tests/**/TestResults/**
+            tests/KitchenInventory.Desktop.Tests/.coverage/**
       - name: Basic OS and .NET info
         shell: pwsh
         run: |

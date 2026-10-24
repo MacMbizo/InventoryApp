@@ -16,7 +16,9 @@
   -->
   <PropertyGroup>
     <Include>[KitchenInventory.*]*</Include>
-    <ExcludeByAttribute>GeneratedCodeAttribute,CompilerGeneratedAttribute,ExcludeFromCodeCoverageAttribute</ExcludeByAttribute>
+    <!-- ExcludeByAttribute must NOT include CompilerGeneratedAttribute: async/iterator bodies
+         live in compiler-generated state machines and would be dropped from the denominator. -->
+    <ExcludeByAttribute>GeneratedCodeAttribute,ExcludeFromCodeCoverageAttribute</ExcludeByAttribute>
     <ExcludeByFile>**/*.xaml.cs,**/obj/**,**/Migrations/**</ExcludeByFile>
     <Threshold>80</Threshold>
     <ThresholdType>line</ThresholdType>

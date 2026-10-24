@@ -58,7 +58,9 @@ This document tracks the implementation phases for the Kitchen Inventory Desktop
 - **2026-10-24**: Added Location catalog end-to-end (entity, EF migration `AddLocation`, `LocationManagementDialog`, Items/AddItem VM wiring, CSV export/import/preview and headless paths); items CSV header now includes `LocationId,LocationName`
 - **2026-10-24**: Added `UnitConversionService` (kg↔g, l↔ml with aliases) and a "Unit Converter" toolbar dialog
 - **2026-10-24**: Added alerts pane with badge counts, `InventoryAlertService` evaluator, and a background refresh timer
-- **2026-10-24**: Added a Coverlet-based code-coverage gate (80% line floor scoped to testable logic; XAML code-behind, EF migrations and generated code excluded). Measured logic coverage: Domain 100%, Data 77.5%, Desktop 44.6% (weighted total 48.2%) — below the floor; gate is opt-in (`/p:CollectCoverage=true`) and not yet wired into CI
+- **2026-10-24**: Added a Coverlet-based code-coverage gate (80% line floor scoped to testable logic; XAML code-behind, EF migrations and generated code excluded). Threshold config lives in `tests/KitchenInventory.Desktop.Tests/KitchenInventory.Desktop.Tests.csproj` and is opt-in (`/p:CollectCoverage=true`), so a plain `dotnet test` stays green
+- **2026-10-24**: Raised logic coverage from 48.9% to **85.4% line** (Domain 88.9%, Data 97.1%, Desktop 84.6%; 220 non-UI tests) via new suites for converters/validation/VersionInfo, `AddItemViewModel`/`AdminSetupViewModel`/`UnitConverterViewModel`, `DatabaseInfoService`, `DesignTimeDbContextFactory`, `PreferencesService`, `DiagnosticsExporter`, CSV import/preview services and `ItemsViewModel` (load, filter, save/delete movements, CSV import/export, RBAC gating)
+- **2026-10-24**: Wired the coverage gate into CI (`.github/workflows/dotnet.yml`, `Test with coverage gate` step) so builds fail when logic line coverage drops below 80%
 
 ---
 
