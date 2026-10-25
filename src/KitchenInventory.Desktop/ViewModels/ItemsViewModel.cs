@@ -532,28 +532,55 @@ public class ItemsViewModel : INotifyPropertyChanged
 
         if (toDelete.Id > 0)
         {
-            using var db = await _dbFactory.CreateDbContextAsync();
-            // Get existing quantity before deletion
-            var existing = await db.Items.AsNoTracking().FirstOrDefaultAsync(i => i.Id == toDelete.Id);
-            using var tx = await db.Database.BeginTransactionAsync();
-            if (existing != null && existing.Quantity != 0)
+            try
             {
-                var adj = new StockMovement
+                using var db = await _dbFactory.CreateDbContextAsync();
+                using var tx = await db.Database.BeginTransactionAsync();
+
+                var existing = await db.Items.FirstOrDefaultAsync(i => i.Id == toDelete.Id);
+                if (existing != null)
                 {
-                    ItemId = existing.Id,
-                    Type = MovementType.Adjust,
-                    // Signed delta: deleting an item writes off its whole stock.
-                    Quantity = -existing.Quantity,
-                    Reason = "Delete item",
-                    User = Environment.UserName,
-                    TimestampUtc = DateTime.UtcNow
-                };
-                await db.AddAsync(adj);
+                    if (existing.Quantity != 0)
+                    {
+                        await db.AddAsync(new StockMovement
+                        {
+                            ItemId = existing.Id,
+                            Type = MovementType.Adjust,
+                            // Signed delta: deleting an item writes off its whole stock.
+                            Quantity = -existing.Quantity,
+                            Reason = "Delete item",
+                            User = Environment.UserName,
+                            TimestampUtc = DateTime.UtcNow
+                        });
+                    }
+
+                    // Soft delete: keep the row and its movement history for audit, but hide it
+                    // from every read path (global query filter) and write the stock off so the
+                    // ledger invariant still holds for the hidden row.
+                    existing.IsDeleted = true;
+                    existing.Quantity = 0m;
+                    await db.SaveChangesAsync();
+                }
+
+                await tx.CommitAsync();
             }
-            db.Attach(toDelete);
-            db.Remove(toDelete);
-            await db.SaveChangesAsync();
-            await tx.CommitAsync();
+            catch (DbUpdateConcurrencyException ex)
+            {
+                _logger.LogWarning(ex, "Delete aborted: item {ItemId} changed since it was loaded", toDelete.Id);
+                // Reload first: UpdateStatus() rewrites StatusText, so report after it.
+                await LoadAsync();
+                ApplyFilter();
+                StatusText = "Delete failed: this item was changed elsewhere. The list has been refreshed.";
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to delete item {ItemId}", toDelete.Id);
+                await LoadAsync();
+                ApplyFilter();
+                StatusText = $"Delete failed: {ex.Message}";
+                return;
+            }
         }
         CommandManager.InvalidateRequerySuggested();
 
@@ -643,6 +670,15 @@ public class ItemsViewModel : INotifyPropertyChanged
             await LoadAsync();
             ApplyFilter();
             CommandManager.InvalidateRequerySuggested();
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            _logger.LogWarning(ex, "Save aborted: an item changed since it was loaded");
+            // Reload first: UpdateStatus() rewrites StatusText, so report after it.
+            await LoadAsync();
+            ApplyFilter();
+            StatusText = "Save failed: an item was changed elsewhere. The list has been refreshed.";
+            return;
         }
         catch (Exception ex)
         {

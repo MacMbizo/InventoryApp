@@ -57,6 +57,11 @@ namespace KitchenInventory.Data.Migrations
                     b.Property<DateTime?>("ExpiryDate")
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
                     b.Property<int?>("LocationId")
                         .HasColumnType("INTEGER");
 
@@ -67,6 +72,10 @@ namespace KitchenInventory.Data.Migrations
 
                     b.Property<decimal>("Quantity")
                         .HasPrecision(18, 3)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("RowVersion")
+                        .IsConcurrencyToken()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Unit")

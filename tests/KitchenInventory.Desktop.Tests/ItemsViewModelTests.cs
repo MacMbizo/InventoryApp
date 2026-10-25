@@ -329,7 +329,7 @@ public class ItemsViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task DeleteItemCommand_RemovesItemAndRecordsAdjustment()
+    public async Task DeleteItemCommand_SoftDeletesItemAndRecordsAdjustment()
     {
         var vm = Create();
         await vm.LoadAsync();
@@ -339,11 +339,71 @@ public class ItemsViewModelTests : IDisposable
         await WaitUntilAsync(() =>
         {
             using var db = _factory.CreateDbContext();
-            return !db.Items.Any(i => i.Id == _riceId);
+            return db.Items.IgnoreQueryFilters().Any(i => i.Id == _riceId && i.IsDeleted);
         });
 
+        // Hidden from every normal read path...
+        Assert.False(DbHasItem("Rice"));
+
         using var db2 = _factory.CreateDbContext();
-        Assert.True(db2.StockMovements.Any(m => m.Reason == "Delete item" && m.Type == MovementType.Adjust));
+        // ...but the row survives, with the stock written off.
+        var row = db2.Items.IgnoreQueryFilters().Single(i => i.Id == _riceId);
+        Assert.True(row.IsDeleted);
+        Assert.Equal(0m, row.Quantity);
+
+        var movements = db2.StockMovements.Where(m => m.ItemId == _riceId).ToList();
+        Assert.Contains(movements, m => m.Reason == "Delete item" && m.Type == MovementType.Adjust && m.Quantity == -10m);
+        // The movement history must not be orphaned by the delete.
+        Assert.Contains(movements, m => m.Reason == "Initial add");
+    }
+
+    [Fact]
+    public async Task SaveChangesCommand_AssignsAndRotatesRowVersion()
+    {
+        Guid first;
+        using (var db = _factory.CreateDbContext())
+        {
+            first = db.Items.AsNoTracking().Single(i => i.Id == _riceId).RowVersion;
+        }
+        Assert.NotEqual(Guid.Empty, first);
+
+        using (var db = _factory.CreateDbContext())
+        {
+            var rice = await db.Items.SingleAsync(i => i.Id == _riceId);
+            rice.Quantity = 7m;
+            await db.SaveChangesAsync();
+        }
+
+        using (var db = _factory.CreateDbContext())
+        {
+            Assert.NotEqual(first, db.Items.AsNoTracking().Single(i => i.Id == _riceId).RowVersion);
+        }
+    }
+
+    [Fact]
+    public async Task SaveChangesCommand_ReportsConflict_WhenItemChangedElsewhere()
+    {
+        var vm = Create();
+        await vm.LoadAsync();
+        var rice = vm.Items.First(i => i.Name == "Rice");
+
+        // A second writer moves the row on, invalidating the row version the view model holds.
+        using (var other = _factory.CreateDbContext())
+        {
+            var current = await other.Items.SingleAsync(i => i.Id == _riceId);
+            current.Quantity = 42m;
+            await other.SaveChangesAsync();
+        }
+
+        rice.Quantity = 3m;
+        RunCommand(vm.SaveChangesCommand);
+        await WaitUntilAsync(() => vm.StatusText.Contains("changed elsewhere"));
+
+        Assert.Contains("changed elsewhere", vm.StatusText);
+
+        // The stale write must not have landed.
+        using var db = _factory.CreateDbContext();
+        Assert.Equal(42m, db.Items.AsNoTracking().Single(i => i.Id == _riceId).Quantity);
     }
 
     [Fact]

@@ -24,6 +24,11 @@ public class KitchenInventoryDbContext : DbContext
             b.Property(x => x.Name).IsRequired().HasMaxLength(200);
             b.Property(x => x.Unit).IsRequired().HasMaxLength(32);
             b.Property(x => x.Quantity).HasPrecision(18, 3);
+            b.Property(x => x.IsDeleted).HasDefaultValue(false);
+            // SQLite has no native rowversion; a regenerated Guid acts as the concurrency token.
+            b.Property(x => x.RowVersion).IsConcurrencyToken();
+            // Soft-deleted items stay in the table for audit but disappear from every read path.
+            b.HasQueryFilter(x => !x.IsDeleted);
             b.HasOne(x => x.Category)
              .WithMany()
              .HasForeignKey(x => x.CategoryId)
@@ -104,6 +109,12 @@ public class KitchenInventoryDbContext : DbContext
             else if (entry.State == EntityState.Modified)
             {
                 entry.Entity.UpdatedAtUtc = nowUtc;
+            }
+
+            // Regenerate the concurrency token on every write: SQLite has no native rowversion.
+            if (entry.State == EntityState.Added || entry.State == EntityState.Modified)
+            {
+                entry.Entity.RowVersion = Guid.NewGuid();
             }
         }
 
