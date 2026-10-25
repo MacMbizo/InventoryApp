@@ -22,6 +22,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.IO.Compression;
 using KitchenInventory.Desktop.Constants;
+using KitchenInventory.Desktop.Logging;
 using KitchenInventory.Desktop.Utilities;
 using KitchenInventory.Domain.Entities;
 using Microsoft.Extensions.Logging;
@@ -80,7 +81,7 @@ public partial class App : Application
                     .ReadFrom.Configuration(ctx.Configuration)
                     .Enrich.FromLogContext()
                     .WriteTo.Console()
-                    .WriteTo.File(logPath, rollingInterval: RollingInterval.Day);
+                    .WithLogRetention(logPath);
 
                 var dsn = Environment.GetEnvironmentVariable("SENTRY_DSN") ?? ctx.Configuration["Sentry:Dsn"];
 

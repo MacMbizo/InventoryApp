@@ -97,7 +97,7 @@ This document tracks the implementation phases for the Kitchen Inventory Desktop
 ### Features
 - 🚧 **Crash Reporting**: Sentry integrated (DSN from config or `SENTRY_DSN`), opt-in consent preference, dispatcher/task/unhandled-exception handlers and an `INVENTORY_CRASH_TEST` hook — but no end-to-end sign-off run has been performed
 - ✅ **Support Bundle Export**: Logs, config, and anonymized data for troubleshooting (GUI + headless implemented)
-- 🚧 **Log Retention**: Serilog daily rolling file only (`rollingInterval: Day`); no retention count/size limit and no cleanup
+- ✅ **Log Retention**: Serilog daily rolling file, rolled early once a file passes 10 MB, keeping the newest 30 files; the folder can never exceed ~300 MB however long the app is left running
 - ✅ **Database Maintenance**: Integrity check (`PRAGMA integrity_check`, `PRAGMA foreign_key_check`, stock-ledger reconciliation), `VACUUM INTO` backups (automatic on launch, manual, and to another folder) and a restore that always leaves a `before-restore-*` safety copy
 - ❌ **Feature Flags**: Enable/disable beta features per user
 - 🚧 **Telemetry**: Error/crash reporting only; no opt-in usage analytics
@@ -110,6 +110,7 @@ This document tracks the implementation phases for the Kitchen Inventory Desktop
 - ❌ Telemetry respects user privacy preferences and GDPR
 
 ### Recent Changes
+- **2026-10-25**: Completed Gate 1 item 4 — log retention. `LogRetention.WithLogRetention` (the single place the policy lives) caps each log file at 10 MB with `rollOnFileSizeLimit` and keeps only the newest 30; `App.xaml.cs` writes through it instead of the bare `rollingInterval: Day` sink
 - **2026-10-24**: Reconciled status — crash reporting moved from "planned" to implemented-but-unverified (Sentry + consent preference + `INVENTORY_CRASH_TEST` hook); log retention narrowed to "daily rolling file, no retention limit"; database maintenance confirmed absent
 
 ---
@@ -132,6 +133,7 @@ This document tracks the implementation phases for the Kitchen Inventory Desktop
 - [ ] All actions logged for compliance and security audits
 
 ### Recent Changes
+- **2026-10-25**: Completed Gate 1 item 4 — log retention. `LogRetention.WithLogRetention` caps each log file at 10 MB and keeps the newest 30, replacing the unbounded `rollingInterval: Day` sink; 305 non-UI tests pass (4 new) at 85.74% line coverage
 - **2026-10-25**: Completed Gate 1 item 2 — `DatabaseMaintenance` adds an integrity check (`PRAGMA integrity_check`, `PRAGMA foreign_key_check`, stock-ledger reconciliation) and `VACUUM INTO` backups; the new **Your data** window copies the database (or one to a USB stick), checks it in plain language and restores an older copy behind a `before-restore-*` safety copy. An automatic backup is taken on every launch, keeping the newest 5 and never pruning manual or safety copies
 - **2026-10-25**: Completed Gate 1 item 1 — `Item` gained `IsDeleted` (with a global query filter) and a `RowVersion` concurrency token; deleting an item is now a soft delete that keeps its movement history and writes the stock off, and stale writes surface as a reported conflict instead of overwriting. 280 non-UI tests pass
 - **2026-10-25**: Adjust movements now store the signed delta, with `StockLedger.ReconcileAsync` verifying `Item.Quantity == ΣAdd − ΣConsume + ΣAdjust`
@@ -174,7 +176,7 @@ This document tracks the implementation phases for the Kitchen Inventory Desktop
    - Covered by an updated soft-delete test (row retained, stock written off, history not orphaned), a row-version rotation test, a stale-writer conflict test, a schema-upgrade test (previous schema → migrate → data intact) and the 7 `StockLedger` tests. 280 non-UI tests pass.
 2. ✅ **Database maintenance** — backup, restore and integrity check, reachable from **Your data** in the menu bar. `DatabaseMaintenance.CheckAsync` runs SQLite's own `PRAGMA integrity_check`, `PRAGMA foreign_key_check` and `StockLedger.ReconcileAsync`, and reports each area in plain language (`The stock on hand matches the recorded history for every item.` / `Flour: 20 on hand, but the history adds up to 5 (out by +15).`); failures of the check itself are reported as "could not be checked" rather than as damage. Backups use `VACUUM INTO`, not a file copy, because the database runs in WAL mode where a copy can miss the newest committed rows or capture a torn write; an automatic `auto-kitchen-*.db` copy is taken on each launch (the newest 5 are kept, and manual/safety copies are never pruned), and `Back up to another folder…` writes one to a USB stick. Restoring always writes a `before-restore-*.db` safety copy and renames the live file into place through `SqliteConnection.ClearAllPools()` plus sidecar (`-wal`/`-shm`) removal, then restarts the app, so a restore is itself undoable.
 3. **Crash reporting sign-off** — prove a real crash produces a Sentry event *and* a support bundle, with consent both on and off
-4. **Log retention** — bound log growth (retained file count/size) before this runs unattended on a school machine
+4. ✅ **Log retention** — `LogRetention` (`KitchenInventory.Desktop.Logging`) is the one place the policy lives: `log-*.txt` rolls daily, rolls early once a file passes **10 MB**, and only the newest **30** files are kept (`retainedFileCountLimit`), so the log folder is bounded at roughly 300 MB however long the app is left running on a school machine. The file name shape is unchanged, so the support bundle's "last 5 `log-*.txt`" collection still finds logs. The limits are parameters of `WithLogRetention` purely so tests can drive the real Serilog sink with small values and observe pruning; the app always uses the defaults. Covered by four `LogRetentionTests` (rolls and prunes to the limit, newest events survive, filename matches the support bundle's pattern, blank path rejected).
 5. **Validation and locale polish** — quantity entry at boundaries (keyboard paste, fr-FR/de-DE separators)
 
 ### Gate 2 — Packaging (only after Gates 0–1)
