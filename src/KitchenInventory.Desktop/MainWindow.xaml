@@ -171,7 +171,16 @@
 
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Item" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="2*"/>
-                    <DataGridTextColumn Header="Quantity" Binding="{Binding Quantity, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}" Width="*"/>
+                    <DataGridTextColumn Header="Quantity" Binding="{Binding Quantity, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}" Width="*">
+                        <DataGridTextColumn.EditingElementStyle>
+                            <!-- Quantities are the only numeric column, so the typing guard and the
+                                 paste conversion are attached here rather than to every cell. -->
+                            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                <EventSetter Event="PreviewTextInput" Handler="Quantity_PreviewTextInput"/>
+                                <EventSetter Event="DataObject.Pasting" Handler="Quantity_Pasting"/>
+                            </Style>
+                        </DataGridTextColumn.EditingElementStyle>
+                    </DataGridTextColumn>
                     <DataGridTextColumn Header="Unit" Binding="{Binding Unit, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
                     <!-- Insert Category column -->
                     <DataGridTemplateColumn Header="Category" Width="*">

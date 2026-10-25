@@ -62,6 +62,8 @@
         <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Vertical" Margin="0,6,0,16">
             <TextBox x:Name="QuantityTextBox" Height="28" Width="120"
                      Text="{Binding Quantity, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True}"
+                     PreviewTextInput="Quantity_PreviewTextInput"
+                     DataObject.Pasting="Quantity_Pasting"
                      AutomationProperties.AutomationId="QuantityTextBox"/>
             <TextBlock Margin="2,2,0,0" Foreground="#FFCC0000" FontSize="12" AutomationProperties.AutomationId="QuantityErrorText">
                 <TextBlock.Style>

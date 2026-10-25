@@ -5,7 +5,6 @@ using KitchenInventory.Desktop.ViewModels;
 using KitchenInventory.Desktop.Services;
 using KitchenInventory.Domain.Constants;
 using System.Globalization;
-using System.Text.RegularExpressions;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Threading;
@@ -18,8 +17,6 @@ namespace KitchenInventory.Desktop
     public partial class MainWindow : Window
     {
         private readonly ItemsViewModel _viewModel;
-        private static readonly string DecimalSeparator = CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator;
-        private static readonly Regex QuantityRegex = new($"^\\d*(?:{Regex.Escape(DecimalSeparator)}\\d{{0,3}})?$");
         private int _validationErrorCount = 0;
         private readonly DispatcherTimer _alertsTimer;
 
@@ -136,26 +133,27 @@ namespace KitchenInventory.Desktop
         {
             var tb = (TextBox)sender;
             var proposed = tb.Text.Remove(tb.SelectionStart, tb.SelectionLength).Insert(tb.SelectionStart, e.Text);
-            e.Handled = !QuantityRegex.IsMatch(proposed);
+            e.Handled = !QuantityText.IsValidTyping(proposed, CultureInfo.CurrentCulture);
         }
 
         private void Quantity_Pasting(object sender, DataObjectPastingEventArgs e)
         {
-            if (e.DataObject.GetDataPresent(DataFormats.Text))
+            if (!e.DataObject.GetDataPresent(DataFormats.Text))
             {
-                var paste = (string)e.DataObject.GetData(DataFormats.Text)!;
                 e.CancelCommand();
-                var tb = (TextBox)sender;
-                var proposed = tb.Text.Remove(tb.SelectionStart, tb.SelectionLength).Insert(tb.SelectionStart, paste);
-                if (QuantityRegex.IsMatch(proposed))
-                {
-                    tb.Text = proposed;
-                    tb.CaretIndex = proposed.Length;
-                }
+                return;
             }
-            else
+
+            // Take over the paste so that an amount copied from a spreadsheet or another locale
+            // arrives in this machine's convention instead of being dropped without a word.
+            e.CancelCommand();
+            var pasted = QuantityText.NormalizePasted((string?)e.DataObject.GetData(DataFormats.Text), CultureInfo.CurrentCulture);
+            var tb = (TextBox)sender;
+            var proposed = tb.Text.Remove(tb.SelectionStart, tb.SelectionLength).Insert(tb.SelectionStart, pasted);
+            if (QuantityText.IsValidTyping(proposed, CultureInfo.CurrentCulture))
             {
-                e.CancelCommand();
+                tb.Text = proposed;
+                tb.CaretIndex = proposed.Length;
             }
         }
 

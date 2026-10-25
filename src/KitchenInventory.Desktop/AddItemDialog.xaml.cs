@@ -1,8 +1,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
 using KitchenInventory.Domain.Entities;
 using KitchenInventory.Desktop.ViewModels;
 using KitchenInventory.Desktop.Utilities;
@@ -52,6 +55,34 @@ namespace KitchenInventory.Desktop
             Tag = item;
             DialogResult = true;
             Close();
+        }
+
+        private void Quantity_PreviewTextInput(object sender, TextCompositionEventArgs e)
+        {
+            var tb = (TextBox)sender;
+            var proposed = tb.Text.Remove(tb.SelectionStart, tb.SelectionLength).Insert(tb.SelectionStart, e.Text);
+            e.Handled = !QuantityText.IsValidTyping(proposed, CultureInfo.CurrentCulture);
+        }
+
+        private void Quantity_Pasting(object sender, DataObjectPastingEventArgs e)
+        {
+            if (!e.DataObject.GetDataPresent(DataFormats.Text))
+            {
+                e.CancelCommand();
+                return;
+            }
+
+            // Take over the paste so that an amount copied from a spreadsheet or another locale
+            // arrives in this machine's convention instead of being dropped without a word.
+            e.CancelCommand();
+            var pasted = QuantityText.NormalizePasted((string?)e.DataObject.GetData(DataFormats.Text), CultureInfo.CurrentCulture);
+            var tb = (TextBox)sender;
+            var proposed = tb.Text.Remove(tb.SelectionStart, tb.SelectionLength).Insert(tb.SelectionStart, pasted);
+            if (QuantityText.IsValidTyping(proposed, CultureInfo.CurrentCulture))
+            {
+                tb.Text = proposed;
+                tb.CaretIndex = proposed.Length;
+            }
         }
 
         private void FocusFirstInvalid()
