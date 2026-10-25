@@ -37,6 +37,9 @@
                 <MenuItem Header="_Settings" Click="Open_Settings_Click" />
                 <MenuItem x:Name="ManageUsersMenuItem" Header="_Manage users" Click="Manage_Users_Click" AutomationProperties.AutomationId="ManageUsersMenuItem" />
                 <MenuItem Header="_Reports" Click="Open_Reports_Click" AutomationProperties.AutomationId="ReportsMenuItem" />
+                <MenuItem Header="Your _data" Click="Open_DatabaseMaintenance_Click"
+                          ToolTip="Back up, check or restore your saved inventory data"
+                          AutomationProperties.AutomationId="DatabaseMaintenanceMenuItem" />
                 <MenuItem Header="_Help">
                     <MenuItem Header="_About Kitchen Inventory" Click="Help_About_Click" AutomationProperties.AutomationId="AboutMenuItem"/>
                     <Separator/>

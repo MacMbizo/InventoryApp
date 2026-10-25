@@ -154,6 +154,8 @@ public partial class App : Application
 
                 services.AddDbContextFactory<KitchenInventory.Data.KitchenInventoryDbContext>(Configure);
                 services.AddSingleton<IDatabaseInfoService, DatabaseInfoService>();
+                // Backup, restore and integrity checking: the database is the only copy of the school's inventory.
+                services.AddSingleton<IDatabaseMaintenanceService, DatabaseMaintenanceService>();
                 services.AddSingleton<IPreferencesService, PreferencesService>();
                 services.AddSingleton<IDialogService, DialogService>();
                 // Register authentication and session services
@@ -827,6 +829,18 @@ public partial class App : Application
             Environment.ExitCode = ExitCodes.GeneralError;
             Shutdown(ExitCodes.GeneralError);
             return;
+        }
+
+        // Take the routine backup for this launch. Best effort: a school must never be stopped
+        // from opening the app because a spare copy of its data could not be written.
+        try
+        {
+            var maintenance = _host.Services.GetRequiredService<IDatabaseMaintenanceService>();
+            await maintenance.CreateStartupBackupAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "The automatic startup backup failed; continuing without one");
         }
 
         try

@@ -201,6 +201,23 @@ namespace KitchenInventory.Desktop
             }
         }
 
+        private void Open_DatabaseMaintenance_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var sp = ((App)Application.Current).Services;
+                var maintenance = sp.GetRequiredService<IDatabaseMaintenanceService>();
+                var window = new DatabaseMaintenanceWindow(maintenance);
+                WindowOwnerHelper.SetSafeOwner(window, this);
+                window.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                var owner = WindowOwnerHelper.GetSafeOwner(this) ?? this;
+                MessageBox.Show(owner, $"Failed to open your data: {ex.Message}", "Your data", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private void Manage_Users_Click(object sender, RoutedEventArgs e)
         {
             try

@@ -30,4 +30,15 @@ public static class AppPaths
         Directory.CreateDirectory(dir);
         return dir;
     }
+
+    /// <summary>
+    /// Where database backups are kept. The database is the only copy of the school's
+    /// inventory, so the folder sits beside it under the same redirectable data directory.
+    /// </summary>
+    public static string GetBackupsDirectory()
+    {
+        var dir = Path.Combine(GetDataDirectory(), "backups");
+        Directory.CreateDirectory(dir);
+        return dir;
+    }
 }
