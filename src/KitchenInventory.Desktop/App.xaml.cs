@@ -36,6 +36,14 @@ public partial class App : Application
     private IDisposable? _sentry;
     private bool _crashTest = false;
     private bool _startupCompleted = false;
+
+    /// <summary>
+    /// What was decided about crash reporting, filled in while the logger is being configured.
+    /// It is logged once the logger is live, because anything logged during configuration is
+    /// written before the sinks exist and is lost — and this line is what lets a support bundle
+    /// explain why (or whether) a crash was sent to Sentry.
+    /// </summary>
+    private string _crashReportingStatus = "Crash reporting state unknown.";
     public IServiceProvider Services => _host?.Services ?? throw new InvalidOperationException("Host not initialized");
 
     protected override async void OnStartup(StartupEventArgs e)
@@ -87,19 +95,24 @@ public partial class App : Application
 
                 // Respect user preference for error/crash reporting
                 bool errorReportingEnabled = false;
+                var preferenceReadFailed = false;
                 try
                 {
                     var prefs = new PreferencesService();
                     errorReportingEnabled = prefs.Get<bool>("privacy.errorReportingEnabled", false);
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    Log.Warning(ex, "Failed to read error reporting preference; defaulting to disabled");
+                    // Treated as "not agreed": never start sending reports because a file was unreadable.
+                    preferenceReadFailed = true;
                 }
 
-                if (!string.IsNullOrWhiteSpace(dsn) && errorReportingEnabled)
+                if (preferenceReadFailed)
                 {
-                    Log.Information("Initializing Sentry crash reporting");
+                    _crashReportingStatus = "Crash reporting is off: the saved preference could not be read, so it counts as not agreed.";
+                }
+                else if (!string.IsNullOrWhiteSpace(dsn) && errorReportingEnabled)
+                {
                     _sentry = SentrySdk.Init(o =>
                     {
                         o.Dsn = dsn;
@@ -114,14 +127,16 @@ public partial class App : Application
                         o.MinimumBreadcrumbLevel = Serilog.Events.LogEventLevel.Information;
                         o.MinimumEventLevel = Serilog.Events.LogEventLevel.Error;
                     });
+
+                    _crashReportingStatus = "Crash reporting is on: a crash is sent to Sentry and recorded here.";
                 }
                 else if (!errorReportingEnabled)
                 {
-                    Log.Information("Crash reporting is disabled by preference");
+                    _crashReportingStatus = "Crash reporting is off: the user has not agreed to send crash reports.";
                 }
                 else
                 {
-                    Log.Warning("Sentry DSN is not configured; crash reporting will not be initialized");
+                    _crashReportingStatus = "Crash reporting is on but unusable: no Sentry DSN is configured, so crashes are only recorded here.";
                 }
             })
             .ConfigureServices((ctx, services) =>
@@ -155,6 +170,10 @@ public partial class App : Application
 
                 services.AddDbContextFactory<KitchenInventory.Data.KitchenInventoryDbContext>(Configure);
                 services.AddSingleton<IDatabaseInfoService, DatabaseInfoService>();
+                // The support bundle is what a school sends when something goes wrong, so the
+                // exporter has to be resolvable — it is used both by Help > Diagnostics and by
+                // the --export-diagnostics flag.
+                services.AddSingleton<IDiagnosticsExporter, DiagnosticsExporter>();
                 // Backup, restore and integrity checking: the database is the only copy of the school's inventory.
                 services.AddSingleton<IDatabaseMaintenanceService, DatabaseMaintenanceService>();
                 services.AddSingleton<IPreferencesService, PreferencesService>();
@@ -171,6 +190,10 @@ public partial class App : Application
 
                 // Windows and other services
                 services.AddSingleton<MainWindow>();
+                // Menu windows are resolved from the container, so each of them has to be
+                // registered or its menu item fails when the user clicks it.
+                services.AddTransient<SettingsWindow>();
+                services.AddTransient<DiagnosticsWindow>();
                 // Reports are per-invocation so each dialog starts from a clean state
                 services.AddTransient<ReportsViewModel>();
                 services.AddTransient<ReportsWindow>();
@@ -181,6 +204,7 @@ public partial class App : Application
         _host.Start();
 
         Log.Information("Application starting up");
+        Log.Information("{CrashReportingStatus}", _crashReportingStatus);
 
         // Diagnostics export trigger: env INVENTORY_EXPORT_DIAGNOSTICS or --export-diagnostics[=path]
         bool exportRequested = false;
@@ -192,6 +216,20 @@ public partial class App : Application
             if (parts.Length == 2 && !string.IsNullOrWhiteSpace(parts[1]))
             {
                 exportPath = parts[1].Trim('"');
+            }
+            else
+            {
+                // Also accept the spaced form (`--export-diagnostics "C:\path.zip"`), which is how
+                // `--export-items` has always worked and how a person would naturally type it.
+                var idx = Array.IndexOf(e.Args, exportArg);
+                if (idx >= 0 && idx + 1 < e.Args.Length)
+                {
+                    var candidate = e.Args[idx + 1];
+                    if (!candidate.StartsWith("--"))
+                    {
+                        exportPath = candidate.Trim('"');
+                    }
+                }
             }
             // Presence of the flag (with or without a path) should trigger export
             exportRequested = true;
@@ -899,8 +937,11 @@ public partial class App : Application
 
     private void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
-        Log.Fatal(e.Exception, "DispatcherUnhandledException");
-        SentrySdk.CaptureException(e.Exception);
+        // The event id is the evidence that Sentry accepted this crash. It is empty when
+        // reporting is switched off or no DSN is configured, so a support log answers
+        // "did the crash reach Sentry?" without having to trust the SDK.
+        var sentryEventId = SentrySdk.CaptureException(e.Exception);
+        Log.Fatal(e.Exception, "DispatcherUnhandledException (Sentry event {SentryEventId})", sentryEventId);
         if (!_headlessMode)
     {
         var owner = WindowOwnerHelper.GetSafeOwner() ?? MainWindow;
@@ -921,8 +962,8 @@ public partial class App : Application
     {
         if (e.ExceptionObject is Exception ex)
         {
-            Log.Fatal(ex, "UnhandledException");
-            SentrySdk.CaptureException(ex);
+            var sentryEventId = SentrySdk.CaptureException(ex);
+            Log.Fatal(ex, "UnhandledException (Sentry event {SentryEventId})", sentryEventId);
         }
         else
         {
@@ -938,8 +979,8 @@ public partial class App : Application
 
     private void App_UnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
     {
-        Log.Fatal(e.Exception, "UnobservedTaskException");
-        SentrySdk.CaptureException(e.Exception);
+        var sentryEventId = SentrySdk.CaptureException(e.Exception);
+        Log.Fatal(e.Exception, "UnobservedTaskException (Sentry event {SentryEventId})", sentryEventId);
         e.SetObserved();
         if (_headlessMode || _crashTest || !_startupCompleted)
         {
