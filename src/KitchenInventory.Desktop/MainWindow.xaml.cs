@@ -174,6 +174,17 @@ namespace KitchenInventory.Desktop
             }
         }
 
+        private void Help_About_Click(object sender, RoutedEventArgs e)
+        {
+            var owner = WindowOwnerHelper.GetSafeOwner(this) ?? this;
+            MessageBox.Show(owner,
+                $"Kitchen Inventory {VersionInfo.AppVersion}\n\n" +
+                "Keep track of what is in the kitchen store, what is running low,\n" +
+                "and what is about to go out of date.\n\n" +
+                $"Build {VersionInfo.ShortCommit}",
+                "About Kitchen Inventory", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
         private void Help_Diagnostics_Click(object sender, RoutedEventArgs e)
         {
             try

@@ -1,0 +1,84 @@
+<Window x:Class="KitchenInventory.Desktop.RemoveItemDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Remove item" Width="560"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        AutomationProperties.AutomationId="RemoveItemDialog">
+    <!-- Never "Yes"/"No": both buttons name what they actually do, and the safe choice
+         ("Keep") is the default so pressing Enter cannot destroy anything. -->
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header: warning icon + question -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Viewbox Grid.Column="0" Width="24" Height="24" Margin="0,2,12,0" VerticalAlignment="Top">
+                <Canvas Width="24" Height="24">
+                    <Path Data="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+                          Stroke="#DC2626" StrokeThickness="2" StrokeLineJoin="Round"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                    <Path Data="M12 9 L12 13" Stroke="#DC2626" StrokeThickness="2"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                    <Path Data="M12 17 L12.01 17" Stroke="#DC2626" StrokeThickness="2"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                </Canvas>
+            </Viewbox>
+            <TextBlock Grid.Column="1" x:Name="HeadingText" FontSize="16" FontWeight="SemiBold"
+                       TextWrapping="Wrap" VerticalAlignment="Top" Margin="0,0,0,8"/>
+        </Grid>
+
+        <!-- Plain-words explanation of exactly what will happen -->
+        <TextBlock Grid.Row="1" x:Name="BodyText" TextWrapping="Wrap" Margin="0,0,0,16"
+                   Foreground="#4B5563"/>
+
+        <!-- What is being removed, restated in numbers rather than remembered -->
+        <Border Grid.Row="2" Background="#F9FAFB" BorderBrush="#E5E7EB" BorderThickness="1"
+                CornerRadius="8" Padding="14,10">
+            <StackPanel>
+                <TextBlock x:Name="IdentityText" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                <Grid x:Name="StockRow">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Stock being written off" Foreground="#4B5563"/>
+                    <TextBlock Grid.Column="1" x:Name="StockValueText" FontWeight="SemiBold"/>
+                </Grid>
+                <Grid x:Name="ExpiryRow" Margin="0,6,0,0" Visibility="Collapsed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" x:Name="ExpiryLabel" Foreground="#4B5563"/>
+                    <TextBlock Grid.Column="1" x:Name="ExpiryValueText" FontWeight="SemiBold"/>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- Safe action first and set as default; the destructive one is labelled and red -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button x:Name="KeepButton" Height="30" MinWidth="110" Padding="12,0" Margin="0,0,8,0"
+                    IsDefault="True" IsCancel="True"
+                    AutomationProperties.AutomationId="KeepItemButton"/>
+            <Button x:Name="RemoveButton" Height="30" MinWidth="110" Padding="12,0"
+                    Content="Remove item" Foreground="White" Background="#DC2626" BorderBrush="#B91C1C"
+                    Click="Remove_Click"
+                    AutomationProperties.AutomationId="ConfirmRemoveItemButton"
+                    ToolTip="Remove this item from your inventory"/>
+        </StackPanel>
+    </Grid>
+</Window>

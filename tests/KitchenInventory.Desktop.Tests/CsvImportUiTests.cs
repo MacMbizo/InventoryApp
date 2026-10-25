@@ -47,7 +47,7 @@ public class CsvImportUiTests
             try { mainWindow.Focus(); } catch { }
             try { mainWindow.SetForeground(); } catch { }
 
-            UiTestHelpers.ClickActionByName(mainWindow, "Import Items (CSV)");
+            UiTestHelpers.ClickActionByName(mainWindow, "Import items (CSV)");
 
             var openDialog = UiTestHelpers.WaitForDialog(mainWindow, "Open", TimeSpan.FromSeconds(15));
             Assert.True(openDialog != null, "The 'Open' file dialog did not appear.");

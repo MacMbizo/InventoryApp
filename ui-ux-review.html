@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Kitchen Inventory — UI/UX Review & Redesign</title>
+<style>
+  :root{
+    --blue-600:#2563EB; --blue-700:#1D4ED8; --blue-50:#EFF6FF; --blue-100:#DBEAFE;
+    --gray-900:#111827; --gray-700:#374151; --gray-600:#4B5563; --gray-500:#6B7280;
+    --gray-300:#D1D5DB; --gray-200:#E5E7EB; --gray-100:#F3F4F6; --gray-50:#F9FAFB;
+    --green-600:#059669; --green-50:#ECFDF5;
+    --amber-600:#B45309; --amber-700:#92400E; --amber-50:#FFFBEB; --amber-200:#FDE68A;
+    --red-600:#DC2626; --red-50:#FEF2F2; --red-200:#FECACA;
+    --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px;
+    --r-sm:6px; --r-md:8px; --r-lg:12px;
+    --shadow-sm:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.1);
+    --shadow-md:0 4px 12px rgba(16,24,40,.10);
+    --font:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--gray-50);color:var(--gray-900);font-family:var(--font);font-size:15px;line-height:1.5}
+  .wrap{max-width:1180px;margin:0 auto;padding:var(--sp-6) var(--sp-5) 96px}
+  h1{font-size:30px;line-height:1.25;font-weight:650;letter-spacing:-.02em;margin:0 0 var(--sp-2)}
+  h2{font-size:22px;font-weight:640;letter-spacing:-.01em;margin:var(--sp-6) 0 var(--sp-3);padding-bottom:var(--sp-2);border-bottom:1px solid var(--gray-200)}
+  h3{font-size:17px;font-weight:620;margin:var(--sp-5) 0 var(--sp-2)}
+  p{margin:0 0 var(--sp-3)}
+  .lede{font-size:16px;color:var(--gray-600);max-width:74ch}
+  .meta{display:flex;gap:var(--sp-4);flex-wrap:wrap;color:var(--gray-500);font-size:13px;margin-bottom:var(--sp-5)}
+  code{font-family:Consolas,"Cascadia Mono",monospace;font-size:.9em;background:var(--gray-100);padding:1px 5px;border-radius:4px}
+  a{color:var(--blue-600)}
+
+  .verdict{background:#fff;border:1px solid var(--gray-200);border-left:3px solid var(--blue-600);border-radius:var(--r-md);padding:var(--sp-4) var(--sp-5);box-shadow:var(--shadow-sm);margin-bottom:var(--sp-5)}
+  .verdict strong{color:var(--blue-700)}
+
+  table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--gray-200);border-radius:var(--r-md);overflow:hidden;font-size:14px;box-shadow:var(--shadow-sm)}
+  th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--gray-200);vertical-align:top}
+  th{background:var(--gray-50);font-weight:620;color:var(--gray-700);font-size:13px;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+
+  .chip{display:inline-block;font-size:11.5px;font-weight:650;padding:2px 8px;border-radius:99px;white-space:nowrap;letter-spacing:.02em}
+  .crit{background:#FEE2E2;color:#991B1B} .high{background:#FFEDD5;color:#9A3412}
+  .med{background:#FEF9C3;color:#854D0E} .low{background:var(--gray-100);color:var(--gray-600)}
+  .done{background:var(--green-50);color:#065F46}
+
+  .finding{background:#fff;border:1px solid var(--gray-200);border-radius:var(--r-md);padding:var(--sp-4);margin-bottom:var(--sp-3);box-shadow:var(--shadow-sm)}
+  .finding h4{margin:0 0 6px;font-size:15.5px;font-weight:640;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+  .finding .why{color:var(--gray-600);font-size:14px;margin:6px 0 0}
+  .finding .fix{font-size:14px;margin:8px 0 0;padding-top:8px;border-top:1px dashed var(--gray-200)}
+  .finding .fix b{color:var(--green-600)}
+  .where{font-size:12px;color:var(--gray-500);font-family:Consolas,monospace}
+
+  /* ---------- mockup chrome ---------- */
+  .shots{display:grid;gap:var(--sp-4);grid-template-columns:1fr}
+  @media(min-width:1080px){.shots{grid-template-columns:1fr}}
+  .shot{background:#fff;border:1px solid var(--gray-200);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-md)}
+  .shot-label{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--gray-50);border-bottom:1px solid var(--gray-200);font-size:13px;font-weight:640;color:var(--gray-700)}
+  .shot-label .bad{background:#FEE2E2;color:#991B1B;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}
+  .shot-label .good{background:#D1FAE5;color:#065F46;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}
+  .shot-label .note{font-weight:400;color:var(--gray-500);margin-left:auto;font-size:12px}
+
+  .win{display:flex;flex-direction:column;height:520px;background:#F0F0F0;font-size:12.5px}
+  .win.proposed{background:#fff}
+  .titlebar{height:30px;background:#fff;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;padding:0 10px;font-size:12px;color:var(--gray-700);gap:8px}
+  .titlebar .dots{margin-left:auto;display:flex;gap:14px;color:var(--gray-500);font-size:11px}
+  .menubar{height:24px;background:#fff;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;gap:14px;padding:0 10px;font-size:12px;color:var(--gray-700)}
+  .legacy-toolbar{background:#F0F0F0;border-bottom:1px solid #D6D6D6;padding:6px 8px;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+  .legacy-btn{background:#F5F5F5;border:1px solid #ADADAD;border-radius:2px;padding:2px 8px;font-size:11.5px;color:#1A1A1A;height:22px;display:flex;align-items:center}
+  .legacy-btn:hover{background:#E5F1FB;border-color:#0078D7}
+  .legacy-label{font-size:11.5px;color:#1A1A1A;margin-left:8px}
+  .legacy-combo{background:#fff;border:1px solid #ADADAD;border-radius:2px;height:22px;width:110px;display:flex;align-items:center;padding:0 4px;font-size:11.5px;justify-content:space-between;color:#333}
+  .legacy-check{font-size:11.5px;margin-left:6px;display:flex;align-items:center;gap:3px}
+  .body-row{display:flex;flex:1;min-height:0}
+  .legacy-grid{flex:1;background:#fff;border-right:1px solid #D6D6D6;display:flex;flex-direction:column;min-width:0}
+  .panel{width:300px;flex:none;background:#F0F0F0;border-left:1px solid #D6D6D6;display:flex;flex-direction:column;padding:6px}
+  .statusbar{margin-top:auto;height:22px;background:#F0F0F0;border-top:1px solid #D6D6D6;display:flex;align-items:center;padding:0 8px;font-size:11.5px;color:#333;gap:auto;justify-content:space-between}
+  .gridrow{display:grid;font-size:11.5px;border-bottom:1px solid #E8E8E8;height:22px;align-items:center}
+  .gridrow.head{background:#F0F0F0;border-bottom:1px solid #D6D6D6;font-weight:400;color:#333;position:sticky;top:0}
+  .gridrow.amber{background:#FDECC8}
+  .gridrow.cell>span{padding:0 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .legacy-tabs{display:flex;gap:0;border-bottom:1px solid #ADADAD;font-size:11.5px;margin-bottom:6px}
+  .legacy-tab{padding:3px 10px;border:1px solid #ADADAD;border-bottom:none;background:#E8E8E8;position:relative;top:1px}
+  .legacy-tab.active{background:#F0F0F0;font-weight:600}
+  .legacy-alertgrid{display:grid;grid-template-columns:70px 80px 120px 180px 80px;font-size:11px;overflow-x:auto}
+  .legacy-alertgrid>div{padding:2px 6px;border-bottom:1px solid #E4E4E4;white-space:nowrap}
+
+  /* proposed */
+  .p-toolbar{background:#fff;border-bottom:1px solid var(--gray-200);padding:10px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .p-search{position:relative;flex:1;min-width:200px;max-width:340px}
+  .p-search input{width:100%;height:38px;border:1px solid var(--gray-300);border-radius:var(--r-md);padding:0 12px 0 34px;font:inherit;font-size:13.5px;color:var(--gray-900);background:#fff}
+  .p-search svg{position:absolute;left:11px;top:11px;color:var(--gray-500)}
+  .p-select{height:38px;border:1px solid var(--gray-300);border-radius:var(--r-md);padding:0 10px;font-size:13.5px;color:var(--gray-700);background:#fff;display:flex;align-items:center;gap:8px}
+  .p-check{display:flex;align-items:center;gap:7px;font-size:13.5px;color:var(--gray-700);height:38px;padding:0 6px}
+  .cb{width:18px;height:18px;border:1.5px solid var(--gray-500);border-radius:4px;background:#fff}
+  .p-btn{height:38px;padding:0 14px;border-radius:var(--r-md);border:1px solid var(--gray-300);background:#fff;color:var(--gray-900);font-size:13.5px;font-weight:600;display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-family:var(--font)}
+  .p-btn:hover{background:var(--gray-50);border-color:var(--gray-500)}
+  .p-btn.primary{background:var(--blue-600);border-color:var(--blue-600);color:#fff}
+  .p-btn.primary:hover{background:var(--blue-700);border-color:var(--blue-700)}
+  .p-btn.ghost{border-color:transparent;background:transparent;color:var(--gray-700);font-weight:500}
+  .p-btn.ghost:hover{background:var(--gray-100)}
+  .p-btn[disabled]{opacity:.5;cursor:not-allowed;background:var(--gray-50);color:var(--gray-500);border-color:var(--gray-200)}
+  .p-btn.danger{color:var(--red-600);border-color:var(--red-200);background:#fff}
+  .p-btn.danger:hover{background:var(--red-50)}
+  .divider{width:1px;height:26px;background:var(--gray-200);margin:0 2px}
+  .p-sub{background:var(--gray-50);border-bottom:1px solid var(--gray-200);padding:8px 14px;display:flex;gap:8px;align-items:center;font-size:13px;color:var(--gray-600)}
+  .p-grid{flex:1;min-width:0;display:flex;flex-direction:column;background:#fff;overflow:hidden}
+  .p-row{display:grid;grid-template-columns:2.2fr 1fr 1.5fr 1fr 1fr 1.1fr;align-items:center;height:44px;border-bottom:1px solid var(--gray-200);font-size:13.5px;padding:0 10px;gap:8px}
+  .p-row.head{height:36px;background:var(--gray-50);color:var(--gray-600);font-size:12px;font-weight:650;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--gray-200)}
+  .p-row.sel{background:var(--blue-50);box-shadow:inset 3px 0 0 var(--blue-600)}
+  .p-row:hover{background:var(--gray-50)}
+  .num{font-family:Consolas,"Cascadia Mono",monospace;font-variant-numeric:tabular-nums;font-size:13px}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:640;padding:3px 10px;border-radius:99px;border:1px solid transparent}
+  .pill.ok{background:var(--green-50);color:#065F46;border-color:#A7F3D0}
+  .pill.watch{background:var(--amber-50);color:var(--amber-700);border-color:var(--amber-200)}
+  .pill.bad{background:var(--red-50);color:#991B1B;border-color:var(--red-200)}
+  .p-panel{width:330px;flex:none;border-left:1px solid var(--gray-200);background:var(--gray-50);display:flex;flex-direction:column}
+  .p-panel-head{padding:12px 14px 10px;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;gap:8px}
+  .p-panel-head h5{margin:0;font-size:14px;font-weight:640}
+  .count{background:var(--red-600);color:#fff;font-size:11.5px;font-weight:700;border-radius:99px;padding:2px 8px}
+  .card{background:#fff;border:1px solid var(--gray-200);border-left:3px solid var(--gray-300);border-radius:var(--r-sm);padding:10px 12px;margin:10px 12px 0;box-shadow:var(--shadow-sm)}
+  .card.bad{border-left-color:var(--red-600)} .card.watch{border-left-color:var(--amber-600)}
+  .card .t{font-weight:640;font-size:13.5px;display:flex;align-items:center;gap:7px}
+  .card .d{font-size:12.5px;color:var(--gray-600);margin-top:3px}
+  .card .a{font-size:12.5px;color:var(--blue-600);font-weight:600;margin-top:7px}
+  .p-status{margin-top:auto;height:30px;border-top:1px solid var(--gray-200);background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-size:12.5px;color:var(--gray-600)}
+
+  /* empty state + dialog */
+  .grid2{display:grid;gap:var(--sp-4)}
+  @media(min-width:900px){.grid2{grid-template-columns:1fr 1fr}}
+  .pane{background:#fff;border:1px solid var(--gray-200);border-radius:var(--r-lg);box-shadow:var(--shadow-sm);overflow:hidden}
+  .pane .hd{padding:10px 16px;border-bottom:1px solid var(--gray-200);background:var(--gray-50);font-size:13px;font-weight:640;color:var(--gray-700)}
+  .pane .bd{padding:var(--sp-5)}
+  .empty{text-align:center;padding:var(--sp-6) var(--sp-5)}
+  .empty .ill{width:96px;height:96px;margin:0 auto var(--sp-4);border-radius:50%;background:var(--blue-50);display:flex;align-items:center;justify-content:center;color:var(--blue-600)}
+  .empty h4{margin:0 0 6px;font-size:18px;font-weight:640}
+  .empty p{margin:0 auto var(--sp-4);color:var(--gray-600);max-width:42ch;font-size:14px}
+  .empty .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  .dlg{border:1px solid var(--gray-200);border-radius:var(--r-lg);box-shadow:var(--shadow-md);background:#fff;overflow:hidden}
+  .dlg .bar{height:34px;background:var(--gray-50);border-bottom:1px solid var(--gray-200);display:flex;align-items:center;padding:0 12px;font-size:12.5px;font-weight:620;color:var(--gray-700)}
+  .dlg .in{padding:var(--sp-5) var(--sp-5) var(--sp-3);display:flex;gap:14px}
+  .dlg .ic{width:38px;height:38px;flex:none;border-radius:50%;background:var(--red-50);color:var(--red-600);display:flex;align-items:center;justify-content:center}
+  .dlg h4{margin:0 0 6px;font-size:16px;font-weight:650}
+  .dlg p{margin:0;font-size:13.5px;color:var(--gray-600)}
+  .dlg .sum{background:var(--gray-50);border:1px solid var(--gray-200);border-radius:var(--r-sm);padding:10px 12px;margin-top:12px;font-size:13px}
+  .dlg .sum div{display:flex;justify-content:space-between;padding:2px 0}
+  .dlg .ft{padding:0 var(--sp-5) var(--sp-5);display:flex;gap:10px;justify-content:flex-end}
+  .p-btn.realdanger{background:var(--red-600);border-color:var(--red-600);color:#fff}
+  .p-btn.realdanger:hover{background:#B91C1C;border-color:#B91C1C}
+
+  /* tokens */
+  .swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+  .sw{border:1px solid var(--gray-200);border-radius:var(--r-sm);overflow:hidden;background:#fff;box-shadow:var(--shadow-sm)}
+  .sw .c{height:52px} .sw .n{padding:7px 10px;font-size:11.5px;color:var(--gray-600);font-family:Consolas,monospace}
+  .sw .n b{display:block;font-family:var(--font);font-size:12px;color:var(--gray-900);font-weight:620}
+  .type-row{display:flex;align-items:baseline;gap:14px;padding:8px 0;border-bottom:1px dashed var(--gray-200)}
+  .type-row .lbl{width:150px;flex:none;font-size:11.5px;color:var(--gray-500);font-family:Consolas,monospace}
+  .beforeAfter{display:grid;gap:10px;grid-template-columns:1fr}
+  .ba{border:1px solid var(--gray-200);border-radius:var(--r-sm);padding:12px 14px;font-size:14px;display:flex;gap:12px;align-items:flex-start;background:#fff}
+  .ba .arrow{color:var(--gray-500);flex:none}
+  .ba .b{color:var(--gray-500);text-decoration:line-through;text-decoration-color:var(--red-200)}
+  .ba .a{color:var(--gray-900);font-weight:620}
+  .wave{background:#fff;border:1px solid var(--gray-200);border-radius:var(--r-md);padding:var(--sp-4);box-shadow:var(--shadow-sm);margin-bottom:var(--sp-3)}
+  .wave h4{margin:0 0 4px;font-size:16px;font-weight:640;display:flex;align-items:center;gap:10px}
+  .wave .goal{color:var(--gray-600);font-size:13.5px;margin:0 0 10px}
+  .wave ul{margin:0;padding-left:20px;font-size:14px}
+  .wave li{margin-bottom:5px}
+  .prov{font-size:12.5px;color:var(--gray-500);border-top:1px solid var(--gray-200);margin-top:var(--sp-6);padding-top:var(--sp-3)}
+  svg{display:block}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Kitchen Inventory — UI/UX Review &amp; Redesign</h1>
+<div class="meta">
+  <span>25 October 2026</span><span>·</span>
+  <span>WPF / .NET 8 desktop</span><span>·</span>
+  <span>Audience: non-technical school kitchen staff</span><span>·</span>
+  <span>Method: source review of all 15 XAML views + ui-ux-pro-max skill data</span>
+</div>
+
+<div class="verdict">
+  <p style="margin:0"><strong>Verdict:</strong> the app is functionally strong but visually and verbally <em>unfinished</em>. There is no design system at all — <code>App.xaml</code> declares zero colours, styles or fonts, so every control renders as raw Windows chrome. The deeper problem is not looks: it is that the interface speaks in the language of its database (<em>“Adjust Stock”, “Audit Trail”, “ItemId”, “Needs Attention only”</em>) and puts 13 equally-weighted buttons in one undifferentiated row. A caretaker who has never used inventory software will not know which button to press, and one stray click on <em>Delete</em> — sitting directly beside <em>Add</em> — silently removes a record with no confirmation.</p>
+  <p style="margin:12px 0 0"><strong>Good news:</strong> the underlying architecture is already the thing that makes a redesign cheap. Strong MVVM separation, a complete <code>AutomationId</code> on every actionable control, a documented UI/UX spec, and a 13-test FlaUI suite mean a visual overhaul can be delivered without touching business logic — and the UI suite will catch regressions.</p>
+</div>
+
+<h2>Scorecard</h2>
+<table>
+  <thead><tr><th style="width:190px">Area</th><th style="width:90px">Now</th><th>Comment</th></tr></thead>
+  <tbody>
+    <tr><td>Safety of destructive actions</td><td><span class="chip crit">Critical</span></td><td>Delete fires immediately, no confirmation, no undo. Highest-risk finding in the app.</td></tr>
+    <tr><td>Plain language</td><td><span class="chip crit">Critical</span></td><td>Stock/database jargon throughout. “Consume Stock”, “Adjust Stock”, “Audit Trail”, “ItemId”.</td></tr>
+    <tr><td>Progressive disclosure</td><td><span class="chip high">High</span></td><td>13 flat buttons + 2 filters + search + checkbox in one row. No grouping, no primary action.</td></tr>
+    <tr><td>Design system / theming</td><td><span class="chip high">High</span></td><td>None exists. Colours and sizes hard-coded per view; two different reds and three amber-ish tones.</td></tr>
+    <tr><td>Empty &amp; first-run states</td><td><span class="chip high">High</span></td><td>Blank grid and blank alert list on first launch. A new user sees nothing and no instruction.</td></tr>
+    <tr><td>Hit targets</td><td><span class="chip high">High</span></td><td>Buttons ≈22&nbsp;px tall, grid rows 22&nbsp;px. Below the 24&nbsp;px WCAG 2.2 floor, far below 44&nbsp;px comfort.</td></tr>
+    <tr><td>Colour-only signalling</td><td><span class="chip high">High</span></td><td>“Needs attention” = a pale amber row background. No icon, no text, no legend. Invisible to colour-blind users.</td></tr>
+    <tr><td>Status &amp; feedback</td><td><span class="chip med">Medium</span></td><td>Feedback lives in a 12&nbsp;px status bar at the bottom — the easiest place to miss. No success confirmation, no busy state.</td></tr>
+    <tr><td>Keyboard efficiency</td><td><span class="chip med">Medium</span></td><td>Zero <code>InputBindings</code> in the whole app. No Ctrl+S, no Ctrl+F, no F2.</td></tr>
+    <tr><td>Inline editing safety</td><td><span class="chip med">Medium</span></td><td>The items grid is editable in place with <code>UpdateSourceTrigger=PropertyChanged</code>, separate from “Save”. Edits look committed but are not.</td></tr>
+    <tr><td>Data legibility</td><td><span class="chip med">Medium</span></td><td>Quantities as <code>N2</code> (“10.00” for 10 kg), dates as <code>yyyy-MM-dd</code>, timestamps with seconds in UTC.</td></tr>
+    <tr><td>Panel layout at default size</td><td><span class="chip med">Medium</span></td><td>Window opens 800×480. Side panel gets ≈265&nbsp;px but its alert grid demands 600&nbsp;px → horizontal scroll and truncated text.</td></tr>
+    <tr><td>Iconography</td><td><span class="chip low">Low</span></td><td>Text-only buttons. No icon language to aid scanning or recognition.</td></tr>
+    <tr><td>Accessibility plumbing</td><td><span class="chip done">Good</span></td><td><code>AutomationId</code>/<code>Name</code>/<code>HelpText</code> already present on key controls; tests drive them via UI Automation.</td></tr>
+  </tbody>
+</table>
+
+<h2>The mockups</h2>
+<p class="lede">Both panels below are drawn at the current default window size (800×480) so the density comparison is honest. The “now” panel reproduces the real XAML — same 13 buttons, same 22&nbsp;px metrics, same amber row.</p>
+
+<div class="shots">
+
+  <!-- ============ BEFORE ============ -->
+  <div class="shot">
+    <div class="shot-label"><span class="bad">NOW</span> Main window — 13 flat buttons, no hierarchy, jargon labels, colour-only warning<span class="note">800 × 480</span></div>
+    <div class="win">
+      <div class="titlebar">Kitchen Inventory<span class="dots">— ▢ ✕</span></div>
+      <div class="menubar"><span>Settings</span><span>Manage Users</span><span>Reports</span><span>Help</span></div>
+      <div class="legacy-toolbar">
+        <div class="legacy-btn">Refresh</div><div class="legacy-btn">Add</div><div class="legacy-btn">Delete</div><div class="legacy-btn">Save</div>
+        <div class="legacy-btn">Add Stock</div><div class="legacy-btn">Consume Stock</div><div class="legacy-btn">Adjust Stock</div>
+        <div class="legacy-btn">Import Items (CSV)</div><div class="legacy-btn">Export Items (CSV)</div>
+        <div class="legacy-btn">Manage Categories</div><div class="legacy-btn">Manage Locations</div>
+        <div class="legacy-btn">Unit Converter</div><div class="legacy-btn">Reports</div>
+        <div class="legacy-label">Category:</div><div class="legacy-combo">(All)<span>▾</span></div>
+        <div class="legacy-label">Location:</div><div class="legacy-combo">(All)<span>▾</span></div>
+        <div class="legacy-label">Search:</div><div class="legacy-combo" style="width:140px"></div>
+        <div class="legacy-check">☐ Needs Attention only</div>
+      </div>
+      <div class="body-row">
+        <div class="legacy-grid">
+          <div class="gridrow head cell" style="grid-template-columns:2fr 1fr .8fr 1fr 1.2fr 1fr"><span>Name</span><span>Quantity</span><span>Unit</span><span>Category</span><span>Expiry Date</span><span>Location</span></div>
+          <div class="gridrow cell" style="grid-template-columns:2fr 1fr .8fr 1fr 1.2fr 1fr"><span>Rice</span><span>2.00</span><span>kg</span><span>Grains</span><span>2026-11-30</span><span>Dry Store</span></div>
+          <div class="gridrow cell amber" style="grid-template-columns:2fr 1fr .8fr 1fr 1.2fr 1fr"><span>Sugar</span><span>12.50</span><span>kg</span><span>Baking</span><span>2026-10-13</span><span>Dry Store</span></div>
+          <div class="gridrow cell" style="grid-template-columns:2fr 1fr .8fr 1fr 1.2fr 1fr"><span>Cooking Oil</span><span>8.00</span><span>l</span><span>Oils</span><span>2027-03-01</span><span>Store Room</span></div>
+          <div class="gridrow cell amber" style="grid-template-columns:2fr 1fr .8fr 1fr 1.2fr 1fr"><span>Maize Meal</span><span>1.50</span><span>kg</span><span>Grains</span><span>2026-12-20</span><span>Dry Store</span></div>
+          <div class="gridrow cell" style="grid-template-columns:2fr 1fr .8fr 1fr 1.2fr 1fr"><span>Tomatoes</span><span>4.00</span><span>kg</span><span>Produce</span><span>2026-10-28</span><span>Fridge 1</span></div>
+        </div>
+        <div class="panel">
+          <div style="font-weight:bold;font-size:12px;margin-bottom:6px">Activity</div>
+          <div class="legacy-tabs"><div class="legacy-tab active">Alerts <span style="color:#B00;font-weight:bold">(5)</span></div><div class="legacy-tab">Audit Trail</div><div class="legacy-tab">Recent Movements</div></div>
+          <div style="font-style:italic;font-size:11.5px;margin-bottom:2px">Low stock, expiring and expired items</div>
+          <div style="font-size:11.5px;margin-bottom:6px">Low: 3  Expiring: 2  Expired: 1  <b>Critical: 2</b></div>
+          <div class="legacy-alertgrid">
+            <div style="background:#F0F0F0">Severity</div><div style="background:#F0F0F0">Type</div><div style="background:#F0F0F0">Item</div><div style="background:#F0F0F0">Details</div><div style="background:#F0F0F0">Location</div>
+            <div>Critical</div><div>Expired</div><div>Sugar</div><div>Expired 12 days ago</div><div>Dry Sto</div>
+            <div>Warning</div><div>LowStock</div><div>Rice</div><div>2 kg left (threshold 5)</div><div>Dry Sto</div>
+            <div>Warning</div><div>LowStock</div><div>Maize Me</div><div>1.5 kg left (threshold</div><div>Dry Sto</div>
+          </div>
+          <div style="font-size:11px;color:#666;margin-top:8px">← text clipped; 600 px of columns inside a 265 px panel</div>
+        </div>
+      </div>
+      <div class="statusbar"><span>Ready</span><span>Needs: 5</span></div>
+    </div>
+  </div>
+
+  <!-- ============ AFTER ============ -->
+  <div class="shot">
+    <div class="shot-label"><span class="good">PROPOSED</span> Same window, same data — one clear primary action, plain words, warnings you can read at a glance<span class="note">800 × 480</span></div>
+    <div class="win proposed">
+      <div class="titlebar">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        Kitchen Inventory<span class="dots">— ▢ ✕</span>
+      </div>
+      <div class="p-toolbar">
+        <div class="p-search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input value="Search food or drink…" readonly>
+        </div>
+        <div class="p-select">All categories <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+        <div class="p-select">All stores <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+        <label class="p-check"><span class="cb" style="background:#2563EB;border-color:#2563EB;display:flex;align-items:center;justify-content:center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>Problems only</label>
+        <span class="divider"></span>
+        <button class="p-btn primary"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add item</button>
+        <button class="p-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Import</button>
+        <button class="p-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Export</button>
+        <span class="divider"></span>
+        <button class="p-btn ghost">⋯ More</button>
+      </div>
+
+      <div class="p-sub">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <span>Select a food item to change its stock, rename it, or remove it.</span>
+        <span style="margin-left:auto;display:flex;gap:8px">
+          <button class="p-btn" disabled>Take in stock</button>
+          <button class="p-btn" disabled>Take out stock</button>
+          <button class="p-btn" disabled>Recount</button>
+        </span>
+      </div>
+
+      <div class="body-row">
+        <div class="p-grid">
+          <div class="p-row head"><span>Item</span><span>In stock</span><span>Status</span><span>Category</span><span>Expires</span><span>Stored in</span></div>
+          <div class="p-row"><span style="font-weight:600">Rice</span><span class="num">2 kg</span>
+            <span><span class="pill watch"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Running low</span></span>
+            <span>Grains</span><span>30 Nov 2026</span><span>Dry store</span></div>
+          <div class="p-row sel"><span style="font-weight:600">Sugar</span><span class="num">12.5 kg</span>
+            <span><span class="pill bad"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>Expired 12 days ago</span></span>
+            <span>Baking</span><span>13 Oct 2026</span><span>Dry store</span></div>
+          <div class="p-row"><span style="font-weight:600">Cooking Oil</span><span class="num">8 l</span>
+            <span><span class="pill ok"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>OK</span></span>
+            <span>Oils</span><span>1 Mar 2027</span><span>Store room</span></div>
+          <div class="p-row"><span style="font-weight:600">Maize Meal</span><span class="num">1.5 kg</span>
+            <span><span class="pill watch"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Running low</span></span>
+            <span>Grains</span><span>20 Dec 2026</span><span>Dry store</span></div>
+          <div class="p-row"><span style="font-weight:600">Tomatoes</span><span class="num">4 kg</span>
+            <span><span class="pill watch"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Expires in 3 days</span></span>
+            <span>Produce</span><span>28 Oct 2026</span><span>Fridge 1</span></div>
+        </div>
+        <div class="p-panel">
+          <div class="p-panel-head"><h5>Needs your attention</h5><span class="count">3</span></div>
+          <div style="overflow-y:auto">
+            <div class="card bad"><div class="t"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>Sugar has expired</div><div class="d">Went out of date 12 days ago. 12.5 kg is still in Dry store.</div><div class="a">Remove from stock →</div></div>
+            <div class="card watch"><div class="t"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2.4" stroke-linecap="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Rice is running low</div><div class="d">Only 2 kg left. You usually keep at least 5 kg.</div><div class="a">Add to shopping list →</div></div>
+            <div class="card watch"><div class="t"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2.4" stroke-linecap="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Maize Meal is running low</div><div class="d">Only 1.5 kg left. You usually keep at least 5 kg.</div><div class="a">Add to shopping list →</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="p-status"><span>Everything you change is saved straight away.</span><span>Last change: Mapfumo, 14:32 · 3 problems</span></div>
+    </div>
+  </div>
+</div>
+
+<h3>What changed, and why it matters for a non-technical user</h3>
+<div class="beforeAfter">
+  <div class="ba"><span class="arrow">→</span><div><span class="b">Add</span> <span class="b">Add Stock</span> <span class="b">Adjust Stock</span> <span class="b">Consume Stock</span> — four “add” words meaning three different things<br><span class="a">“Add item” (new product) · “Take in stock” (delivery) · “Take out stock” (cooking) · “Recount” (stock take)</span></div></div>
+  <div class="ba"><span class="arrow">→</span><div><span class="b">Needs Attention only</span><br><span class="a">“Problems only” — the word everyone already understands</span></div></div>
+  <div class="ba"><span class="arrow">→</span><div><span class="b">Audit Trail / Recent Movements / ItemId / Per-item movements</span><br><span class="a">“History” / “All activity” / column named “Item”</span></div></div>
+  <div class="ba"><span class="arrow">→</span><div><span class="b">Import Items (CSV) / Export Items (CSV)</span><br><span class="a">“Import” / “Export”, with “spreadsheet (CSV)” explained in the tooltip and the first-run helper</span></div></div>
+  <div class="ba"><span class="arrow">→</span><div><span class="b">Amber row background only</span> — meaning invisible without colour vision<br><span class="a">Status pill: icon + words + colour. “Expired 12 days ago” tells them <em>what</em> and <em>how bad</em>.</span></div></div>
+  <div class="ba"><span class="arrow">→</span><div><span class="b">Separate “Save” button, silent 12 px status bar</span><br><span class="a">Save happens automatically, and the app says so. No lost work, no mystery.</span></div></div>
+  <div class="ba"><span class="arrow">→</span><div><span class="b">13 buttons in one row, all identical weight</span><br><span class="a">One blue primary action, everyday actions beside it, occasional tools behind “More”</span></div></div>
+  <div class="ba"><span class="arrow">→</span><div><span class="b">“Manage Categories”, “Manage Locations”, “Unit Converter”, “Reports” competing for attention</span><br><span class="a">Behind “More”, next to Settings — used monthly, not hourly</span></div></div>
+</div>
+
+<h3>Empty state and delete confirmation</h3>
+<div class="grid2">
+  <div class="pane">
+    <div class="hd">First run — the screen a new user actually meets</div>
+    <div class="bd">
+      <div class="empty">
+        <div class="ill"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>
+        <h4>No food in your store cupboard yet</h4>
+        <p>Start by adding one item, or bring in a list you already keep in a spreadsheet. You can always change things later — nothing here is permanent.</p>
+        <div class="row">
+          <button class="p-btn primary"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add my first item</button>
+          <button class="p-btn">Import from a spreadsheet</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pane">
+    <div class="hd">Removing an item — what the confirmation should say</div>
+    <div class="bd">
+      <div class="dlg">
+        <div class="bar">Remove item</div>
+        <div class="in">
+          <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+          <div style="flex:1">
+            <h4>Remove Sugar from your inventory?</h4>
+            <p>Sugar will disappear from your list and its 12.5&nbsp;kg will be written off. Its history is kept, so you can put it back later from <strong>History</strong>.</p>
+            <div class="sum">
+              <div><span style="color:var(--gray-600)">Sugar — Baking — Dry store</span></div>
+              <div><span style="color:var(--gray-600)">Stock being written off</span><b>12.5 kg</b></div>
+              <div><span style="color:var(--gray-600)">Expired</span><b>13 Oct 2026</b></div>
+            </div>
+          </div>
+        </div>
+        <div class="ft">
+          <button class="p-btn">Keep Sugar</button>
+          <button class="p-btn realdanger">Remove item</button>
+        </div>
+      </div>
+      <p style="font-size:13px;color:var(--gray-600);margin:14px 0 0">Never “Yes/No” — the buttons name the action and the safe option comes first. The dialog restates the consequence in numbers rather than asking the user to remember them.</p>
+    </div>
+  </div>
+</div>
+
+<h2>Design tokens to add to <code>App.xaml</code></h2>
+<p class="lede">This is the single highest-leverage change, and it is small. Today <code>App.xaml</code> contains only two converters. Everything below goes into one <code>Themes/Tokens.xaml</code> merged dictionary, so the whole app can be restyled — or a dark theme added later — in one file. The skill's guidance for this stack is explicit: use a resource dictionary in <code>App.xaml</code>, prefer implicit styles over per-element setters, and prefer <code>StaticResource</code> over the <code>DynamicResource</code> currently used for the side-panel background.</p>
+
+<h3>Colour</h3>
+<div class="swatches">
+  <div class="sw"><div class="c" style="background:#2563EB"></div><div class="n"><b>Primary</b>#2563EB</div></div>
+  <div class="sw"><div class="c" style="background:#1D4ED8"></div><div class="n"><b>Primary hover</b>#1D4ED8</div></div>
+  <div class="sw"><div class="c" style="background:#EFF6FF"></div><div class="n"><b>Selection tint</b>#EFF6FF</div></div>
+  <div class="sw"><div class="c" style="background:#111827"></div><div class="n"><b>Text</b>#111827</div></div>
+  <div class="sw"><div class="c" style="background:#4B5563"></div><div class="n"><b>Text secondary</b>#4B5563</div></div>
+  <div class="sw"><div class="c" style="background:#E5E7EB"></div><div class="n"><b>Border</b>#E5E7EB</div></div>
+  <div class="sw"><div class="c" style="background:#059669"></div><div class="n"><b>OK</b>#059669</div></div>
+  <div class="sw"><div class="c" style="background:#B45309"></div><div class="n"><b>Watch</b>#B45309</div></div>
+  <div class="sw"><div class="c" style="background:#DC2626"></div><div class="n"><b>Danger</b>#DC2626</div></div>
+</div>
+<p style="font-size:13.5px;color:var(--gray-600);margin-top:12px">Note the two changes from today: the amber warning text is <strong>#B45309 on #FFFBEB</strong>, not amber-on-amber (the current <code>#FFFDECC8</code> row has no text colour at all and fails 4.5:1 for anything but black), and grey text floors at <strong>#4B5563</strong> — never the current <code>Gray</code> (<code>#808080</code>, ~2.3:1 on white) used in the crash-reporting note.</p>
+
+<h3>Type &amp; size</h3>
+<div class="type-row"><span class="lbl">Body / 15px / 400</span><span style="font-size:15px;font-weight:400">Rice — 2 kg — running low</span></div>
+<div class="type-row"><span class="lbl">Label / 13.5px / 600</span><span style="font-size:13.5px;font-weight:600">Take in stock</span></div>
+<div class="type-row"><span class="lbl">Table numeral / 13px mono</span><span class="num" style="font-size:13px">12.5 kg&nbsp;&nbsp;1,250.75 kg</span></div>
+<div class="type-row"><span class="lbl">Heading / 17px / 640</span><span style="font-size:17px;font-weight:640">Needs your attention</span></div>
+<div class="type-row"><span class="lbl">Title / 30px / 650</span><span style="font-size:22px;font-weight:650;letter-spacing:-.01em">Kitchen Inventory</span></div>
+<p style="font-size:13.5px;color:var(--gray-600);margin-top:12px">Smaller than the spec's 16px body on purpose: 15px is the Windows desktop base and keeps 44&nbsp;px rows comfortable at 800&nbsp;px wide. <strong>Buttons 38&nbsp;px, inputs 38&nbsp;px, table rows 44&nbsp;px, page padding 16/24&nbsp;px, corner radius 8&nbsp;px</strong> — the spec already asks for 40&nbsp;px controls and a 44&nbsp;px minimum target; this just lands it.</p>
+
+<h2>Findings and fixes, in priority order</h2>
+
+<div class="finding">
+  <h4><span class="chip crit">Critical</span> Deleting an item is instant and irreversible</h4>
+  <p class="why">Delete sits immediately to the right of Add and fires on click with no confirmation. <code>DeleteSelectedAsync</code> removes the row from the list and the database in one step. For the user this is the worst possible failure: a recording error they cannot take back.</p>
+  <p class="fix"><b>Fix:</b> add a confirmation dialog that restates the item, its stock and the date (mockup above), put the safe choice first, and word the buttons “Keep item” / “Remove item”. Because Gate&nbsp;1 just made deletes soft, also add <strong>Undo</strong> on the following confirmation — a 10-second “Sugar was removed · Undo” strip. Keep the keyboard shortcut off the bare <kbd>Delete</kbd> key.</p>
+  <p class="where">ItemsViewModel.cs:524 · MainWindow.xaml:43</p>
+</div>
+
+<div class="finding">
+  <h4><span class="chip crit">Critical</span> The interface speaks database, not kitchen</h4>
+  <p class="why">“Consume Stock”, “Adjust Stock”, “Audit Trail”, “Recent Movements”, “Per-item movements”, “Needs Attention only”, and a table column literally headed <strong>ItemId</strong>. Every one of these is a translation step a non-technical user has to perform before acting. “Adjust” in particular sounds like a minor tweak; it is in fact the destructive operation that overwrites a stock count.</p>
+  <p class="fix"><b>Fix:</b> a label pass over the whole UI — see the before/after list above. Two rules: (1) name the real-world event, not the record change; (2) never show a database concept (Id, GUID, “movement”, “entity”). A single <code>resources/Labels.xaml</code> dictionary would let this be reviewed and localised in one place.</p>
+  <p class="where">MainWindow.xaml:41-91, 216-306 · StockOperationDialog.xaml</p>
+</div>
+
+<div class="finding">
+  <h4><span class="chip high">High</span> There is no design system at all</h4>
+  <p class="why">App.xaml declares two converters and nothing else. Consequences visible in the code today: two different error reds (<code>#FFCC0000</code>, <code>#DC2626</code>), three ad-hoc ambers, <code>Gray</code> used for help text at ~2.3:1 contrast, a <code>DynamicResource</code> system brush in one place and hard-coded <code>#DDD</code> borders in another, and fifteen views each inventing their own spacing.</p>
+  <p class="fix"><b>Fix:</b> one <code>Themes/Tokens.xaml</code> (colours, spacing, radii, type) plus <code>Themes/Controls.xaml</code> with implicit styles for <code>Button</code>, <code>TextBox</code>, <code>ComboBox</code>, <code>DataGrid</code>, <code>ToolTip</code>. Then strip the inline setters. This is also the prerequisite for every other fix on this page — do it first.</p>
+  <p class="where">App.xaml (entire file) · MainWindow.xaml:38, 214 · AddItemDialog.xaml:39, 46</p>
+</div>
+
+<div class="finding">
+  <h4><span class="chip high">High</span> Warnings depend on colour alone</h4>
+  <p class="why">The only signal that something is wrong is a pale amber row background (<code>#FFFDECC8</code>) driven by <code>NeedsAttentionConverter</code>. It has no icon, no text and no legend; it is identical for “expired a month ago” and “expires in six days”; and roughly 1 in 12 men will not see it. The severity that does exist lives in a different tab.</p>
+  <p class="fix"><b>Fix:</b> a <strong>Status column</strong> with an icon + words + colour (“Expired 12 days ago”, “Running low”, “Expires in 3 days”, “OK”), and carry that same status into the right-hand cards. Keep the row tint as reinforcement, not as the message.</p>
+  <p class="where">MainWindow.xaml:119-135 · Converters/NeedsAttentionConverter.cs</p>
+</div>
+
+<div class="finding">
+  <h4><span class="chip high">High</span> Everything is a button, so nothing is a next step</h4>
+  <p class="why">Thirteen buttons, three separators made of margins, no grouping, no primary action, and “Reports” appearing twice (menu and toolbar). The most useful control — stock operations — is disabled until a row is selected, and the only explanation is an <codeAutomationProperties.ToolTip</code> reading “Add stock to selected item”. A new user’s first guess is usually wrong.</p>
+  <p class="fix"><b>Fix:</b> one blue primary (“Add item”), the three everyday stock actions in a labelled row that explains why they are disabled when they are, and everything occasional (“Unit Converter”, “Manage Categories”, “Manage Locations”, “Reports”, “Diagnostics”) behind “More”. That takes the visible count from 13 to 5.</p>
+  <p class="where">MainWindow.xaml:40-92</p>
+</div>
+
+<div class="finding">
+  <h4><span class="chip high">High</span> Nothing to see on day one</h4>
+  <p class="why">An empty database renders an empty grey <code>DataGrid</code> with column headers and an empty Alerts tab reading “Low stock, expiring and expired items / Low: 0 Expiring: 0 Expired: 0 Critical: 0”. The user’s first experience of the app is a void, with no hint about what to do.</p>
+  <p class="fix"><b>Fix:</b> the empty state above — one sentence of reassurance, one primary button, one alternative. Add the same treatment to the alerts panel (“Nothing needs your attention right now · You’re all caught up”) and to the search case (“No items match ‘sugar’ · <em>Clear search</em>”), which is different from having no data at all and today looks identical.</p>
+  <p class="where">MainWindow.xaml:104-211, 239-249</p>
+</div>
+
+<div class="finding">
+  <h4><span class="chip high">High</span> Controls are too small for tired hands</h4>
+  <p class="why">Buttons inherit default WPF metrics (≈22&nbsp;px tall, 8&nbsp;px font padding) and items-grid rows are ≈22&nbsp;px. WCAG 2.2 sets a 24&nbsp;px minimum target; comfort guidance is 44&nbsp;px. Several toolbar buttons are also only 4&nbsp;px apart, which invites mis-clicks — and the neighbour is sometimes <em>Delete</em>.</p>
+  <p class="fix"><b>Fix:</b> 38&nbsp;px buttons, 44&nbsp;px rows, 8&nbsp;px minimum gap between adjacent controls, generous padding inside the dialog buttons (“Keep Sugar” not “Cancel”). The <code>_Cancel</code> / <code>_Add</code> width of 90/120&nbsp;px in the Add dialog is a reasonable start but should become a shared style.</p>
+  <p class="where">All XAML · implicit Button style</p>
+</div>
+
+<div class="finding">
+  <h4><span class="chip med">Medium</span> The window opens smaller than its own content</h4>
+  <p class="why">Default size is 800×480, split 2:1, so the activity panel gets roughly 265&nbsp;px — but its Alerts <code>GridView</code> hard-codes 80+100+140+180+100 = 600&nbsp;px of columns. Text is guaranteed to truncate, with a horizontal scrollbar inside a narrow panel. Nothing sets <code>MinWidth</code>/<code>MinHeight</code>, so the user can also shrink it into an unusable state.</p>
+  <p class="fix"><b>Fix:</b> open at 1100×700, set <code>MinWidth="960" MinHeight="600"</code>, and replace the fixed-width alert grid with the stacked cards in the mockup — cards reflow in any panel width, grids do not.</p>
+  <p class="where">MainWindow.xaml:10, 213-249</p>
+</div>
+
+<div class="finding">
+  <h4><span class="chip med">Medium</span> “Editable grid + separate Save” is a trap</h4>
+  <p class="why">Every column in the items grid is editable inline with <code>UpdateSourceTrigger=PropertyChanged</code>, yet committing needs a separate “Save” button. So a stray keystroke while a row is selected changes a quantity that looks applied but is not — and if the user never presses Save, or navigates away, the edit is silently lost. Meanwhile the status bar says “Ready”, not “unsaved changes”.</p>
+  <p class="fix"><b>Fix:</b> make the grid read-only and route editing through the item dialog (double-click or <kbd>F2</kbd>), which is where validation already lives. If inline editing is kept, autosave it, and show a persistent “Unsaved changes” banner with Save/Undo.</p>
+  <p class="where">MainWindow.xaml:104-118, 157-210</p>
+</div>
+
+<div class="finding">
+  <h4><span class="chip med">Medium</span> Feedback is quiet and easy to miss</h4>
+  <p class="why">The only feedback channel is a 12&nbsp;px <code>StatusBar</code> at the bottom of the window — the furthest point from where the user just clicked. There is no busy state on long operations (CSV import, report generation), no success confirmation, and nothing tells the user that the 5-minute background alert refresh has happened.</p>
+  <p class="fix"><b>Fix:</b> inline busy state on the button that was pressed (disabled + spinner), plus a short-lived confirmation near the action (“Sugar’s stock was updated to 12.5 kg”), and keep the status bar for ambient truth like “Everything you change is saved straight away”.</p>
+  <p class="where">MainWindow.xaml:312-319 · ItemsViewModel status handling</p>
+</div>
+
+<div class="finding">
+  <h4><span class="chip med">Medium</span> No keyboard shortcuts anywhere</h4>
+  <p class="why">A grep across all fifteen views finds zero <code>InputBindings</code>. The skill’s WPF guidance is to bind gestures to commands rather than handle <code>PreviewKeyDown</code>. Without <kbd>Ctrl</kbd>+<kbd>S</kbd> the “Save” button becomes a cognitive burden; without <kbd>Ctrl</kbd>+<kbd>F</kbd> the search box is undiscoverable.</p>
+  <p class="fix"><b>Fix:</b> add <code>Window.InputBindings</code> — <kbd>Ctrl</kbd>+<kbd>N</kbd> add, <kbd>Ctrl</kbd>+<kbd>F</kbd> search, <kbd>Ctrl</kbd>+<kbd>S</kbd> save, <kbd>F2</kbd> edit, <kbd>F5</kbd> refresh — and surface them in the button tooltips. Note the mnemonics already exist in some dialogs (<code>_Item name</code>, <code>_Cancel</code>) but not on the toolbar.</p>
+  <p class="where">MainWindow.xaml (no InputBindings) · all views</p>
+</div>
+
+<div class="finding">
+  <h4><span class="chip low">Low</span> Data presented in machine formats</h4>
+  <p class="why">Quantities format as <code>N2</code> so 10&nbsp;kg reads “10.00”; expiry dates are <code>yyyy-MM-dd</code>; movement timestamps are UTC with seconds. None of these are wrong, but each one is a small extra step for a reader who thinks in “10 kilos” and “30 November”.</p>
+  <p class="fix"><b>Fix:</b> trailing-zero trimming for quantities (they are already stored at 3&nbsp;dp), friendly dates (“30 Nov 2026”, “in 6 days”), local time, and no seconds unless expanded. A shared <code>QuantityDisplayConverter</code> keeps it consistent.</p>
+  <p class="where">MainWindow.xaml:159, 185, 269, 296</p>
+</div>
+
+<div class="finding">
+  <h4><span class="chip low">Low</span> Dead and duplicated navigation</h4>
+  <p class="why">The Help menu’s “About” item has no <code>Click</code> handler — it does nothing. “Reports” exists both as a top-level menu item and a toolbar button. A top-level “Settings” menu item that opens a window is not the Windows pattern users expect.</p>
+  <p class="fix"><b>Fix:</b> wire or remove About; drop the duplicate Reports entry; and add a small window <code>Icon</code> to both the window and the exe (currently none), which matters for taskbar recognition on a shared school machine.</p>
+  <p class="where">MainWindow.xaml:26-33, 63-64</p>
+</div>
+
+<h2>Suggested sequence</h2>
+
+<div class="wave">
+  <h4>Wave 1 — Safety and words <span class="chip done">Highest value</span></h4>
+  <p class="goal">The things a user can be hurt by today. Small, testable, no visual risk.</p>
+  <ul>
+    <li>Confirm-before-remove dialog (+ Undo strip, now that deletes are soft).</li>
+    <li>Full plain-language pass over buttons, tabs, column headers and messages.</li>
+    <li>Keyboard shortcuts via <code>InputBindings</code>; wire or remove “About”.</li>
+    <li>Set <code>MinWidth</code>/<code>MinHeight</code> and open at 1100×700.</li>
+  </ul>
+</div>
+
+<div class="wave">
+  <h4>Wave 2 — The design system</h4>
+  <p class="goal">One mechanical change that every later change benefits from.</p>
+  <ul>
+    <li><code>Themes/Tokens.xaml</code> + <code>Themes/Controls.xaml</code>, merged in <code>App.xaml</code>.</li>
+    <li>Implicit styles for Button/TextBox/ComboBox/DataGrid/ToolTip; strip inline colours and sizes.</li>
+    <li>38&nbsp;px controls, 44&nbsp;px rows, 8&nbsp;px radii, consistent 16/24&nbsp;px padding.</li>
+    <li>Add a Lucide-style SVG icon set for the toolbar and status pills (icons always paired with text).</li>
+  </ul>
+</div>
+
+<div class="wave">
+  <h4>Wave 3 — Structure and warmth</h4>
+  <p class="goal">Make it feel considered rather than assembled.</p>
+  <ul>
+    <li>Toolbar regrouped behind one primary action and a “More” menu; filter bar separated.</li>
+    <li>Status column + attention cards replace the cramped alert grid.</li>
+    <li>Empty, no-results and all-clear states.</li>
+    <li>Read-only grid with dialog-based editing, or true autosave with a visible saved indicator.</li>
+    <li>Friendly quantity/date formatting; busy and success feedback.</li>
+  </ul>
+</div>
+
+<p style="margin-top:var(--sp-5)"><strong>On “not dreary”:</strong> the restraint above is deliberate, but restraint is not the same as grey. The warmth should come from three cheap places — a real colour identity on the one primary action and the status pills, a proper empty state with an illustration, and honest human sentences (“Nothing needs your attention right now. You’re all caught up.”). That reads as calm and cared-for rather than dull. Two things I would <em>not</em> do: no decorative animation (this is a twice-a-day tool on possibly old school hardware), and no emoji as icons — the skill's checklist calls that out explicitly, and it renders inconsistently across Windows versions.</p>
+
+<div class="prov">
+  <strong>Provenance.</strong> Recommendations are grounded in the installed <code>ui-ux-pro-max</code> skill data — <code>ux-guidelines.csv</code> (empty states, confirmation dialogs, colour-only signalling, target size, inline validation, loading feedback, focus states, error placement) and <code>data/stacks/wpf.csv</code> (resource dictionaries over inline values, implicit styles, <code>StaticResource</code> over <code>DynamicResource</code>, <code>AutomationProperties.Name</code> at High severity, <code>InputBindings</code> over <code>PreviewKeyDown</code>). The <code>--design-system</code> query auto-routed to a marketing-landing pattern (hero section, Claymorphism) which does not fit a data-entry desktop tool, so its layout and style suggestions were discarded; only its palette caution — “avoid muted colours and low energy” — was kept. Component metrics follow the project's existing <code>kitchen-inventory-ui-ux-specification.md</code> (Primary Blue <code>#2563EB</code>, 4px spacing base, 8px radius, 4.5:1 contrast, 44px minimum target), which the app has so far not implemented.
+</div>
+
+</div>
+</body>
+</html>

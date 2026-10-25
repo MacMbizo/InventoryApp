@@ -37,8 +37,8 @@ public class StockOperationUiTests : IDisposable
     // Example:
     // UiTestHelpers.TryOpenToolbarOverflow(mainWindow, _output);
     // UiTestHelpers.DebugAllButtons(mainWindow, _output);
-    // var el = UiTestHelpers.TryFindActionElement(mainWindow, "Add Stock", _output);
-    // UiTestHelpers.ClickActionByName(mainWindow, "Add Stock", _output);
+    // var el = UiTestHelpers.TryFindActionElement(mainWindow, "Take in stock", _output);
+    // UiTestHelpers.ClickActionByName(mainWindow, "Take in stock", _output);
     // UiTestHelpers.WaitForAndClickButtonByIdOrName(mainWindow, "SaveChangesButton", TimeSpan.FromSeconds(10), _output);
 
     /// <summary>
@@ -91,13 +91,13 @@ public class StockOperationUiTests : IDisposable
                 "The 'Add Stock' button stayed disabled, so no grid row was selected.");
             _output.WriteLine("'Add Stock' button is enabled after selecting the row.");
 
-            UiTestHelpers.ClickActionByName(mainWindow, "Add Stock", _output);
+            UiTestHelpers.ClickActionByName(mainWindow, "Take in stock", _output);
 
             Window? dialog = null;
             var dialogDeadline = DateTime.UtcNow.AddSeconds(15);
             while (dialog == null && DateTime.UtcNow < dialogDeadline)
             {
-                dialog = UiTestHelpers.WaitForDialog(mainWindow, "Add Stock", TimeSpan.FromSeconds(1));
+                dialog = UiTestHelpers.WaitForDialog(mainWindow, "Take in stock", TimeSpan.FromSeconds(1));
             }
             if (dialog == null)
             {
@@ -116,18 +116,18 @@ public class StockOperationUiTests : IDisposable
 
             // Wait for the dialog to close once the operation has been applied.
             var closeDeadline = DateTime.UtcNow.AddSeconds(20);
-            while (UiTestHelpers.WaitForDialog(mainWindow, "Add Stock", TimeSpan.FromSeconds(1)) != null
+            while (UiTestHelpers.WaitForDialog(mainWindow, "Take in stock", TimeSpan.FromSeconds(1)) != null
                    && DateTime.UtcNow < closeDeadline)
             {
                 Thread.Sleep(200);
             }
-            Assert.Null(UiTestHelpers.WaitForDialog(mainWindow, "Add Stock", TimeSpan.FromSeconds(1)));
+            Assert.Null(UiTestHelpers.WaitForDialog(mainWindow, "Take in stock", TimeSpan.FromSeconds(1)));
 
             var status = UiTestHelpers.GetStatusText(mainWindow);
             _output.WriteLine($"Status after Add Stock: '{status}'");
 
             Assert.DoesNotContain("Failed to open", status, StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("Add Stock completed", status, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Take in stock recorded", status, StringComparison.OrdinalIgnoreCase);
 
             UiTestHelpers.CloseAppWindow(mainWindow, process);
             var exited = process.WaitForExit(TimeSpan.FromSeconds(20));
@@ -184,13 +184,13 @@ public class StockOperationUiTests : IDisposable
             Assert.True(adjustBtn.IsEnabled,
                 "The 'Adjust Stock' button stayed disabled, so no grid row was selected.");
 
-            UiTestHelpers.ClickActionByName(mainWindow, "Adjust Stock", _output);
+            UiTestHelpers.ClickActionByName(mainWindow, "Recount", _output);
 
             Window? dialog = null;
             var dialogDeadline = DateTime.UtcNow.AddSeconds(15);
             while (dialog == null && DateTime.UtcNow < dialogDeadline)
             {
-                dialog = UiTestHelpers.WaitForDialog(mainWindow, "Adjust Stock", TimeSpan.FromSeconds(1));
+                dialog = UiTestHelpers.WaitForDialog(mainWindow, "Recount", TimeSpan.FromSeconds(1));
             }
             if (dialog == null)
             {
@@ -215,17 +215,17 @@ public class StockOperationUiTests : IDisposable
             UiTestHelpers.TryInvokeWithFallback(execute!);
 
             var closeDeadline = DateTime.UtcNow.AddSeconds(20);
-            while (UiTestHelpers.WaitForDialog(mainWindow, "Adjust Stock", TimeSpan.FromSeconds(1)) != null
+            while (UiTestHelpers.WaitForDialog(mainWindow, "Recount", TimeSpan.FromSeconds(1)) != null
                    && DateTime.UtcNow < closeDeadline)
             {
                 Thread.Sleep(200);
             }
-            Assert.Null(UiTestHelpers.WaitForDialog(mainWindow, "Adjust Stock", TimeSpan.FromSeconds(1)));
+            Assert.Null(UiTestHelpers.WaitForDialog(mainWindow, "Recount", TimeSpan.FromSeconds(1)));
 
             var status = UiTestHelpers.GetStatusText(mainWindow);
             _output.WriteLine($"Status after Adjust Stock: '{status}'");
             Assert.DoesNotContain("Failed to open", status, StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("Adjust Stock completed", status, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Recount recorded", status, StringComparison.OrdinalIgnoreCase);
 
             UiTestHelpers.CloseAppWindow(mainWindow, process);
             var exited = process.WaitForExit(TimeSpan.FromSeconds(20));

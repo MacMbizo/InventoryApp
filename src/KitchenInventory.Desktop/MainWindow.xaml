@@ -7,13 +7,24 @@
         xmlns:val="clr-namespace:KitchenInventory.Desktop.Validations"
         xmlns:conv="clr-namespace:KitchenInventory.Desktop.Converters"
         mc:Ignorable="d"
-        Title="Kitchen Inventory" Height="480" Width="800"
+        Title="Kitchen Inventory" Height="700" Width="1100"
+        MinHeight="560" MinWidth="900"
         Validation.Error="OnValidationError">
     <!-- Converters -->
     <Window.Resources>
         <conv:NeedsAttentionConverter x:Key="NeedsAttentionConverter" />
         <conv:HideZeroIdConverter x:Key="HideZeroIdConverter" />
+        <conv:MovementTypeConverter x:Key="MovementTypeConverter" />
+        <conv:MovementItemNameConverter x:Key="MovementItemNameConverter" />
     </Window.Resources>
+    <!-- Keyboard shortcuts: the everyday actions reachable without hunting through the toolbar. -->
+    <Window.InputBindings>
+        <KeyBinding Key="N" Modifiers="Control" Command="{Binding AddItemCommand}" />
+        <KeyBinding Key="S" Modifiers="Control" Command="{Binding SaveChangesCommand}" />
+        <KeyBinding Key="R" Modifiers="Control" Command="{Binding RefreshCommand}" />
+        <KeyBinding Key="Z" Modifiers="Control" Command="{Binding UndoRemoveCommand}" />
+        <KeyBinding Key="Delete" Command="{Binding DeleteItemCommand}" />
+    </Window.InputBindings>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -24,10 +35,10 @@
         <DockPanel Grid.Row="0">
             <Menu DockPanel.Dock="Top">
                 <MenuItem Header="_Settings" Click="Open_Settings_Click" />
-                <MenuItem x:Name="ManageUsersMenuItem" Header="_Manage Users" Click="Manage_Users_Click" AutomationProperties.AutomationId="ManageUsersMenuItem" />
+                <MenuItem x:Name="ManageUsersMenuItem" Header="_Manage users" Click="Manage_Users_Click" AutomationProperties.AutomationId="ManageUsersMenuItem" />
                 <MenuItem Header="_Reports" Click="Open_Reports_Click" AutomationProperties.AutomationId="ReportsMenuItem" />
                 <MenuItem Header="_Help">
-                    <MenuItem Header="_About"/>
+                    <MenuItem Header="_About Kitchen Inventory" Click="Help_About_Click" AutomationProperties.AutomationId="AboutMenuItem"/>
                     <Separator/>
                     <MenuItem Header="_Diagnostics" Click="Help_Diagnostics_Click"/>
                 </MenuItem>
@@ -38,27 +49,27 @@
             <Border Padding="8,4,8,6" BorderThickness="0,0,0,1"
                     BorderBrush="{x:Static SystemColors.ControlDarkBrush}">
                 <WrapPanel Orientation="Horizontal">
-                    <Button Content="Refresh" Command="{Binding RefreshCommand}" Margin="0,0,8,4" AutomationProperties.AutomationId="RefreshButton" />
-                    <Button Content="Add" Command="{Binding AddItemCommand}" Margin="0,0,8,4" AutomationProperties.AutomationId="AddItemButton" />
-                    <Button Content="Delete" Command="{Binding DeleteItemCommand}" Margin="0,0,8,4" AutomationProperties.AutomationId="DeleteItemButton" />
-                    <Button Content="Save" Command="{Binding SaveChangesCommand}" Margin="0,0,16,4" AutomationProperties.AutomationId="SaveChangesButton"/>
+                    <Button Content="Refresh" Command="{Binding RefreshCommand}" Margin="0,0,8,4" ToolTip="Reload the list from the saved data (Ctrl+R)" AutomationProperties.AutomationId="RefreshButton" />
+                    <Button Content="Add item" Command="{Binding AddItemCommand}" Margin="0,0,8,4" ToolTip="Add something new to the store (Ctrl+N)" AutomationProperties.AutomationId="AddItemButton" />
+                    <Button Content="Remove item" Command="{Binding DeleteItemCommand}" Margin="0,0,8,4" ToolTip="Take something off the list (Delete)" AutomationProperties.AutomationId="DeleteItemButton" />
+                    <Button Content="Save changes" Command="{Binding SaveChangesCommand}" Margin="0,0,16,4" ToolTip="Save the changes you have made in the table (Ctrl+S)" AutomationProperties.AutomationId="SaveChangesButton"/>
 
                     <!-- Stock Operations -->
-                    <Button Content="Add Stock" Command="{Binding AddStockCommand}" Margin="0,0,4,4" ToolTip="Add stock to selected item" AutomationProperties.AutomationId="AddStockButton" />
-                    <Button Content="Consume Stock" Command="{Binding ConsumeStockCommand}" Margin="0,0,4,4" ToolTip="Consume stock from selected item" AutomationProperties.AutomationId="ConsumeStockButton" />
-                    <Button Content="Adjust Stock" Command="{Binding AdjustStockCommand}" Margin="0,0,16,4" ToolTip="Adjust stock for selected item" AutomationProperties.AutomationId="AdjustStockButton" />
+                    <Button Content="Take in stock" Command="{Binding AddStockCommand}" Margin="0,0,4,4" ToolTip="Record stock arriving in the store" AutomationProperties.AutomationId="AddStockButton" />
+                    <Button Content="Take out stock" Command="{Binding ConsumeStockCommand}" Margin="0,0,4,4" ToolTip="Record stock used from the store" AutomationProperties.AutomationId="ConsumeStockButton" />
+                    <Button Content="Recount" Command="{Binding AdjustStockCommand}" Margin="0,0,16,4" ToolTip="Set the stock to what you actually counted" AutomationProperties.AutomationId="AdjustStockButton" />
 
-                    <Button Content="Import Items (CSV)" Command="{Binding ImportItemsCsvCommand}" Margin="0,0,4,4" AutomationProperties.AutomationId="ImportItemsCsvButton" />
-                    <Button Content="Export Items (CSV)" Command="{Binding ExportItemsCsvCommand}" Margin="0,0,16,4" AutomationProperties.AutomationId="ExportItemsCsvButton" />
+                    <Button Content="Import items (CSV)" Command="{Binding ImportItemsCsvCommand}" Margin="0,0,4,4" ToolTip="Bring in a list of items from a spreadsheet file" AutomationProperties.AutomationId="ImportItemsCsvButton" />
+                    <Button Content="Export items (CSV)" Command="{Binding ExportItemsCsvCommand}" Margin="0,0,16,4" ToolTip="Save the list as a spreadsheet file" AutomationProperties.AutomationId="ExportItemsCsvButton" />
 
                     <!-- Manage Categories -->
-                    <Button Content="Manage Categories" Command="{Binding ManageCategoriesCommand}" Margin="0,0,8,4" AutomationProperties.AutomationId="ManageCategoriesButton" />
+                    <Button Content="Manage categories" Command="{Binding ManageCategoriesCommand}" Margin="0,0,8,4" AutomationProperties.AutomationId="ManageCategoriesButton" />
 
                     <!-- Manage Locations -->
-                    <Button Content="Manage Locations" Command="{Binding ManageLocationsCommand}" Margin="0,0,8,4" AutomationProperties.AutomationId="ManageLocationsButton" />
+                    <Button Content="Manage locations" Command="{Binding ManageLocationsCommand}" Margin="0,0,8,4" AutomationProperties.AutomationId="ManageLocationsButton" />
 
                     <!-- Unit Converter -->
-                    <Button Content="Unit Converter" Click="Open_UnitConverter_Click" Margin="0,0,8,4" ToolTip="Convert between kg/g/mg and l/ml/cl/dl" AutomationProperties.AutomationId="UnitConverterButton" />
+                    <Button Content="Unit converter" Click="Open_UnitConverter_Click" Margin="0,0,8,4" ToolTip="Convert between kg/g/mg and l/ml/cl/dl" AutomationProperties.AutomationId="UnitConverterButton" />
 
                     <!-- Reports -->
                     <Button Content="Reports" Click="Open_Reports_Click" Margin="0,0,8,4" ToolTip="Generate and export inventory reports" AutomationProperties.AutomationId="ReportsButton" />
@@ -86,7 +97,8 @@
                     <TextBox Width="240" Margin="0,0,0,4" VerticalContentAlignment="Center"
                              Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
                              AutomationProperties.AutomationId="SearchBox"/>
-                    <CheckBox Content="Needs Attention only" Margin="8,0,0,4" VerticalAlignment="Center"
+                    <CheckBox Content="Problems only" Margin="8,0,0,4" VerticalAlignment="Center"
+                              ToolTip="Show only items that are low, out of stock or going out of date"
                               IsChecked="{Binding ShowNeedsAttentionOnly}"
                               AutomationProperties.AutomationId="NeedsAttentionOnlyCheckBox"/>
                 </WrapPanel>
@@ -155,7 +167,7 @@
                 </DataGrid.Resources>
 
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="2*"/>
+                    <DataGridTextColumn Header="Item" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="2*"/>
                     <DataGridTextColumn Header="Quantity" Binding="{Binding Quantity, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}" Width="*"/>
                     <DataGridTextColumn Header="Unit" Binding="{Binding Unit, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
                     <!-- Insert Category column -->
@@ -182,7 +194,7 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellEditingTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="Expiry Date" Binding="{Binding ExpiryDate, UpdateSourceTrigger=PropertyChanged, StringFormat=yyyy-MM-dd}" Width="*"/>
+                    <DataGridTextColumn Header="Expiry date" Binding="{Binding ExpiryDate, UpdateSourceTrigger=PropertyChanged, StringFormat=yyyy-MM-dd}" Width="*"/>
                     <!-- Location column -->
                     <DataGridTemplateColumn Header="Location" Width="*">
                         <DataGridTemplateColumn.CellTemplate>
@@ -218,7 +230,7 @@
                         <TabItem>
                             <TabItem.Header>
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="Alerts" />
+                                    <TextBlock Text="Problems" />
                                     <TextBlock Text="{Binding AlertsCount, StringFormat=' ({0})'}" Foreground="#B00" FontWeight="Bold" />
                                 </StackPanel>
                             </TabItem.Header>
@@ -228,19 +240,19 @@
                                     <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
                                 <StackPanel Grid.Row="0" Margin="0,0,0,4">
-                                    <TextBlock Text="Low stock, expiring and expired items" FontStyle="Italic" />
+                                    <TextBlock Text="Anything running low, out of stock or going out of date" FontStyle="Italic" />
                                     <TextBlock>
-                                        <Run Text="Low: " /><Run Text="{Binding LowStockCount, Mode=OneWay}" />
-                                        <Run Text="  Expiring: " /><Run Text="{Binding ExpiringSoonCount, Mode=OneWay}" />
-                                        <Run Text="  Expired: " /><Run Text="{Binding ExpiredCount, Mode=OneWay}" />
-                                        <Run Text="  Critical: " /><Run Text="{Binding CriticalAlertsCount, Mode=OneWay}" FontWeight="Bold" />
+                                        <Run Text="Running low: " /><Run Text="{Binding LowStockCount, Mode=OneWay}" />
+                                        <Run Text="  Use soon: " /><Run Text="{Binding ExpiringSoonCount, Mode=OneWay}" />
+                                        <Run Text="  Out of date: " /><Run Text="{Binding ExpiredCount, Mode=OneWay}" />
+                                        <Run Text="  Urgent: " /><Run Text="{Binding CriticalAlertsCount, Mode=OneWay}" FontWeight="Bold" />
                                     </TextBlock>
                                 </StackPanel>
                                 <ListView Grid.Row="1" ItemsSource="{Binding Alerts}" AutomationProperties.AutomationId="AlertsList">
                                     <ListView.View>
                                         <GridView>
-                                            <GridViewColumn Header="Severity" Width="80" DisplayMemberBinding="{Binding Severity}" />
-                                            <GridViewColumn Header="Type" Width="100" DisplayMemberBinding="{Binding Kind}" />
+                                            <GridViewColumn Header="Level" Width="80" DisplayMemberBinding="{Binding SeverityText}" />
+                                            <GridViewColumn Header="Problem" Width="100" DisplayMemberBinding="{Binding KindText}" />
                                             <GridViewColumn Header="Item" Width="140" DisplayMemberBinding="{Binding Name}" />
                                             <GridViewColumn Header="Details" Width="180" DisplayMemberBinding="{Binding Message}" />
                                             <GridViewColumn Header="Location" Width="100" DisplayMemberBinding="{Binding Location}" />
@@ -249,7 +261,7 @@
                                 </ListView>
                             </Grid>
                         </TabItem>
-                        <TabItem Header="Audit Trail">
+                        <TabItem Header="Item history">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
@@ -260,23 +272,29 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Per-item movements" FontStyle="Italic" />
-                                    <Button Grid.Column="1" Content="Export CSV" Command="{Binding ExportSelectedMovementsCsvCommand}" />
+                                    <TextBlock Text="Everything that has happened to the item you selected" FontStyle="Italic" TextWrapping="Wrap" />
+                                    <Button Grid.Column="1" Content="Save as CSV" Command="{Binding ExportSelectedMovementsCsvCommand}" />
                                 </Grid>
                                 <ListView Grid.Row="1" ItemsSource="{Binding SelectedMovements}">
                                     <ListView.View>
                                         <GridView>
                                             <GridViewColumn Header="When" Width="120" DisplayMemberBinding="{Binding TimestampUtc, StringFormat=yyyy-MM-dd HH:mm}" />
-                                            <GridViewColumn Header="Type" Width="80" DisplayMemberBinding="{Binding Type}" />
-                                            <GridViewColumn Header="Qty" Width="60" DisplayMemberBinding="{Binding Quantity, StringFormat='#,0.###'}" />
-                                            <GridViewColumn Header="Reason" Width="140" DisplayMemberBinding="{Binding Reason}" />
-                                            <GridViewColumn Header="User" Width="100" DisplayMemberBinding="{Binding User}" />
+                                            <GridViewColumn Header="What happened" Width="110">
+                                                <GridViewColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Text="{Binding Type, Converter={StaticResource MovementTypeConverter}}" />
+                                                    </DataTemplate>
+                                                </GridViewColumn.CellTemplate>
+                                            </GridViewColumn>
+                                            <GridViewColumn Header="Amount" Width="70" DisplayMemberBinding="{Binding Quantity, StringFormat='#,0.###'}" />
+                                            <GridViewColumn Header="Note" Width="140" DisplayMemberBinding="{Binding Reason}" />
+                                            <GridViewColumn Header="By" Width="100" DisplayMemberBinding="{Binding User}" />
                                         </GridView>
                                     </ListView.View>
                                 </ListView>
                             </Grid>
                         </TabItem>
-                        <TabItem Header="Recent Movements">
+                        <TabItem Header="Recent activity">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
@@ -287,18 +305,37 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Most recent 50 movements" FontStyle="Italic" />
-                                    <Button Grid.Column="1" Content="Export CSV" Command="{Binding ExportRecentMovementsCsvCommand}" />
+                                    <TextBlock Text="The last 50 things that happened, newest first" FontStyle="Italic" TextWrapping="Wrap" />
+                                    <Button Grid.Column="1" Content="Save as CSV" Command="{Binding ExportRecentMovementsCsvCommand}" />
                                 </Grid>
                                 <ListView Grid.Row="1" ItemsSource="{Binding RecentMovements}">
                                     <ListView.View>
                                         <GridView>
                                             <GridViewColumn Header="When" Width="120" DisplayMemberBinding="{Binding TimestampUtc, StringFormat=yyyy-MM-dd HH:mm}" />
-                                            <GridViewColumn Header="ItemId" Width="60" DisplayMemberBinding="{Binding ItemId}" />
-                                            <GridViewColumn Header="Type" Width="80" DisplayMemberBinding="{Binding Type}" />
-                                            <GridViewColumn Header="Qty" Width="60" DisplayMemberBinding="{Binding Quantity, StringFormat='#,0.###'}" />
-                                            <GridViewColumn Header="Reason" Width="140" DisplayMemberBinding="{Binding Reason}" />
-                                            <GridViewColumn Header="User" Width="100" DisplayMemberBinding="{Binding User}" />
+                                            <GridViewColumn Header="Item" Width="130">
+                                                <GridViewColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock>
+                                                            <TextBlock.Text>
+                                                                <MultiBinding Converter="{StaticResource MovementItemNameConverter}">
+                                                                    <Binding Path="ItemId" />
+                                                                    <Binding RelativeSource="{RelativeSource AncestorType=Window}" Path="DataContext.MovementItemNames" />
+                                                                </MultiBinding>
+                                                            </TextBlock.Text>
+                                                        </TextBlock>
+                                                    </DataTemplate>
+                                                </GridViewColumn.CellTemplate>
+                                            </GridViewColumn>
+                                            <GridViewColumn Header="What happened" Width="110">
+                                                <GridViewColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Text="{Binding Type, Converter={StaticResource MovementTypeConverter}}" />
+                                                    </DataTemplate>
+                                                </GridViewColumn.CellTemplate>
+                                            </GridViewColumn>
+                                            <GridViewColumn Header="Amount" Width="70" DisplayMemberBinding="{Binding Quantity, StringFormat='#,0.###'}" />
+                                            <GridViewColumn Header="Note" Width="140" DisplayMemberBinding="{Binding Reason}" />
+                                            <GridViewColumn Header="By" Width="100" DisplayMemberBinding="{Binding User}" />
                                         </GridView>
                                     </ListView.View>
                                 </ListView>
@@ -313,8 +350,15 @@
             <StatusBarItem>
                 <TextBlock Text="{Binding StatusText}" />
             </StatusBarItem>
+            <!-- Undo strip: only visible for a short while after something has been removed. -->
             <StatusBarItem HorizontalAlignment="Right">
-                <TextBlock Text="{Binding NeedsAttentionCount, StringFormat=Needs: {0}}"/>
+                <StackPanel Orientation="Horizontal"
+                            Visibility="{Binding CanUndoRemove, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <TextBlock Text="{Binding UndoMessage}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <Button Content="Undo" Command="{Binding UndoRemoveCommand}" Padding="10,1" Height="22"
+                            ToolTip="Put the removed item back (Ctrl+Z)"
+                            AutomationProperties.AutomationId="UndoRemoveButton" />
+                </StackPanel>
             </StatusBarItem>
         </StatusBar>
     </Grid>

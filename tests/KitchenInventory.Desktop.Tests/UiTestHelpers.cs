@@ -133,7 +133,7 @@ public static class UiTestHelpers
     /// </summary>
     public static void AddItem(Window mainWindow, string name, string quantity, string unit, ITestOutputHelper? output = null)
     {
-        ClickActionByName(mainWindow, "Add", output);
+        ClickActionByName(mainWindow, "Add item", output);
         Thread.Sleep(300);
 
         var dialog = WaitForDialog(mainWindow, "Add New Item", TimeSpan.FromSeconds(15));
@@ -353,12 +353,19 @@ public static class UiTestHelpers
         {
             { "Save", "SaveChangesButton" },
             { "Save Changes", "SaveChangesButton" },
+            { "Save changes", "SaveChangesButton" },
             { "Add", "AddItemButton" },
-            { "Add Stock", "AddStockButton" },
+            { "Add item", "AddItemButton" },
             { "Delete", "DeleteItemButton" },
+            { "Remove item", "DeleteItemButton" },
+            { "Add Stock", "AddStockButton" },
+            { "Take in stock", "AddStockButton" },
             { "Consume Stock", "ConsumeStockButton" },
+            { "Take out stock", "ConsumeStockButton" },
             { "Adjust Stock", "AdjustStockButton" },
-            { "Manage Categories", "ManageCategoriesButton" }
+            { "Recount", "AdjustStockButton" },
+            { "Manage Categories", "ManageCategoriesButton" },
+            { "Manage categories", "ManageCategoriesButton" }
         };
 
         foreach (var name in candidates)

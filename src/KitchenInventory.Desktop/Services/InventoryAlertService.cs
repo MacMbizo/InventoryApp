@@ -28,7 +28,26 @@ namespace KitchenInventory.Desktop.Services
         AlertKind Kind,
         AlertSeverity Severity,
         string Message,
-        int? DaysToExpiry);
+        int? DaysToExpiry)
+    {
+        /// <summary>Plain-language severity for display, instead of the raw enum value.</summary>
+        public string SeverityText => Severity switch
+        {
+            AlertSeverity.Critical => "Urgent",
+            AlertSeverity.Warning => "Watch",
+            _ => "For information"
+        };
+
+        /// <summary>Plain-language problem type for display, instead of the raw enum value.</summary>
+        public string KindText => Kind switch
+        {
+            AlertKind.OutOfStock => "Out of stock",
+            AlertKind.LowStock => "Running low",
+            AlertKind.ExpiringSoon => "Use soon",
+            AlertKind.Expired => "Out of date",
+            _ => Kind.ToString()
+        };
+    }
 
     /// <summary>
     /// Pure evaluation of inventory alerts (low/out of stock, expiring, expired).

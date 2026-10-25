@@ -54,7 +54,7 @@
                   AutomationProperties.AutomationId="ItemComboBox"/>
 
         <!-- Current Stock Display -->
-        <TextBlock Grid.Row="1" Grid.Column="0" Text="Current Stock:"/>
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="Now in stock:"/>
         <TextBlock Grid.Row="1" Grid.Column="1" 
                    Text="{Binding CurrentStockDisplay}" 
                    FontWeight="SemiBold" 
@@ -62,7 +62,7 @@
                    AutomationProperties.AutomationId="CurrentStockText"/>
 
         <!-- Operation Type -->
-        <TextBlock Grid.Row="2" Grid.Column="0" Text="Operation:"/>
+        <TextBlock Grid.Row="2" Grid.Column="0" Text="What are you doing?"/>
         <ComboBox Grid.Row="2" Grid.Column="1" 
                   ItemsSource="{Binding OperationTypes}" 
                   SelectedItem="{Binding SelectedOperationType, Mode=TwoWay}"
@@ -70,7 +70,7 @@
                   AutomationProperties.AutomationId="OperationTypeComboBox"/>
 
         <!-- Quantity Input -->
-        <TextBlock Grid.Row="3" Grid.Column="0" Text="Quantity:"/>
+        <TextBlock Grid.Row="3" Grid.Column="0" Text="How much?"/>
         <TextBox Grid.Row="3" Grid.Column="1" 
                  PreviewTextInput="Quantity_PreviewTextInput"
                  DataObject.Pasting="Quantity_Pasting"
@@ -86,21 +86,21 @@
         </TextBox>
 
         <!-- Reason Input -->
-        <TextBlock Grid.Row="4" Grid.Column="0" Text="Reason:"/>
+        <TextBlock Grid.Row="4" Grid.Column="0" Text="Why? (optional)"/>
         <TextBox Grid.Row="4" Grid.Column="1" 
                  Text="{Binding Reason, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                  MaxLength="200"
                  AutomationProperties.AutomationId="ReasonTextBox"/>
 
         <!-- User Input -->
-        <TextBlock Grid.Row="5" Grid.Column="0" Text="User:"/>
+        <TextBlock Grid.Row="5" Grid.Column="0" Text="Done by:"/>
         <TextBox Grid.Row="5" Grid.Column="1" 
                  Text="{Binding User, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                  MaxLength="100"
                  AutomationProperties.AutomationId="UserTextBox"/>
 
         <!-- Preview/Calculation -->
-        <TextBlock Grid.Row="6" Grid.Column="0" Text="New Stock:"/>
+        <TextBlock Grid.Row="6" Grid.Column="0" Text="After this:"/>
         <TextBlock Grid.Row="6" Grid.Column="1" 
                    Text="{Binding NewStockDisplay}" 
                    FontWeight="SemiBold" 

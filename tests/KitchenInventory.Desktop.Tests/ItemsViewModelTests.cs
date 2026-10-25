@@ -188,7 +188,7 @@ public class ItemsViewModelTests : IDisposable
         Assert.Equal(2, vm.TotalCount);
         Assert.Equal(2, vm.FilteredCount);
         Assert.Equal(1, vm.NeedsAttentionCount); // Milk only
-        Assert.Contains("Items: 2", vm.StatusText);
+        Assert.Contains("2 items", vm.StatusText);
         Assert.NotNull(vm.ItemsView);
         Assert.Contains(vm.ItemsView!.SortDescriptions, sd => sd.PropertyName == nameof(Item.Name));
     }
@@ -352,9 +352,57 @@ public class ItemsViewModelTests : IDisposable
         Assert.Equal(0m, row.Quantity);
 
         var movements = db2.StockMovements.Where(m => m.ItemId == _riceId).ToList();
-        Assert.Contains(movements, m => m.Reason == "Delete item" && m.Type == MovementType.Adjust && m.Quantity == -10m);
+        Assert.Contains(movements, m => m.Reason == "Removed item" && m.Type == MovementType.Adjust && m.Quantity == -10m);
         // The movement history must not be orphaned by the delete.
         Assert.Contains(movements, m => m.Reason == "Initial add");
+    }
+
+    [StaFact]
+    public async Task UndoRemoveCommand_PutsRemovedItemBack()
+    {
+        // The dialog is a real window (constructed before the fake answers), so this must run on an STA thread.
+        var dialogs = new FakeDialogService { Result = true };
+        var vm = Create(dialogs: dialogs);
+        await vm.LoadAsync();
+        vm.SelectedItem = vm.Items.First(i => i.Name == "Rice");
+
+        RunCommand(vm.DeleteItemCommand);
+        await WaitUntilAsync(() => vm.CanUndoRemove);
+
+        Assert.Contains("Rice", vm.UndoMessage);
+        Assert.False(DbHasItem("Rice"));
+
+        RunCommand(vm.UndoRemoveCommand);
+        await WaitUntilAsync(() => vm.Items.Any(i => i.Name == "Rice"));
+
+        // The item is visible again...
+        Assert.True(DbHasItem("Rice"));
+        // ...the undo offer is withdrawn...
+        Assert.False(vm.CanUndoRemove);
+
+        using var db = _factory.CreateDbContext();
+        // ...the row is un-hidden with its stock restored...
+        var row = db.Items.IgnoreQueryFilters().Single(i => i.Id == _riceId);
+        Assert.False(row.IsDeleted);
+        Assert.Equal(10m, row.Quantity);
+        // ...and the write-off movement is gone, so the ledger invariant holds again.
+        var movements = db.StockMovements.Where(m => m.ItemId == _riceId).ToList();
+        Assert.DoesNotContain(movements, m => m.Reason == "Removed item");
+    }
+
+    [StaFact]
+    public async Task DeleteItemCommand_KeepsItem_WhenConfirmationDeclined()
+    {
+        var dialogs = new FakeDialogService { Result = false };
+        var vm = Create(dialogs: dialogs);
+        await vm.LoadAsync();
+        vm.SelectedItem = vm.Items.First(i => i.Name == "Rice");
+
+        RunCommand(vm.DeleteItemCommand);
+        await WaitUntilAsync(() => vm.StatusText.Contains("Kept"));
+
+        Assert.True(DbHasItem("Rice"));
+        Assert.False(vm.CanUndoRemove);
     }
 
     [Fact]
@@ -429,7 +477,7 @@ public class ItemsViewModelTests : IDisposable
         await WaitUntilAsync(() => vm.Items.Any(i => i.Name == "From Dialog"));
 
         Assert.True(DbHasItem("From Dialog"));
-        Assert.DoesNotContain("Add failed", vm.StatusText);
+        Assert.DoesNotContain("Could not add", vm.StatusText);
     }
 
     [Fact]
@@ -505,7 +553,7 @@ public class ItemsViewModelTests : IDisposable
             return db.StockMovements.Any(m => m.Reason == "Import update");
         });
 
-        Assert.Contains("Updated: 1", vm.StatusText);
+        Assert.Contains("1 updated", vm.StatusText);
     }
 
     [Fact]
@@ -516,9 +564,9 @@ public class ItemsViewModelTests : IDisposable
         await vm.LoadAsync();
 
         RunCommand(vm.ImportItemsCsvCommand);
-        await WaitUntilAsync(() => vm.StatusText.Contains("No items found"));
+        await WaitUntilAsync(() => vm.StatusText.Contains("no items in it"));
 
-        Assert.Contains("No items found", vm.StatusText);
+        Assert.Contains("no items in it", vm.StatusText);
     }
 
     [Fact]

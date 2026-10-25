@@ -31,7 +31,7 @@ public class AddItemUiTests
             try { mainWindow.Focus(); } catch { }
             try { mainWindow.SetForeground(); } catch { }
 
-            UiTestHelpers.ClickActionByName(mainWindow, "Add");
+            UiTestHelpers.ClickActionByName(mainWindow, "Add item");
             Thread.Sleep(300);
 
             var dialog = WaitForDialog(mainWindow, "Add New Item", TimeSpan.FromSeconds(10));
@@ -78,7 +78,7 @@ public class AddItemUiTests
             try { mainWindow.SetForeground(); } catch { }
 
             // Open Add dialog
-            UiTestHelpers.ClickActionByName(mainWindow, "Add");
+            UiTestHelpers.ClickActionByName(mainWindow, "Add item");
             Thread.Sleep(300);
 
             var dialog = WaitForDialog(mainWindow, "Add New Item", TimeSpan.FromSeconds(10));
@@ -183,7 +183,7 @@ public class AddItemUiTests
             try { mainWindow.SetForeground(); } catch { }
 
             // Open Add dialog
-            UiTestHelpers.ClickActionByName(mainWindow, "Add");
+            UiTestHelpers.ClickActionByName(mainWindow, "Add item");
             Thread.Sleep(300);
 
             var dialog = WaitForDialog(mainWindow, "Add New Item", TimeSpan.FromSeconds(10));

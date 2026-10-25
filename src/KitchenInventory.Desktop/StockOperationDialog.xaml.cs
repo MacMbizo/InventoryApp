@@ -14,6 +14,7 @@ using KitchenInventory.Data;
 using KitchenInventory.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using KitchenInventory.Desktop.Constants;
 using KitchenInventory.Desktop.Utilities;
 
 namespace KitchenInventory.Desktop
@@ -26,7 +27,7 @@ namespace KitchenInventory.Desktop
         private static readonly Regex QuantityRegex = new($"^\\d*(?:{Regex.Escape(DecimalSeparator)}\\d{{0,3}})?$");
 
         public ObservableCollection<Item> AvailableItems { get; } = new();
-        public ObservableCollection<string> OperationTypes { get; } = new() { "Add Stock", "Consume Stock", "Adjust Stock" };
+        public ObservableCollection<string> OperationTypes { get; } = new() { StockOperations.TakeIn, StockOperations.TakeOut, StockOperations.Recount };
 
         private Item? _selectedItem;
         public Item? SelectedItem
@@ -45,7 +46,7 @@ namespace KitchenInventory.Desktop
             }
         }
 
-        private string _selectedOperationType = "Add Stock";
+        private string _selectedOperationType = StockOperations.TakeIn;
         public string SelectedOperationType
         {
             get => _selectedOperationType;
@@ -264,14 +265,14 @@ namespace KitchenInventory.Desktop
 
         // Constructor for pre-selected item and operation
         public StockOperationDialog(IDbContextFactory<KitchenInventoryDbContext> dbFactory, ILogger<StockOperationDialog> logger, 
-            Item selectedItem, string operationType = "Add Stock")
+            Item selectedItem, string operationType = StockOperations.TakeIn)
             : this(dbFactory, logger)
         {
             _selectedItem = selectedItem;
             _selectedOperationType = operationType;
             IsItemSelectionEnabled = false;
             IsOperationSelectable = false;
-            DialogTitle = $"{operationType} - {selectedItem.Name}";
+            DialogTitle = $"{operationType} — {selectedItem.Name}";
         }
 
         private async void OnLoaded(object sender, RoutedEventArgs e)
@@ -385,13 +386,13 @@ namespace KitchenInventory.Desktop
 
             switch (SelectedOperationType)
             {
-                case "Add Stock":
+                case StockOperations.TakeIn:
                     NewStock = CurrentStock + Quantity;
                     break;
-                case "Consume Stock":
+                case StockOperations.TakeOut:
                     NewStock = CurrentStock - Quantity;
                     break;
-                case "Adjust Stock":
+                case StockOperations.Recount:
                     NewStock = Quantity; // Set to absolute value
                     break;
                 default:
@@ -441,9 +442,9 @@ namespace KitchenInventory.Desktop
             }
 
             // Check for consume operation that would result in negative stock
-            if (SelectedOperationType == "Consume Stock" && NewStock < 0)
+            if (SelectedOperationType == StockOperations.TakeOut && NewStock < 0)
             {
-                SetError($"Cannot consume {Quantity:F3} - insufficient stock (current: {CurrentStock:F3}).");
+                SetError($"Cannot take out {Quantity:F3} - there is only {CurrentStock:F3} in stock.");
                 return;
             }
 
@@ -455,9 +456,9 @@ namespace KitchenInventory.Desktop
             }
 
             // Check reason for certain operations
-            if ((SelectedOperationType == "Adjust Stock" || Quantity > 100) && string.IsNullOrWhiteSpace(Reason))
+            if ((SelectedOperationType == StockOperations.Recount || Quantity > 100) && string.IsNullOrWhiteSpace(Reason))
             {
-                SetError("Reason is required for adjustments or large quantities.");
+                SetError("Please say why, or where the count came from.");
                 return;
             }
 
@@ -484,7 +485,7 @@ namespace KitchenInventory.Desktop
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to execute stock operation");
-                SetError($"Operation failed: {ex.Message}");
+                SetError($"That did not work: {ex.Message}");
             }
         }
 
@@ -508,7 +509,7 @@ namespace KitchenInventory.Desktop
                 if (Math.Abs(dbItem.Quantity - CurrentStock) > 0.001m)
                 {
                     throw new InvalidOperationException(
-                        $"Stock has changed since dialog opened. Current: {dbItem.Quantity:F3}, Expected: {CurrentStock:F3}. Please refresh and try again.");
+                        $"The stock changed while this window was open (now {dbItem.Quantity:F3}, was {CurrentStock:F3}). Please refresh and try again.");
                 }
 
                 // Determine movement type and actual quantity change
@@ -517,17 +518,17 @@ namespace KitchenInventory.Desktop
 
                 switch (SelectedOperationType)
                 {
-                    case "Add Stock":
+                    case StockOperations.TakeIn:
                         movementType = MovementType.Add;
                         actualQuantityChange = Quantity;
                         dbItem.Quantity += Quantity;
                         break;
-                    case "Consume Stock":
+                    case StockOperations.TakeOut:
                         movementType = MovementType.Consume;
                         actualQuantityChange = Quantity;
                         dbItem.Quantity -= Quantity;
                         break;
-                    case "Adjust Stock":
+                    case StockOperations.Recount:
                         movementType = MovementType.Adjust;
                         // Store the signed delta so the ledger reconciles (Quantity may be
                         // negative when the stock count is adjusted down).

@@ -108,8 +108,8 @@ public sealed class ImportTests
             movement.Quantity.Should().Be(5m);
             movement.Reason.Should().Be("Import add");
 
-            vm.StatusText.Should().Contain("Added: 1");
-            vm.StatusText.Should().Contain("Updated: 0");
+            vm.StatusText.Should().Contain("1 new");
+            vm.StatusText.Should().Contain("0 updated");
             vm.Items.Should().ContainSingle(i => i.Name == "Sugar" && i.Quantity == 5m);
         }
         finally { conn.Dispose(); }
@@ -146,8 +146,8 @@ public sealed class ImportTests
             mv.Quantity.Should().Be(3m);
             mv.Reason.Should().Be("Import update");
 
-            vm.StatusText.Should().Contain("Added: 0");
-            vm.StatusText.Should().Contain("Updated: 1");
+            vm.StatusText.Should().Contain("0 new");
+            vm.StatusText.Should().Contain("1 updated");
         }
         finally { conn.Dispose(); }
     }
@@ -197,7 +197,7 @@ public sealed class ImportTests
             var vm = new ItemsViewModel(factory, logger, new FakeFileSaveService(), new FakeFileOpenService("dummy"), new FakeCsvImportService(importItems));
 
             await InvokePrivateAsync(vm, "ImportItemsCsvAsync");
-            vm.StatusText.Should().Be("No items found in CSV.");
+            vm.StatusText.Should().Be("That file had no items in it.");
         }
         finally { conn.Dispose(); }
     }

@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Threading;
 using KitchenInventory.Data;
 using KitchenInventory.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -17,12 +18,19 @@ using System.Globalization;
 using KitchenInventory.Desktop;
 using KitchenInventory.Desktop.ViewModels;
 using KitchenInventory.Desktop.Utilities;
+using KitchenInventory.Desktop.Constants;
 using KitchenInventory.Domain.Constants;
 
 namespace KitchenInventory.Desktop.ViewModels;
 
 public class ItemsViewModel : INotifyPropertyChanged
 {
+    /// <summary>How long the "removed · Undo" strip stays on screen.</summary>
+    private static readonly TimeSpan UndoWindow = TimeSpan.FromSeconds(10);
+
+    /// <summary>Reason recorded on the movement that writes off an item's stock when it is removed.</summary>
+    private const string RemoveWriteOffReason = "Removed item";
+
     private readonly IDbContextFactory<KitchenInventoryDbContext> _dbFactory;
     private readonly ILogger<ItemsViewModel> _logger;
     private readonly IFileSaveService _fileSave;
@@ -33,6 +41,11 @@ public class ItemsViewModel : INotifyPropertyChanged
     private readonly ISessionService? _session;
     private decimal _lowStockThreshold;
     private int _expiringSoonDays;
+
+    /// <summary>The item removed most recently, kept so it can be put straight back.</summary>
+    private Item? _removedItem;
+    private string _undoMessage = string.Empty;
+    private DispatcherTimer? _undoTimer;
 
     public ObservableCollection<Item> Items { get; } = new();
     public ObservableCollection<StockMovement> SelectedMovements { get; } = new();
@@ -183,6 +196,20 @@ public class ItemsViewModel : INotifyPropertyChanged
         private set { _statusText = value; OnPropertyChanged(); }
     }
 
+    /// <summary>Banner text shown after a removal ("Rice was removed."); empty when there is nothing to undo.</summary>
+    public string UndoMessage
+    {
+        get => _undoMessage;
+        private set { if (_undoMessage != value) { _undoMessage = value; OnPropertyChanged(); } }
+    }
+
+    /// <summary>True while the most recent removal can still be put back.</summary>
+    public bool CanUndoRemove => _removedItem != null;
+
+    /// <summary>Item id to name, including items that are no longer in the visible list.</summary>
+    public IReadOnlyDictionary<int, string> MovementItemNames { get; private set; }
+        = new Dictionary<int, string>();
+
     private DateTime? _lastSavedAtLocal;
     public DateTime? LastSavedAtLocal
     {
@@ -241,6 +268,7 @@ public class ItemsViewModel : INotifyPropertyChanged
     public ICommand RefreshCommand { get; }
     public ICommand AddItemCommand { get; }
     public ICommand DeleteItemCommand { get; }
+    public ICommand UndoRemoveCommand { get; }
     public ICommand SaveChangesCommand { get; }
     public ICommand ImportItemsCsvCommand { get; }
     public ICommand ExportItemsCsvCommand { get; }
@@ -295,6 +323,7 @@ public class ItemsViewModel : INotifyPropertyChanged
             ? new AsyncRelayCommand(AddItemAsync, () => HasRole(Roles.Admin, Roles.Manager))
             : new RelayCommand(AddItem, () => HasRole(Roles.Admin, Roles.Manager));
         DeleteItemCommand = new AsyncRelayCommand(DeleteSelectedAsync, () => SelectedItem != null && HasRole(Roles.Admin));
+        UndoRemoveCommand = new AsyncRelayCommand(UndoRemoveAsync, () => _removedItem != null);
         SaveChangesCommand = new AsyncRelayCommand(SaveChangesAsync, () => Items.Count > 0 && AreItemsValid() && !HasValidationErrors && HasRole(Roles.Admin, Roles.Manager));
         ImportItemsCsvCommand = new AsyncRelayCommand(ImportItemsCsvAsync, () => HasRole(Roles.Admin, Roles.Manager));
         ExportItemsCsvCommand = new AsyncRelayCommand(ExportItemsCsvAsync, () => ItemsView?.Cast<object>().Any() ?? false);
@@ -302,9 +331,9 @@ public class ItemsViewModel : INotifyPropertyChanged
         ExportRecentMovementsCsvCommand = new AsyncRelayCommand(ExportRecentMovementsCsvAsync, () => RecentMovements.Count > 0);
 
         // Initialize stock operation commands
-        AddStockCommand = new AsyncRelayCommand(() => ShowStockOperationDialogAsync("Add Stock"), () => SelectedItem != null && HasRole(Roles.Admin, Roles.Manager));
-        ConsumeStockCommand = new AsyncRelayCommand(() => ShowStockOperationDialogAsync("Consume Stock"), () => SelectedItem != null && HasRole(Roles.Admin, Roles.Manager, Roles.Staff));
-        AdjustStockCommand = new AsyncRelayCommand(() => ShowStockOperationDialogAsync("Adjust Stock"), () => SelectedItem != null && HasRole(Roles.Admin, Roles.Manager));
+        AddStockCommand = new AsyncRelayCommand(() => ShowStockOperationDialogAsync(StockOperations.TakeIn), () => SelectedItem != null && HasRole(Roles.Admin, Roles.Manager));
+        ConsumeStockCommand = new AsyncRelayCommand(() => ShowStockOperationDialogAsync(StockOperations.TakeOut), () => SelectedItem != null && HasRole(Roles.Admin, Roles.Manager, Roles.Staff));
+        AdjustStockCommand = new AsyncRelayCommand(() => ShowStockOperationDialogAsync(StockOperations.Recount), () => SelectedItem != null && HasRole(Roles.Admin, Roles.Manager));
 
         // Initialize category management command
         ManageCategoriesCommand = new AsyncRelayCommand(ShowManageCategoriesDialogAsync, () => HasRole(Roles.Admin, Roles.Manager));
@@ -395,12 +424,19 @@ public class ItemsViewModel : INotifyPropertyChanged
     private void UpdateStatus()
     {
         var baseText = string.IsNullOrWhiteSpace(FilterText)
-            ? $"Items: {TotalCount}"
-            : $"Items: {FilteredCount}/{TotalCount} (filter: '{FilterText}')";
-        var needsText = $" | Needs attention: {NeedsAttentionCount}";
-        var savedText = LastSavedAtLocal.HasValue ? $" | Last saved: {LastSavedAtLocal:yyyy-MM-dd HH:mm}" : string.Empty;
+            ? Plural(TotalCount, "item")
+            : $"{FilteredCount}/{TotalCount} items, showing '{FilterText.Trim()}'";
+        var needsText = NeedsAttentionCount switch
+        {
+            0 => string.Empty,
+            1 => " · 1 needs attention",
+            _ => $" · {NeedsAttentionCount} need attention"
+        };
+        var savedText = LastSavedAtLocal.HasValue ? $" · Saved {LastSavedAtLocal:HH:mm}" : string.Empty;
         StatusText = baseText + needsText + savedText;
     }
+
+    private static string Plural(int count, string noun) => count == 1 ? $"1 {noun}" : $"{count} {noun}s";
 
     private bool AreItemsValid()
     {
@@ -502,7 +538,7 @@ public class ItemsViewModel : INotifyPropertyChanged
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to add item via dialog");
-            StatusText = $"Add failed: {ex.Message}";
+            StatusText = $"Could not add that item: {ex.Message}";
         }
     }
 
@@ -525,6 +561,28 @@ public class ItemsViewModel : INotifyPropertyChanged
     {
         if (SelectedItem == null) return;
         var toDelete = SelectedItem;
+
+        // Ask first. Removing writes off whatever stock is left and hides the item, so the
+        // user sees what they picked and what it will cost before anything happens.
+        if (_dialogs != null)
+        {
+            var confirmed = await _dialogs.ShowAsync(new RemoveItemDialog(toDelete));
+            if (confirmed is not true)
+            {
+                StatusText = $"Kept {DisplayName(toDelete)}.";
+                return;
+            }
+        }
+
+        // Keep enough of the row to put it back during the undo window.
+        var removedSnapshot = new Item
+        {
+            Id = toDelete.Id,
+            Name = toDelete.Name,
+            Unit = toDelete.Unit,
+            Quantity = toDelete.Quantity
+        };
+
         Items.Remove(toDelete);
         SelectedItem = null;
         ItemsView?.Refresh();
@@ -540,6 +598,7 @@ public class ItemsViewModel : INotifyPropertyChanged
                 var existing = await db.Items.FirstOrDefaultAsync(i => i.Id == toDelete.Id);
                 if (existing != null)
                 {
+                    removedSnapshot.Quantity = existing.Quantity;
                     if (existing.Quantity != 0)
                     {
                         await db.AddAsync(new StockMovement
@@ -548,7 +607,7 @@ public class ItemsViewModel : INotifyPropertyChanged
                             Type = MovementType.Adjust,
                             // Signed delta: deleting an item writes off its whole stock.
                             Quantity = -existing.Quantity,
-                            Reason = "Delete item",
+                            Reason = RemoveWriteOffReason,
                             User = Environment.UserName,
                             TimestampUtc = DateTime.UtcNow
                         });
@@ -570,7 +629,7 @@ public class ItemsViewModel : INotifyPropertyChanged
                 // Reload first: UpdateStatus() rewrites StatusText, so report after it.
                 await LoadAsync();
                 ApplyFilter();
-                StatusText = "Delete failed: this item was changed elsewhere. The list has been refreshed.";
+                StatusText = $"Could not remove {DisplayName(toDelete)}: it was changed elsewhere. The list has been refreshed.";
                 return;
             }
             catch (Exception ex)
@@ -578,7 +637,7 @@ public class ItemsViewModel : INotifyPropertyChanged
                 _logger.LogError(ex, "Failed to delete item {ItemId}", toDelete.Id);
                 await LoadAsync();
                 ApplyFilter();
-                StatusText = $"Delete failed: {ex.Message}";
+                StatusText = $"Could not remove {DisplayName(toDelete)}: {ex.Message}";
                 return;
             }
         }
@@ -587,7 +646,85 @@ public class ItemsViewModel : INotifyPropertyChanged
         // Update movement panels post-delete
         await LoadRecentMovementsAsync();
         await LoadSelectedMovementsAsync();
+
+        OfferUndo(removedSnapshot);
     }
+
+    /// <summary>Shows the "removed · Undo" strip for <see cref="UndoWindow"/>.</summary>
+    private void OfferUndo(Item removed)
+    {
+        _undoTimer?.Stop();
+        _removedItem = removed;
+        UndoMessage = $"{DisplayName(removed)} was removed.";
+        OnPropertyChanged(nameof(CanUndoRemove));
+        CommandManager.InvalidateRequerySuggested();
+
+        _undoTimer = new DispatcherTimer { Interval = UndoWindow };
+        _undoTimer.Tick += (_, __) =>
+        {
+            _undoTimer?.Stop();
+            ClearUndo();
+        };
+        _undoTimer.Start();
+    }
+
+    private void ClearUndo()
+    {
+        _undoTimer?.Stop();
+        _undoTimer = null;
+        _removedItem = null;
+        UndoMessage = string.Empty;
+        OnPropertyChanged(nameof(CanUndoRemove));
+        CommandManager.InvalidateRequerySuggested();
+    }
+
+    /// <summary>Puts back the most recently removed item, exactly reversing the write-off.</summary>
+    private async Task UndoRemoveAsync()
+    {
+        var removed = _removedItem;
+        if (removed == null) return;
+
+        ClearUndo();
+
+        try
+        {
+            using var db = await _dbFactory.CreateDbContextAsync();
+            using var tx = await db.Database.BeginTransactionAsync();
+
+            // The row is hidden by the global query filter, so it has to be asked for explicitly.
+            var item = await db.Items.IgnoreQueryFilters().FirstOrDefaultAsync(i => i.Id == removed.Id);
+            if (item != null)
+            {
+                var writeOff = await db.StockMovements
+                    .Where(m => m.ItemId == removed.Id && m.Reason == RemoveWriteOffReason)
+                    .OrderByDescending(m => m.Id)
+                    .FirstOrDefaultAsync();
+                if (writeOff != null) db.StockMovements.Remove(writeOff);
+
+                item.IsDeleted = false;
+                item.Quantity = removed.Quantity;
+                item.UpdatedAtUtc = DateTime.UtcNow;
+                await db.SaveChangesAsync();
+            }
+
+            await tx.CommitAsync();
+
+            // Reload before reporting: UpdateStatus() rewrites StatusText.
+            await LoadAsync();
+            ApplyFilter();
+            StatusText = $"{DisplayName(removed)} is back in your list.";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to undo the removal of item {ItemId}", removed.Id);
+            await LoadAsync();
+            ApplyFilter();
+            StatusText = $"Could not put {DisplayName(removed)} back. Please add it again.";
+        }
+    }
+
+    private static string DisplayName(Item item)
+        => string.IsNullOrWhiteSpace(item.Name) ? "Item" : item.Name.Trim();
 
     private async Task SaveChangesAsync()
     {
@@ -677,13 +814,13 @@ public class ItemsViewModel : INotifyPropertyChanged
             // Reload first: UpdateStatus() rewrites StatusText, so report after it.
             await LoadAsync();
             ApplyFilter();
-            StatusText = "Save failed: an item was changed elsewhere. The list has been refreshed.";
+            StatusText = "Could not save: an item was changed elsewhere. The list has been refreshed.";
             return;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to save changes");
-            StatusText = $"Save failed: {ex.Message}";
+            StatusText = $"Could not save your changes: {ex.Message}";
             return;
         }
     }
@@ -750,6 +887,19 @@ public class ItemsViewModel : INotifyPropertyChanged
         {
             RecentMovements.Clear();
             using var db = await _dbFactory.CreateDbContextAsync();
+
+            // Names are looked up separately because the movement rows only store an id, and the
+            // item may since have been removed (hidden by the global query filter).
+            var names = await db.Items.IgnoreQueryFilters().AsNoTracking()
+                .Select(i => new { i.Id, i.Name })
+                .ToListAsync();
+            MovementItemNames = names
+                .GroupBy(n => n.Id)
+                .ToDictionary(
+                    g => g.Key,
+                    g => string.IsNullOrWhiteSpace(g.First().Name) ? "(unnamed item)" : g.First().Name);
+            OnPropertyChanged(nameof(MovementItemNames));
+
             var list = await db.StockMovements.AsNoTracking()
                 .OrderByDescending(m => m.TimestampUtc)
                 .Take(take)
@@ -825,7 +975,7 @@ public class ItemsViewModel : INotifyPropertyChanged
             var parsed = (await _csvImport.ParseItemsAsync(text, availableCategories, availableLocations)).ToList();
             if (parsed.Count == 0)
             {
-                StatusText = "No items found in CSV.";
+                StatusText = "That file had no items in it.";
                 return;
             }
 
@@ -848,7 +998,7 @@ public class ItemsViewModel : INotifyPropertyChanged
                 var dialogResult = await _dialogs.ShowAsync(previewDialog);
                 if (!(dialogResult is bool b && b))
                 {
-                    StatusText = "Import canceled.";
+                    StatusText = "Import canceled — nothing was changed.";
                     return;
                 }
 
@@ -856,7 +1006,7 @@ public class ItemsViewModel : INotifyPropertyChanged
                 parsed = preview.ValidItems;
                 if (parsed.Count == 0)
                 {
-                    StatusText = "No valid items to import.";
+                    StatusText = "None of the rows in that file could be imported.";
                     return;
                 }
             }
@@ -971,12 +1121,12 @@ public class ItemsViewModel : INotifyPropertyChanged
             ApplyFilter();
             UpdateCounts();
 
-            StatusText = $"Imported {parsed.Count} items. Added: {addedCount}, Updated: {updatedCount}";
+            StatusText = $"Imported {parsed.Count} items: {addedCount} new, {updatedCount} updated.";
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to import items from CSV");
-            StatusText = $"Import failed: {ex.Message}";
+            StatusText = $"Could not import that file: {ex.Message}";
         }
     }
 
@@ -1010,7 +1160,7 @@ public class ItemsViewModel : INotifyPropertyChanged
                 CommandManager.InvalidateRequerySuggested();
                 
                 // Update status to show operation completed
-                StatusText = $"{operationType} completed for {itemName}";
+                StatusText = $"{operationType} recorded for {itemName}.";
                 
                 _logger.LogInformation("Stock operation '{Operation}' completed for item '{ItemName}'", 
                     operationType, itemName);
@@ -1019,7 +1169,7 @@ public class ItemsViewModel : INotifyPropertyChanged
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to open stock operation dialog");
-            StatusText = $"Failed to open {operationType.ToLower()} dialog: {ex.Message}";
+            StatusText = $"Could not open the '{operationType}' window: {ex.Message}";
         }
     }
 
@@ -1045,14 +1195,14 @@ public class ItemsViewModel : INotifyPropertyChanged
                 await LoadAsync();
                 ApplyFilter();
                 CommandManager.InvalidateRequerySuggested();
-                StatusText = "Categories updated.";
+                StatusText = "Categories saved.";
                 _logger.LogInformation("Categories were updated via management dialog");
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to open category management dialog");
-            StatusText = $"Failed to open categories dialog: {ex.Message}";
+            StatusText = $"Could not open Manage categories: {ex.Message}";
         }
     }
 
@@ -1078,14 +1228,14 @@ public class ItemsViewModel : INotifyPropertyChanged
                 await LoadAsync();
                 ApplyFilter();
                 CommandManager.InvalidateRequerySuggested();
-                StatusText = "Locations updated.";
+                StatusText = "Locations saved.";
                 _logger.LogInformation("Locations were updated via management dialog");
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to open location management dialog");
-            StatusText = $"Failed to open locations dialog: {ex.Message}";
+            StatusText = $"Could not open Manage locations: {ex.Message}";
         }
     }
 

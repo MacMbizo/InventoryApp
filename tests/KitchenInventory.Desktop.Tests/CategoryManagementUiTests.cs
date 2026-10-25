@@ -35,7 +35,7 @@ public class CategoryManagementUiTests
             try { mainWindow.SetForeground(); } catch { }
 
             // Use helper that handles toolbar overflow and desktop-level search
-            UiTestHelpers.ClickActionByName(mainWindow, "Manage Categories");
+            UiTestHelpers.ClickActionByName(mainWindow, "Manage categories");
             Thread.Sleep(300);
 
             // Wait for the Manage Categories dialog
@@ -88,7 +88,7 @@ public class CategoryManagementUiTests
             try { mainWindow.Focus(); } catch { }
             try { mainWindow.SetForeground(); } catch { }
 
-            UiTestHelpers.ClickActionByName(mainWindow, "Manage Categories");
+            UiTestHelpers.ClickActionByName(mainWindow, "Manage categories");
             Thread.Sleep(300);
 
             var dialog = WaitForDialog(mainWindow, "Manage Categories", TimeSpan.FromSeconds(15));

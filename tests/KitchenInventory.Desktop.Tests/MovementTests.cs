@@ -259,7 +259,7 @@ public sealed class MovementTests
             await InvokePrivateAsync(vm, "SaveChangesAsync");
 
             vm.LastSavedAtLocal.Should().NotBeNull();
-            var expected = $"Last saved: {vm.LastSavedAtLocal:yyyy-MM-dd HH:mm}";
+            var expected = $"Saved {vm.LastSavedAtLocal:HH:mm}";
             vm.StatusText.Should().Contain(expected);
         }
         finally
