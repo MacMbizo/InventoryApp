@@ -9,7 +9,11 @@ using FlaUI.UIA3;
 using Xunit;
 using Xunit.Abstractions;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using FlaUI.Core.Patterns;
+using KitchenInventory.Data;
+using KitchenInventory.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace KitchenInventory.Desktop.Tests;
 
@@ -129,6 +133,122 @@ public class StockOperationUiTests : IDisposable
             var exited = process.WaitForExit(TimeSpan.FromSeconds(20));
             Assert.True(exited, "Desktop process did not exit in allotted time after closing main window.");
             Assert.Equal(0, process.ExitCode);
+        }
+        finally
+        {
+            UiTestHelpers.KillIfRunning(process);
+        }
+    }
+
+    /// <summary>
+    /// Regression guard for the ledger sign convention: an Adjust Stock that lowers the
+    /// quantity must record the *signed* delta (newStock − oldStock). Storing the magnitude
+    /// (the old Math.Abs behaviour) made every adjusted item permanently impossible to
+    /// reconcile against the movement ledger.
+    /// </summary>
+    [StaFact]
+    public async Task Desktop_AdjustStock_Down_RecordsSignedDeltaAndReconciles()
+    {
+        var connection = UiTestHelpers.CreateIsolatedSqliteConnectionString();
+        using var process = UiTestHelpers.LaunchApp(connection);
+
+        try
+        {
+            try { process.WaitForInputIdle(10000); } catch { }
+
+            using var automation = new UIA3Automation();
+            var mainWindow = UiTestHelpers.CompleteStartupGating(automation, process, _output);
+
+            try { mainWindow.Focus(); } catch { }
+            try { mainWindow.SetForeground(); } catch { }
+
+            var itemName = $"E2EAdjust-{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+            UiTestHelpers.AddItem(mainWindow, itemName, "20", "l", _output);
+            Assert.True(UiTestHelpers.WaitForGridRow(mainWindow, "ItemsDataGrid", itemName, TimeSpan.FromSeconds(15)),
+                $"Seeded item '{itemName}' did not appear in the items grid.");
+
+            var grid = mainWindow.FindFirstDescendant(cf => cf.ByAutomationId("ItemsDataGrid"));
+            Assert.NotNull(grid);
+            var row = grid!.FindAllDescendants(cf => cf.ByControlType(ControlType.DataItem)).FirstOrDefault();
+            Assert.NotNull(row);
+            SelectRow(row!);
+            Thread.Sleep(300);
+
+            var adjustBtn = mainWindow.FindFirstDescendant(cf => cf.ByAutomationId("AdjustStockButton"));
+            Assert.True(adjustBtn != null, "The 'Adjust Stock' toolbar button was not found.");
+            var enabledDeadline = DateTime.UtcNow.AddSeconds(10);
+            while (!adjustBtn!.IsEnabled && DateTime.UtcNow < enabledDeadline)
+            {
+                Thread.Sleep(200);
+            }
+            Assert.True(adjustBtn.IsEnabled,
+                "The 'Adjust Stock' button stayed disabled, so no grid row was selected.");
+
+            UiTestHelpers.ClickActionByName(mainWindow, "Adjust Stock", _output);
+
+            Window? dialog = null;
+            var dialogDeadline = DateTime.UtcNow.AddSeconds(15);
+            while (dialog == null && DateTime.UtcNow < dialogDeadline)
+            {
+                dialog = UiTestHelpers.WaitForDialog(mainWindow, "Adjust Stock", TimeSpan.FromSeconds(1));
+            }
+            if (dialog == null)
+            {
+                DumpAppWindows(mainWindow);
+            }
+            Assert.True(dialog != null, "The 'Adjust Stock' dialog did not open.");
+
+            // Adjust sets the stock to the entered absolute value (20 -> 5), so the ledger
+            // delta must be -15.
+            var qty = dialog!.FindFirstDescendant(cf => cf.ByAutomationId("QuantityTextBox"))?.AsTextBox();
+            Assert.NotNull(qty);
+            qty!.Enter("5");
+            Thread.Sleep(200);
+
+            var reason = dialog.FindFirstDescendant(cf => cf.ByAutomationId("ReasonTextBox"))?.AsTextBox();
+            Assert.True(reason != null, "The Reason box was not found (required for an adjustment).");
+            reason!.Enter("Stock take");
+            Thread.Sleep(250);
+
+            var execute = dialog.FindFirstDescendant(cf => cf.ByAutomationId("ExecuteButton"));
+            Assert.NotNull(execute);
+            UiTestHelpers.TryInvokeWithFallback(execute!);
+
+            var closeDeadline = DateTime.UtcNow.AddSeconds(20);
+            while (UiTestHelpers.WaitForDialog(mainWindow, "Adjust Stock", TimeSpan.FromSeconds(1)) != null
+                   && DateTime.UtcNow < closeDeadline)
+            {
+                Thread.Sleep(200);
+            }
+            Assert.Null(UiTestHelpers.WaitForDialog(mainWindow, "Adjust Stock", TimeSpan.FromSeconds(1)));
+
+            var status = UiTestHelpers.GetStatusText(mainWindow);
+            _output.WriteLine($"Status after Adjust Stock: '{status}'");
+            Assert.DoesNotContain("Failed to open", status, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Adjust Stock completed", status, StringComparison.OrdinalIgnoreCase);
+
+            UiTestHelpers.CloseAppWindow(mainWindow, process);
+            var exited = process.WaitForExit(TimeSpan.FromSeconds(20));
+            Assert.True(exited, "Desktop process did not exit in allotted time after closing main window.");
+            Assert.Equal(0, process.ExitCode);
+
+            // The app has exited, so the isolated database can be inspected directly.
+            var options = new DbContextOptionsBuilder<KitchenInventoryDbContext>()
+                .UseSqlite(connection)
+                .Options;
+            await using var db = new KitchenInventoryDbContext(options);
+
+            var item = await db.Items.AsNoTracking().SingleAsync(i => i.Name == itemName);
+            Assert.Equal(5m, item.Quantity);
+
+            var adjustment = await db.StockMovements.AsNoTracking()
+                .SingleAsync(m => m.ItemId == item.Id && m.Type == MovementType.Adjust);
+            _output.WriteLine($"Adjust movement quantity: {adjustment.Quantity}");
+            Assert.Equal(-15m, adjustment.Quantity);
+
+            var discrepancies = await StockLedger.ReconcileAsync(db);
+            Assert.True(discrepancies.Count == 0,
+                $"Ledger did not reconcile: {string.Join(", ", discrepancies.Select(d => $"{d.ItemName} recorded={d.RecordedQuantity} ledger={d.LedgerQuantity}"))}");
         }
         finally
         {

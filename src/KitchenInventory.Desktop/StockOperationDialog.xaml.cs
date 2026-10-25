@@ -529,7 +529,9 @@ namespace KitchenInventory.Desktop
                         break;
                     case "Adjust Stock":
                         movementType = MovementType.Adjust;
-                        actualQuantityChange = Math.Abs(NewStock - CurrentStock);
+                        // Store the signed delta so the ledger reconciles (Quantity may be
+                        // negative when the stock count is adjusted down).
+                        actualQuantityChange = NewStock - CurrentStock;
                         dbItem.Quantity = NewStock;
                         break;
                     default:

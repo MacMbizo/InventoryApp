@@ -542,7 +542,8 @@ public class ItemsViewModel : INotifyPropertyChanged
                 {
                     ItemId = existing.Id,
                     Type = MovementType.Adjust,
-                    Quantity = Math.Abs(existing.Quantity),
+                    // Signed delta: deleting an item writes off its whole stock.
+                    Quantity = -existing.Quantity,
                     Reason = "Delete item",
                     User = Environment.UserName,
                     TimestampUtc = DateTime.UtcNow
