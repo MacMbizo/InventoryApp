@@ -15,6 +15,26 @@ public class AddItemUiTests
 {
     private static Window? WaitForDialog(Window parentWindow, string titleContains, TimeSpan timeout) => UiTestHelpers.WaitForDialog(parentWindow, titleContains, timeout);
 
+    /// <summary>
+    /// Puts text into a box through the UI Automation value pattern rather than by typing it.
+    /// Real keystrokes are only delivered to the window that actually holds focus, which a
+    /// headless/CI session cannot guarantee, and a swallowed keystroke is indistinguishable
+    /// from the validation under test having broken. Falls back to typing when the control
+    /// has no value pattern.
+    /// </summary>
+    private static void SetText(TextBox box, string text)
+    {
+        try
+        {
+            box.Focus();
+            box.Text = text;
+        }
+        catch
+        {
+            box.Enter(text);
+        }
+    }
+
     [StaFact]
     public void Desktop_Open_AddItemDialog_Then_CloseDialog()
     {
@@ -198,29 +218,7 @@ public class AddItemUiTests
             Assert.NotNull(addBtn);
 
             // Force invalid state (whitespace only) to trigger validation UI
-            try
-            {
-                nameBox2!.Focus();
-                nameBox2!.Click();
-                FlaUI.Core.Input.Keyboard.Type(" ");
-                // Move focus to trigger validation re-evaluation on lost focus as well
-                FlaUI.Core.Input.Keyboard.Type(FlaUI.Core.WindowsAPI.VirtualKeyShort.TAB);
-            }
-            catch
-            {
-                try
-                {
-                    if (nameBox2!.Patterns.Value.IsSupported)
-                    {
-                        nameBox2.Patterns.Value.Pattern.SetValue(" ");
-                    }
-                    else
-                    {
-                        nameBox2!.Enter(" ");
-                    }
-                }
-                catch { nameBox2!.Enter(" "); }
-            }
+            SetText(nameBox2!, " ");
             Thread.Sleep(300);
 
             // Wait for inline error element to appear and Add to be disabled
@@ -276,31 +274,7 @@ public class AddItemUiTests
             }
 
             // Enter a valid name -> error should hide and Add becomes enabled
-            try
-            {
-                nameBox2!.Focus();
-                nameBox2!.Click();
-                // Clear existing content then type 'Milk'
-                FlaUI.Core.Input.Keyboard.Press(FlaUI.Core.WindowsAPI.VirtualKeyShort.CONTROL);
-                FlaUI.Core.Input.Keyboard.Type("a");
-                FlaUI.Core.Input.Keyboard.Release(FlaUI.Core.WindowsAPI.VirtualKeyShort.CONTROL);
-                FlaUI.Core.Input.Keyboard.Type("Milk");
-            }
-            catch
-            {
-                try
-                {
-                    if (nameBox2!.Patterns.Value.IsSupported)
-                    {
-                        nameBox2.Patterns.Value.Pattern.SetValue("Milk");
-                    }
-                    else
-                    {
-                        nameBox2!.Enter("Milk");
-                    }
-                }
-                catch { nameBox2!.Enter("Milk"); }
-            }
+            SetText(nameBox2!, "Milk");
             Thread.Sleep(300);
 
             bool addEnabled = false;
