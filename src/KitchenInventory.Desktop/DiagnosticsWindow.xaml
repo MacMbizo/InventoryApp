@@ -7,11 +7,11 @@
     <DockPanel Margin="10">
         <!-- Switch to WrapPanel to avoid clipping buttons on narrow layouts -->
         <WrapPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-            <Button Content="Copy" MinWidth="90" Margin="0,0,8,0" Click="Copy_Click"/>
-            <Button Content="Open Logs" MinWidth="100" Margin="0,0,8,0" Click="OpenLogs_Click"/>
-            <Button Content="Open DB Folder" MinWidth="120" Margin="0,0,8,0" Click="OpenDbFolder_Click"/>
+            <Button Content="Copy" MinWidth="90" Margin="0,0,8,0" Click="Copy_Click" AutomationProperties.AutomationId="DiagnosticsCopyButton"/>
+            <Button Content="Open Logs" MinWidth="100" Margin="0,0,8,0" Click="OpenLogs_Click" AutomationProperties.AutomationId="DiagnosticsOpenLogsButton"/>
+            <Button Content="Open DB Folder" MinWidth="120" Margin="0,0,8,0" Click="OpenDbFolder_Click" AutomationProperties.AutomationId="DiagnosticsOpenDbFolderButton"/>
             <!-- Export diagnostics bundle button -->
-            <Button Content="Export Bundle..." MinWidth="130" Margin="0,0,8,0" Click="Export_Click"/>
+            <Button Content="Export Bundle..." MinWidth="130" Margin="0,0,8,0" Click="Export_Click" AutomationProperties.AutomationId="DiagnosticsExportBundleButton"/>
             <!-- Provide explicit automation metadata for UI tests -->
             <Button x:Name="CloseButton"
                     Content="Close"

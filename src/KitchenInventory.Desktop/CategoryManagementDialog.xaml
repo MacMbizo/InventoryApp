@@ -7,13 +7,24 @@
         Title="Manage Categories" Height="420" Width="640"
         WindowStartupLocation="CenterOwner"
         Loaded="OnLoaded">
+    <!-- Carried by the dialog itself: the view model builds this window directly, so it has
+         to render the same whether or not the shell has put its own resources in place. -->
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/Tokens.xaml"/>
+                <ResourceDictionary Source="Themes/Icons.xaml"/>
+                <ResourceDictionary Source="Themes/Controls.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
     <DockPanel Margin="12">
-        <ToolBar DockPanel.Dock="Top" Height="32">
+        <ToolBar DockPanel.Dock="Top">
             <Button Content="Add" Click="Add_Click" Margin="0,0,6,0"/>
             <Button Content="Rename" Click="Rename_Click" Margin="0,0,6,0"/>
             <Button Content="Delete" Click="Delete_Click"/>
             <Separator />
-            <TextBlock Text="Tip: Double-click a name to edit." VerticalAlignment="Center" Foreground="Gray"/>
+            <TextBlock Text="Tip: Double-click a name to edit." VerticalAlignment="Center" Foreground="{StaticResource Brush.TextMuted}"/>
         </ToolBar>
 
         <Grid>
@@ -29,7 +40,7 @@
                       Margin="0,6,0,6" Grid.Row="0" IsSynchronizedWithCurrentItem="True"
                       EnableRowVirtualization="False" EnableColumnVirtualization="False" VirtualizingPanel.IsVirtualizing="False">
                 <DataGrid.RowStyle>
-                    <Style TargetType="DataGridRow">
+                    <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                         <Setter Property="AutomationProperties.Name" Value="{Binding Name}"/>
                     </Style>
                 </DataGrid.RowStyle>
@@ -48,7 +59,7 @@
             </DataGrid>
 
             <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
-                <TextBlock x:Name="ErrorText" Foreground="Tomato" Margin="0,0,12,0" Visibility="Collapsed"/>
+                <TextBlock x:Name="ErrorText" Foreground="{StaticResource Brush.Danger}" Margin="0,0,12,0" Visibility="Collapsed"/>
                 <Button Content="Close" Width="92" IsDefault="True" Click="Close_Click"/>
             </StackPanel>
         </Grid>

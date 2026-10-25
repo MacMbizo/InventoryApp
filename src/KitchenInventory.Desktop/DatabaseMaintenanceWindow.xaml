@@ -16,11 +16,11 @@
     <StackPanel Margin="20">
 
         <TextBlock Text="Your inventory data" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,4"/>
-        <TextBlock Foreground="#4B5563" TextWrapping="Wrap" Margin="0,0,0,14"
+        <TextBlock Foreground="{StaticResource Brush.TextMuted}" TextWrapping="Wrap" Margin="0,0,0,14"
                    Text="Everything you have entered is kept in one file on this computer. Copying it is how you keep a spare."/>
 
         <!-- Where the data lives, and how big it is -->
-        <Border Background="#F9FAFB" BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="8" Padding="14,10">
+        <Border Background="{StaticResource Brush.SurfaceAlt}" BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" CornerRadius="{StaticResource Radius.Md}" Padding="14,10">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -32,30 +32,30 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="File" Foreground="#4B5563" Margin="0,0,12,4"/>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="File" Foreground="{StaticResource Brush.TextMuted}" Margin="0,0,12,4"/>
                 <TextBlock Grid.Row="0" Grid.Column="1" x:Name="DatabasePathText" TextTrimming="CharacterEllipsis"
                            Margin="0,0,0,4" AutomationProperties.AutomationId="DatabasePathText"/>
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Size" Foreground="#4B5563" Margin="0,0,12,4"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Size" Foreground="{StaticResource Brush.TextMuted}" Margin="0,0,12,4"/>
                 <TextBlock Grid.Row="1" Grid.Column="1" x:Name="DatabaseSizeText" Margin="0,0,0,4"/>
 
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="Last saved" Foreground="#4B5563" Margin="0,0,12,0"/>
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Last saved" Foreground="{StaticResource Brush.TextMuted}" Margin="0,0,12,0"/>
                 <TextBlock Grid.Row="2" Grid.Column="1" x:Name="DatabaseSavedText"/>
             </Grid>
         </Border>
 
         <!-- The safe actions: copy the data, or check it -->
         <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
-            <Button x:Name="BackUpNowButton" Content="Back up now" Height="30" Padding="12,0" Margin="0,0,8,0"
-                    Foreground="White" Background="#2563EB" BorderBrush="#1D4ED8"
+            <Button x:Name="BackUpNowButton" Content="Back up now" Padding="12,0" Margin="0,0,8,0"
+                    Style="{StaticResource PrimaryButton}"
                     Click="BackUpNow_Click"
                     ToolTip="Save a copy of your data in the backup folder"
                     AutomationProperties.AutomationId="BackUpNowButton"/>
-            <Button x:Name="BackUpToFolderButton" Content="Back up to another folder…" Height="30" Padding="12,0" Margin="0,0,8,0"
+            <Button x:Name="BackUpToFolderButton" Content="Back up to another folder…" Padding="12,0" Margin="0,0,8,0"
                     Click="BackUpToFolder_Click"
                     ToolTip="Save a copy onto a USB stick or another folder"
                     AutomationProperties.AutomationId="BackUpToFolderButton"/>
-            <Button x:Name="CheckButton" Content="Check for problems" Height="30" Padding="12,0"
+            <Button x:Name="CheckButton" Content="Check for problems" Padding="12,0"
                     Click="Check_Click"
                     ToolTip="Look through your saved data for anything wrong"
                     AutomationProperties.AutomationId="CheckDatabaseButton"/>
@@ -69,23 +69,23 @@
             </Grid.ColumnDefinitions>
             <ListBox x:Name="BackupsList" Grid.Column="0" Height="110"
                      AutomationProperties.AutomationId="BackupsList"/>
-            <Button x:Name="RestoreButton" Grid.Column="1" Content="Restore this backup" Height="30"
+            <Button x:Name="RestoreButton" Grid.Column="1" Content="Restore this backup"
                     MinWidth="150" Padding="12,0" Margin="8,0,0,0" VerticalAlignment="Top"
                     Click="Restore_Click" IsEnabled="False"
                     ToolTip="Put this copy back, replacing what is there now"
                     AutomationProperties.AutomationId="RestoreBackupButton"/>
         </Grid>
-        <TextBlock x:Name="NoBackupsHint" Margin="0,6,0,0" Foreground="#4B5563" TextWrapping="Wrap"
+        <TextBlock x:Name="NoBackupsHint" Margin="0,6,0,0" Foreground="{StaticResource Brush.TextMuted}" TextWrapping="Wrap"
                    Visibility="Collapsed"
                    Text="No backups yet — use “Back up now” to make one."/>
 
         <TextBlock Text="What happened" FontWeight="SemiBold" Margin="0,14,0,6"/>
         <TextBox x:Name="StatusBox" Height="110" IsReadOnly="True" AcceptsReturn="True"
-                 TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
-                 Background="#F9FAFB" BorderBrush="#E5E7EB" Padding="10,8"
+                 TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
+                 Background="{StaticResource Brush.SurfaceAlt}" BorderBrush="{StaticResource Brush.Border}" Padding="10,8"
                  AutomationProperties.AutomationId="DatabaseStatusBox"/>
 
-        <Button x:Name="CloseButton" Content="Close" Height="30" MinWidth="90" Padding="12,0"
+        <Button x:Name="CloseButton" Content="Close" MinWidth="90" Padding="12,0"
                 HorizontalAlignment="Right" Margin="0,14,0,0" IsCancel="True"
                 AutomationProperties.AutomationId="CloseDatabaseWindowButton"/>
     </StackPanel>

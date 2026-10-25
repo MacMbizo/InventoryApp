@@ -8,14 +8,14 @@
         WindowStartupLocation="CenterOwner"
         Loaded="OnLoaded">
     <DockPanel Margin="12">
-        <ToolBar DockPanel.Dock="Top" Height="32">
+        <ToolBar DockPanel.Dock="Top">
             <Button Content="Add User" Click="Add_Click" Margin="0,0,6,0" AutomationProperties.AutomationId="AddUserButton"/>
             <Button Content="Change Role" Click="ChangeRole_Click" Margin="0,0,6,0" AutomationProperties.AutomationId="ChangeRoleButton"/>
             <Button Content="Reset Password" Click="ResetPassword_Click" Margin="0,0,6,0" AutomationProperties.AutomationId="ResetPasswordButton"/>
             <Button Content="Unlock" Click="Unlock_Click" Margin="0,0,6,0" AutomationProperties.AutomationId="UnlockButton"/>
             <Button Content="Delete" Click="Delete_Click" AutomationProperties.AutomationId="DeleteUserButton"/>
             <Separator />
-            <TextBlock Text="Admins manage accounts. You cannot delete or demote your own account." VerticalAlignment="Center" Foreground="Gray"/>
+            <TextBlock Text="Admins manage accounts. You cannot delete or demote your own account." VerticalAlignment="Center" Foreground="{StaticResource Brush.TextMuted}"/>
         </ToolBar>
 
         <Grid>
@@ -31,7 +31,7 @@
                       Margin="0,6,0,6" Grid.Row="0" IsSynchronizedWithCurrentItem="True"
                       EnableRowVirtualization="False" EnableColumnVirtualization="False" VirtualizingPanel.IsVirtualizing="False">
                 <DataGrid.RowStyle>
-                    <Style TargetType="DataGridRow">
+                    <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                         <Setter Property="AutomationProperties.Name" Value="{Binding Username}"/>
                     </Style>
                 </DataGrid.RowStyle>
@@ -44,7 +44,7 @@
             </DataGrid>
 
             <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
-                <TextBlock x:Name="ErrorText" Foreground="Tomato" Margin="0,0,12,0" VerticalAlignment="Center" Visibility="Collapsed"/>
+                <TextBlock x:Name="ErrorText" Foreground="{StaticResource Brush.Danger}" Margin="0,0,12,0" VerticalAlignment="Center" Visibility="Collapsed"/>
                 <Button Content="Close" Width="92" IsDefault="True" Click="Close_Click" AutomationProperties.AutomationId="CloseUsersButton"/>
             </StackPanel>
         </Grid>

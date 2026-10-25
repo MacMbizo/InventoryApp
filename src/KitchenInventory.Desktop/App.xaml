@@ -4,7 +4,16 @@
              xmlns:local="clr-namespace:KitchenInventory.Desktop"
              xmlns:conv="clr-namespace:KitchenInventory.Desktop.Converters">
     <Application.Resources>
-        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
-        <conv:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- Order matters: the tokens are the vocabulary the other two speak. -->
+                <ResourceDictionary Source="Themes/Tokens.xaml"/>
+                <ResourceDictionary Source="Themes/Icons.xaml"/>
+                <ResourceDictionary Source="Themes/Controls.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+            <conv:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

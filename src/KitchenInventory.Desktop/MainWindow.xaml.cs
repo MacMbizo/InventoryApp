@@ -16,6 +16,14 @@ namespace KitchenInventory.Desktop
 {
     public partial class MainWindow : Window
     {
+        /// <summary>Ctrl+F. Puts the caret in the search box, which is otherwise only discoverable by eye.</summary>
+        public static readonly RoutedUICommand FocusSearchCommand =
+            new("Focus the search box", nameof(FocusSearchCommand), typeof(MainWindow));
+
+        /// <summary>F2. Opens the selected row for editing, the keyboard's equivalent of double-clicking a cell.</summary>
+        public static readonly RoutedUICommand EditSelectedItemCommand =
+            new("Edit the selected item", nameof(EditSelectedItemCommand), typeof(MainWindow));
+
         private readonly ItemsViewModel _viewModel;
         private int _validationErrorCount = 0;
         private readonly DispatcherTimer _alertsTimer;
@@ -122,6 +130,26 @@ namespace KitchenInventory.Desktop
         private void DataGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             CommandManager.InvalidateRequerySuggested();
+        }
+
+        private void FocusSearch_Executed(object sender, ExecutedRoutedEventArgs e)
+        {
+            SearchBox.Focus();
+            SearchBox.SelectAll();
+        }
+
+        private void EditSelectedItem_Executed(object sender, ExecutedRoutedEventArgs e)
+        {
+            if (ItemsGrid.SelectedItem is null || ItemsGrid.Columns.Count == 0)
+            {
+                return;
+            }
+
+            // Put the caret in the first cell of the selected row, which is what the user
+            // would have double-clicked to get here.
+            ItemsGrid.CurrentCell = new DataGridCellInfo(ItemsGrid.SelectedItem, ItemsGrid.Columns[0]);
+            ItemsGrid.Focus();
+            ItemsGrid.BeginEdit();
         }
 
         private void DataGrid_CurrentCellChanged(object? sender, EventArgs e)

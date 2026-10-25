@@ -12,18 +12,28 @@
         ShowInTaskbar="False">
 
     <Window.Resources>
-        <Style TargetType="TextBox">
-            <Setter Property="Padding" Value="4"/>
-            <Setter Property="Margin" Value="0,0,0,8"/>
-        </Style>
-        <Style TargetType="TextBlock">
-            <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Margin" Value="0,0,8,8"/>
-        </Style>
-        <Style TargetType="ComboBox">
-            <Setter Property="Padding" Value="4"/>
-            <Setter Property="Margin" Value="0,0,0,8"/>
-        </Style>
+        <ResourceDictionary>
+            <!-- Carried by the dialog itself: the view model builds this window directly, so it
+                 has to render the same whether or not the shell has put its own resources in place. -->
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/Tokens.xaml"/>
+                <ResourceDictionary Source="Themes/Icons.xaml"/>
+                <ResourceDictionary Source="Themes/Controls.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- Only the row spacing lives here; the size, border and padding come from the
+                 shared styles, so these fields match every other field in the app. -->
+            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                <Setter Property="Margin" Value="0,0,0,8"/>
+            </Style>
+            <Style TargetType="TextBlock">
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="Margin" Value="0,0,8,8"/>
+            </Style>
+            <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+                <Setter Property="Margin" Value="0,0,0,8"/>
+            </Style>
+        </ResourceDictionary>
     </Window.Resources>
 
     <Grid Margin="16">
@@ -109,12 +119,12 @@
 
         <!-- Validation Errors -->
         <Border Grid.Row="7" Grid.ColumnSpan="2" 
-                Background="#FFFFE6E6" BorderBrush="#FFFF6B6B" BorderThickness="1" 
+                Background="{StaticResource Brush.DangerSurface}" BorderBrush="{StaticResource Brush.DangerBorder}" BorderThickness="1" 
                 Padding="8" Margin="0,8,0,8"
                 Visibility="{Binding HasErrors, Converter={StaticResource BooleanToVisibilityConverter}}"
                 AutomationProperties.AutomationId="ValidationErrorPanel">
             <TextBlock Text="{Binding ErrorMessage}" 
-                       Foreground="#FFCC0000" 
+                       Foreground="{StaticResource Brush.Danger}" 
                        TextWrapping="Wrap"
                        AutomationProperties.AutomationId="ErrorMessageText"/>
         </Border>

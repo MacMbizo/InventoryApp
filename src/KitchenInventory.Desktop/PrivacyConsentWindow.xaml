@@ -19,7 +19,7 @@
                    FontWeight="SemiBold"
                    TextWrapping="Wrap"/>
 
-        <Border Grid.Row="1" Margin="0,12,0,12" Padding="12" Background="#FFF8F8F8" BorderBrush="#FFDDDDDD" BorderThickness="1" CornerRadius="6">
+        <Border Grid.Row="1" Margin="0,12,0,12" Padding="12" Background="{StaticResource Brush.SurfaceAlt}" BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" CornerRadius="{StaticResource Radius.Sm}">
             <StackPanel>
                 <TextBlock Text="What we collect"
                            FontWeight="Bold"
@@ -28,7 +28,7 @@
                            TextWrapping="Wrap"
                            Margin="0,0,0,8"/>
                 <TextBlock Text="You can change this later in Settings → Privacy."
-                           Foreground="Gray"
+                           Foreground="{StaticResource Brush.TextMuted}"
                            FontStyle="Italic"/>
             </StackPanel>
         </Border>

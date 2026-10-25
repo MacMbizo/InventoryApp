@@ -5,9 +5,20 @@
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResize"
         WindowStyle="SingleBorderWindow">
+    <!-- Carried by the dialog itself: the view model builds this window directly, so it has
+         to render the same whether or not the shell has put its own resources in place. -->
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/Tokens.xaml"/>
+                <ResourceDictionary Source="Themes/Icons.xaml"/>
+                <ResourceDictionary Source="Themes/Controls.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
     <DockPanel>
         <!-- Summary Bar -->
-        <Border DockPanel.Dock="Top" Background="#F3F3F3" BorderBrush="#DDD" BorderThickness="0,0,0,1" Padding="10">
+        <Border DockPanel.Dock="Top" Background="{StaticResource Brush.SurfaceAlt}" BorderBrush="{StaticResource Brush.Border}" BorderThickness="0,0,0,1" Padding="10">
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="Rows:" FontWeight="SemiBold"/>
                 <TextBlock Text="{Binding Total}"/>
@@ -20,19 +31,19 @@
                 <TextBlock Text="Updates:" FontWeight="SemiBold" Margin="16,0,0,0"/>
                 <TextBlock Text="{Binding Updates}"/>
                 <TextBlock Text=" "/>
-                <TextBlock Text="Review the items below. Only valid rows will be imported." Foreground="#666"/>
+                <TextBlock Text="Review the items below. Only valid rows will be imported." Foreground="{StaticResource Brush.TextMuted}"/>
             </StackPanel>
         </Border>
 
         <!-- Data Grid -->
         <DataGrid ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True" Margin="10" AlternationCount="2">
             <DataGrid.RowStyle>
-                <Style TargetType="DataGridRow">
+                <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                     <Setter Property="ToolTip" Value="{Binding IssueSummary}"/>
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding IsValid}" Value="False">
-                            <Setter Property="Background" Value="#FFF7E6"/>
-                            <Setter Property="BorderBrush" Value="#FFC177"/>
+                            <Setter Property="Background" Value="{StaticResource Brush.WarningSurface}"/>
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.WarningBorder}"/>
                         </DataTrigger>
                     </Style.Triggers>
                 </Style>

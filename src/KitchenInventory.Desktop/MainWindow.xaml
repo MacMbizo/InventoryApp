@@ -6,9 +6,10 @@
         xmlns:vm="clr-namespace:KitchenInventory.Desktop.ViewModels"
         xmlns:val="clr-namespace:KitchenInventory.Desktop.Validations"
         xmlns:conv="clr-namespace:KitchenInventory.Desktop.Converters"
+        xmlns:local="clr-namespace:KitchenInventory.Desktop"
         mc:Ignorable="d"
         Title="Kitchen Inventory" Height="700" Width="1100"
-        MinHeight="560" MinWidth="900"
+        MinHeight="600" MinWidth="960"
         Validation.Error="OnValidationError">
     <!-- Converters -->
     <Window.Resources>
@@ -17,11 +18,19 @@
         <conv:MovementTypeConverter x:Key="MovementTypeConverter" />
         <conv:MovementItemNameConverter x:Key="MovementItemNameConverter" />
     </Window.Resources>
-    <!-- Keyboard shortcuts: the everyday actions reachable without hunting through the toolbar. -->
+    <Window.CommandBindings>
+        <CommandBinding Command="{x:Static local:MainWindow.FocusSearchCommand}" Executed="FocusSearch_Executed" />
+        <CommandBinding Command="{x:Static local:MainWindow.EditSelectedItemCommand}" Executed="EditSelectedItem_Executed" />
+    </Window.CommandBindings>
+    <!-- Keyboard shortcuts: the everyday actions reachable without hunting through the toolbar.
+         Each one is named in the tooltip of the button it duplicates. -->
     <Window.InputBindings>
         <KeyBinding Key="N" Modifiers="Control" Command="{Binding AddItemCommand}" />
+        <KeyBinding Key="F" Modifiers="Control" Command="{x:Static local:MainWindow.FocusSearchCommand}" />
         <KeyBinding Key="S" Modifiers="Control" Command="{Binding SaveChangesCommand}" />
         <KeyBinding Key="R" Modifiers="Control" Command="{Binding RefreshCommand}" />
+        <KeyBinding Key="F5" Command="{Binding RefreshCommand}" />
+        <KeyBinding Key="F2" Command="{x:Static local:MainWindow.EditSelectedItemCommand}" />
         <KeyBinding Key="Z" Modifiers="Control" Command="{Binding UndoRemoveCommand}" />
         <KeyBinding Key="Delete" Command="{Binding DeleteItemCommand}" />
     </Window.InputBindings>
@@ -49,36 +58,37 @@
             <!-- Toolbar: a wrapping panel keeps every action visible and clickable at any
                  window width. A ToolBar holding a single Grid moves that whole child into
                  its overflow popup, which left every action unreachable at the default size. -->
-            <Border Padding="8,4,8,6" BorderThickness="0,0,0,1"
-                    BorderBrush="{x:Static SystemColors.ControlDarkBrush}">
+            <Border Padding="{StaticResource Spacing.Sm}" BorderThickness="0,0,0,1"
+                    Background="{StaticResource Brush.SurfaceAlt}"
+                    BorderBrush="{StaticResource Brush.Border}">
                 <WrapPanel Orientation="Horizontal">
-                    <Button Content="Refresh" Command="{Binding RefreshCommand}" Margin="0,0,8,4" ToolTip="Reload the list from the saved data (Ctrl+R)" AutomationProperties.AutomationId="RefreshButton" />
-                    <Button Content="Add item" Command="{Binding AddItemCommand}" Margin="0,0,8,4" ToolTip="Add something new to the store (Ctrl+N)" AutomationProperties.AutomationId="AddItemButton" />
-                    <Button Content="Remove item" Command="{Binding DeleteItemCommand}" Margin="0,0,8,4" ToolTip="Take something off the list (Delete)" AutomationProperties.AutomationId="DeleteItemButton" />
-                    <Button Content="Save changes" Command="{Binding SaveChangesCommand}" Margin="0,0,16,4" ToolTip="Save the changes you have made in the table (Ctrl+S)" AutomationProperties.AutomationId="SaveChangesButton"/>
+                    <Button Style="{StaticResource ToolbarButton}" Content="Refresh" Tag="{StaticResource Icon.Refresh}" Command="{Binding RefreshCommand}" ToolTip="Reload the list from the saved data (Ctrl+R or F5)" AutomationProperties.AutomationId="RefreshButton" />
+                    <Button Style="{StaticResource ToolbarButton}" Content="Add item" Tag="{StaticResource Icon.Add}" Command="{Binding AddItemCommand}" ToolTip="Add something new to the store (Ctrl+N)" AutomationProperties.AutomationId="AddItemButton" />
+                    <Button Style="{StaticResource ToolbarButton}" Content="Remove item" Tag="{StaticResource Icon.Remove}" Command="{Binding DeleteItemCommand}" ToolTip="Take something off the list (Delete)" AutomationProperties.AutomationId="DeleteItemButton" />
+                    <Button Style="{StaticResource ToolbarButton}" Content="Save changes" Tag="{StaticResource Icon.Save}" Command="{Binding SaveChangesCommand}" Margin="0,0,16,4" ToolTip="Save the changes you have made in the table (Ctrl+S)" AutomationProperties.AutomationId="SaveChangesButton"/>
 
                     <!-- Stock Operations -->
-                    <Button Content="Take in stock" Command="{Binding AddStockCommand}" Margin="0,0,4,4" ToolTip="Record stock arriving in the store" AutomationProperties.AutomationId="AddStockButton" />
-                    <Button Content="Take out stock" Command="{Binding ConsumeStockCommand}" Margin="0,0,4,4" ToolTip="Record stock used from the store" AutomationProperties.AutomationId="ConsumeStockButton" />
-                    <Button Content="Recount" Command="{Binding AdjustStockCommand}" Margin="0,0,16,4" ToolTip="Set the stock to what you actually counted" AutomationProperties.AutomationId="AdjustStockButton" />
+                    <Button Style="{StaticResource ToolbarButton}" Content="Take in stock" Tag="{StaticResource Icon.StockIn}" Command="{Binding AddStockCommand}" ToolTip="Record stock arriving in the store" AutomationProperties.AutomationId="AddStockButton" />
+                    <Button Style="{StaticResource ToolbarButton}" Content="Take out stock" Tag="{StaticResource Icon.StockOut}" Command="{Binding ConsumeStockCommand}" ToolTip="Record stock used from the store" AutomationProperties.AutomationId="ConsumeStockButton" />
+                    <Button Style="{StaticResource ToolbarButton}" Content="Recount" Tag="{StaticResource Icon.Recount}" Command="{Binding AdjustStockCommand}" Margin="0,0,16,4" ToolTip="Set the stock to what you actually counted" AutomationProperties.AutomationId="AdjustStockButton" />
 
-                    <Button Content="Import items (CSV)" Command="{Binding ImportItemsCsvCommand}" Margin="0,0,4,4" ToolTip="Bring in a list of items from a spreadsheet file" AutomationProperties.AutomationId="ImportItemsCsvButton" />
-                    <Button Content="Export items (CSV)" Command="{Binding ExportItemsCsvCommand}" Margin="0,0,16,4" ToolTip="Save the list as a spreadsheet file" AutomationProperties.AutomationId="ExportItemsCsvButton" />
+                    <Button Style="{StaticResource ToolbarButton}" Content="Import items (CSV)" Tag="{StaticResource Icon.Import}" Command="{Binding ImportItemsCsvCommand}" ToolTip="Bring in a list of items from a spreadsheet file" AutomationProperties.AutomationId="ImportItemsCsvButton" />
+                    <Button Style="{StaticResource ToolbarButton}" Content="Export items (CSV)" Tag="{StaticResource Icon.Export}" Command="{Binding ExportItemsCsvCommand}" Margin="0,0,16,4" ToolTip="Save the list as a spreadsheet file" AutomationProperties.AutomationId="ExportItemsCsvButton" />
 
                     <!-- Manage Categories -->
-                    <Button Content="Manage categories" Command="{Binding ManageCategoriesCommand}" Margin="0,0,8,4" AutomationProperties.AutomationId="ManageCategoriesButton" />
+                    <Button Style="{StaticResource ToolbarButton}" Content="Manage categories" Tag="{StaticResource Icon.Category}" Command="{Binding ManageCategoriesCommand}" AutomationProperties.AutomationId="ManageCategoriesButton" />
 
                     <!-- Manage Locations -->
-                    <Button Content="Manage locations" Command="{Binding ManageLocationsCommand}" Margin="0,0,8,4" AutomationProperties.AutomationId="ManageLocationsButton" />
+                    <Button Style="{StaticResource ToolbarButton}" Content="Manage locations" Tag="{StaticResource Icon.Location}" Command="{Binding ManageLocationsCommand}" AutomationProperties.AutomationId="ManageLocationsButton" />
 
                     <!-- Unit Converter -->
-                    <Button Content="Unit converter" Click="Open_UnitConverter_Click" Margin="0,0,8,4" ToolTip="Convert between kg/g/mg and l/ml/cl/dl" AutomationProperties.AutomationId="UnitConverterButton" />
+                    <Button Style="{StaticResource ToolbarButton}" Content="Unit converter" Tag="{StaticResource Icon.Convert}" Click="Open_UnitConverter_Click" ToolTip="Convert between kg/g/mg and l/ml/cl/dl" AutomationProperties.AutomationId="UnitConverterButton" />
 
                     <!-- Reports -->
-                    <Button Content="Reports" Click="Open_Reports_Click" Margin="0,0,8,4" ToolTip="Generate and export inventory reports" AutomationProperties.AutomationId="ReportsButton" />
+                    <Button Style="{StaticResource ToolbarButton}" Content="Reports" Tag="{StaticResource Icon.Reports}" Click="Open_Reports_Click" ToolTip="Generate and export inventory reports" AutomationProperties.AutomationId="ReportsButton" />
 
                     <!-- Category Filter -->
-                    <TextBlock Text="Category:" VerticalAlignment="Center" Margin="8,0,4,4" />
+                    <TextBlock Text="Category:" VerticalAlignment="Center" Margin="8,0,6,4" />
                     <ComboBox Width="180" Margin="0,0,0,4"
                               ItemsSource="{Binding Categories}"
                               SelectedValuePath="Id"
@@ -87,7 +97,7 @@
                               AutomationProperties.AutomationId="CategoryFilterCombo"/>
 
                     <!-- Location Filter -->
-                    <TextBlock Text="Location:" VerticalAlignment="Center" Margin="8,0,4,4" />
+                    <TextBlock Text="Location:" VerticalAlignment="Center" Margin="8,0,6,4" />
                     <ComboBox Width="180" Margin="0,0,0,4"
                               ItemsSource="{Binding Locations}"
                               SelectedValuePath="Id"
@@ -96,9 +106,10 @@
                               AutomationProperties.AutomationId="LocationFilterCombo"/>
 
                     <!-- Search -->
-                    <TextBlock Text="Search:" VerticalAlignment="Center" Margin="16,0,4,4" />
-                    <TextBox Width="240" Margin="0,0,0,4" VerticalContentAlignment="Center"
+                    <TextBlock Text="Search:" VerticalAlignment="Center" Margin="16,0,6,4" />
+                    <TextBox x:Name="SearchBox" Width="240" Margin="0,0,0,4"
                              Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Type part of an item's name to narrow the list (Ctrl+F)"
                              AutomationProperties.AutomationId="SearchBox"/>
                     <CheckBox Content="Problems only" Margin="8,0,0,4" VerticalAlignment="Center"
                               ToolTip="Show only items that are low, out of stock or going out of date"
@@ -117,44 +128,53 @@
 
             <!-- Items grid -->
             <DataGrid Grid.Column="0"
+                      x:Name="ItemsGrid"
                       ItemsSource="{Binding ItemsView}"
                       AutoGenerateColumns="False"
                       CanUserAddRows="False"
-                      SelectionMode="Single"
                       SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
                       Margin="8,8,4,8"
                       SelectionChanged="DataGrid_SelectionChanged"
                       CurrentCellChanged="DataGrid_CurrentCellChanged"
                       HorizontalAlignment="Stretch"
                       VerticalAlignment="Stretch"
-                      MinWidth="600"
                       MinColumnWidth="100"
                       ColumnWidth="*"
                       AutomationProperties.AutomationId="ItemsDataGrid">
                 <DataGrid.RowStyle>
-                    <Style TargetType="DataGridRow">
+                    <!-- Based on the shared row style, so the 44 px row height survives. The
+                         attention tint steps aside while a row is selected, or a selected row
+                         that needs attention would look like it was not selected at all. -->
+                    <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                         <Style.Triggers>
-                            <DataTrigger Value="True">
-                                <DataTrigger.Binding>
-                                    <MultiBinding Converter="{StaticResource NeedsAttentionConverter}">
-                                        <Binding Path="Quantity"/>
-                                        <Binding Path="ExpiryDate"/>
-                                        <Binding RelativeSource="{RelativeSource AncestorType=DataGrid}" Path="DataContext.LowStockThreshold"/>
-                                        <Binding RelativeSource="{RelativeSource AncestorType=DataGrid}" Path="DataContext.ExpiringSoonDays"/>
-                                    </MultiBinding>
-                                </DataTrigger.Binding>
-                                <Setter Property="Background" Value="#FFFDECC8"/>
-                            </DataTrigger>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsSelected}" Value="False"/>
+                                    <Condition Value="True">
+                                        <Condition.Binding>
+                                            <MultiBinding Converter="{StaticResource NeedsAttentionConverter}">
+                                                <Binding Path="Quantity"/>
+                                                <Binding Path="ExpiryDate"/>
+                                                <Binding RelativeSource="{RelativeSource AncestorType=DataGrid}" Path="DataContext.LowStockThreshold"/>
+                                                <Binding RelativeSource="{RelativeSource AncestorType=DataGrid}" Path="DataContext.ExpiringSoonDays"/>
+                                            </MultiBinding>
+                                        </Condition.Binding>
+                                    </Condition>
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Background" Value="{StaticResource Brush.AttentionRow}"/>
+                            </MultiDataTrigger>
                         </Style.Triggers>
                     </Style>
                 </DataGrid.RowStyle>
                 <DataGrid.Resources>
-                    <Style TargetType="TextBox">
+                    <!-- Based on the shared text-box style so an edited cell keeps the same
+                         border and padding; only the error presentation is added here. -->
+                    <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
                         <Setter Property="Validation.ErrorTemplate">
                             <Setter.Value>
                                 <ControlTemplate>
                                     <DockPanel LastChildFill="True">
-                                        <TextBlock Foreground="Red" Margin="5,0,0,0"
+                                        <TextBlock Style="{StaticResource DangerText}" Margin="5,0,0,0"
                                                    Text="{Binding ElementName=adornedElementPlaceholder, Path=AdornedElement.(Validation.Errors)[0].ErrorContent}"/>
                                         <AdornedElementPlaceholder Name="adornedElementPlaceholder"/>
                                     </DockPanel>
@@ -235,15 +255,18 @@
             </DataGrid>
 
             <!-- Audit/Movements side panel -->
-            <Border Grid.Column="1" Margin="4,8,8,8" Padding="8" BorderBrush="#DDD" BorderThickness="1" CornerRadius="4" Background="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}">
+            <Border Grid.Column="1" Margin="4,8,8,8" Padding="12"
+                    Background="{StaticResource Brush.SurfaceAlt}"
+                    BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
+                    CornerRadius="{StaticResource Radius.Md}">
                 <DockPanel>
-                    <TextBlock Text="Activity" FontWeight="Bold" Margin="0,0,0,8" />
+                    <TextBlock Text="Activity" Style="{StaticResource SectionHeading}" Margin="0,0,0,8" />
                     <TabControl>
                         <TabItem>
                             <TabItem.Header>
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="Problems" />
-                                    <TextBlock Text="{Binding AlertsCount, StringFormat=' ({0})'}" Foreground="#B00" FontWeight="Bold" />
+                                    <TextBlock Text="{Binding AlertsCount, StringFormat=' ({0})'}" Foreground="{StaticResource Brush.Danger}" FontWeight="Bold" />
                                 </StackPanel>
                             </TabItem.Header>
                             <Grid>
@@ -252,7 +275,7 @@
                                     <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
                                 <StackPanel Grid.Row="0" Margin="0,0,0,4">
-                                    <TextBlock Text="Anything running low, out of stock or going out of date" FontStyle="Italic" />
+                                    <TextBlock Text="Anything running low, out of stock or going out of date" Style="{StaticResource CaptionText}" />
                                     <TextBlock>
                                         <Run Text="Running low: " /><Run Text="{Binding LowStockCount, Mode=OneWay}" />
                                         <Run Text="  Use soon: " /><Run Text="{Binding ExpiringSoonCount, Mode=OneWay}" />
@@ -284,7 +307,7 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Everything that has happened to the item you selected" FontStyle="Italic" TextWrapping="Wrap" />
+                                    <TextBlock Text="Everything that has happened to the item you selected" Style="{StaticResource CaptionText}" />
                                     <Button Grid.Column="1" Content="Save as CSV" Command="{Binding ExportSelectedMovementsCsvCommand}" />
                                 </Grid>
                                 <ListView Grid.Row="1" ItemsSource="{Binding SelectedMovements}">
@@ -317,7 +340,7 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="The last 50 things that happened, newest first" FontStyle="Italic" TextWrapping="Wrap" />
+                                    <TextBlock Text="The last 50 things that happened, newest first" Style="{StaticResource CaptionText}" />
                                     <Button Grid.Column="1" Content="Save as CSV" Command="{Binding ExportRecentMovementsCsvCommand}" />
                                 </Grid>
                                 <ListView Grid.Row="1" ItemsSource="{Binding RecentMovements}">
@@ -367,9 +390,18 @@
                 <StackPanel Orientation="Horizontal"
                             Visibility="{Binding CanUndoRemove, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <TextBlock Text="{Binding UndoMessage}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                    <Button Content="Undo" Command="{Binding UndoRemoveCommand}" Padding="10,1" Height="22"
+                    <Button Style="{StaticResource SmallButton}" Command="{Binding UndoRemoveCommand}"
                             ToolTip="Put the removed item back (Ctrl+Z)"
-                            AutomationProperties.AutomationId="UndoRemoveButton" />
+                            AutomationProperties.AutomationId="UndoRemoveButton">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="{StaticResource Icon.Undo}" Stroke="{StaticResource Brush.Danger}"
+                                  StrokeThickness="1.6" StrokeLineJoin="Round"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Width="14" Height="14" Stretch="Uniform" Margin="0,0,6,0"
+                                  VerticalAlignment="Center" />
+                            <TextBlock Text="Undo" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </StatusBarItem>
         </StatusBar>

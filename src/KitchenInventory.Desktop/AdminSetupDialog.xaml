@@ -25,7 +25,7 @@
         <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,0,8,8" VerticalAlignment="Center">Confirm Password</TextBlock>
         <PasswordBox x:Name="ConfirmBox" Grid.Row="2" Grid.Column="1" Margin="0,0,0,8" PasswordChanged="OnConfirmChanged" AutomationProperties.AutomationId="AdminConfirmPasswordBox"/>
 
-        <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Foreground="Red" Text="{Binding Error}"/>
+        <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Foreground="{StaticResource Brush.Danger}" Text="{Binding Error}"/>
 
         <StackPanel Grid.Row="5" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="Create Admin" Margin="0,12,8,0" IsDefault="True" Click="OnCreateClick"/>
