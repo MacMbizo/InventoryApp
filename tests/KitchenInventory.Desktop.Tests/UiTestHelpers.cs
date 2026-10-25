@@ -110,6 +110,117 @@ public static class UiTestHelpers
         Thread.Sleep(200);
     }
 
+    /// <summary>Reads the text shown in the main window's status bar (empty when not found).</summary>
+    public static string GetStatusText(Window mainWindow)
+    {
+        try
+        {
+            var statusBar = mainWindow.FindFirstDescendant(cf => cf.ByControlType(ControlType.StatusBar));
+            if (statusBar == null) return string.Empty;
+
+            var text = statusBar.FindAllDescendants(cf => cf.ByControlType(ControlType.Text)).FirstOrDefault();
+            return (text?.Name ?? string.Empty).Trim();
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// Opens the Add Item dialog, fills name/quantity/unit and submits it. The dialog
+    /// closes on success, so callers can then wait for the row to appear in the grid.
+    /// </summary>
+    public static void AddItem(Window mainWindow, string name, string quantity, string unit, ITestOutputHelper? output = null)
+    {
+        ClickActionByName(mainWindow, "Add", output);
+        Thread.Sleep(300);
+
+        var dialog = WaitForDialog(mainWindow, "Add New Item", TimeSpan.FromSeconds(15));
+        Assert.True(dialog != null, "Add Item dialog did not appear.");
+
+        var nameBox = dialog!.FindFirstDescendant(cf => cf.ByAutomationId("ItemNameTextBox"))?.AsTextBox();
+        var qtyBox = dialog.FindFirstDescendant(cf => cf.ByAutomationId("QuantityTextBox"))?.AsTextBox();
+        var unitBox = dialog.FindFirstDescendant(cf => cf.ByAutomationId("UnitTextBox"))?.AsTextBox();
+        if (nameBox == null || qtyBox == null || unitBox == null)
+        {
+            var edits = dialog.FindAllDescendants(cf => cf.ByControlType(ControlType.Edit))
+                              .Select(e => e.AsTextBox())
+                              .Where(tb => tb != null)
+                              .ToList();
+            nameBox ??= edits.ElementAtOrDefault(0);
+            qtyBox ??= edits.ElementAtOrDefault(1);
+            unitBox ??= edits.ElementAtOrDefault(2);
+        }
+
+        Assert.True(nameBox != null && qtyBox != null && unitBox != null,
+            "Could not locate the Add Item dialog text boxes.");
+
+        nameBox!.Enter(name);
+        Thread.Sleep(100);
+        qtyBox!.Enter(quantity);
+        Thread.Sleep(100);
+        unitBox!.Enter(unit);
+        Thread.Sleep(150);
+
+        var addBtn = dialog.FindFirstDescendant(cf => cf.ByAutomationId("ConfirmAddItemButton"))
+                  ?? dialog.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Add")));
+        Assert.True(addBtn != null, "Could not locate the Add button in the Add Item dialog.");
+        TryInvokeWithFallback(addBtn!);
+        Thread.Sleep(400);
+    }
+
+    /// <summary>
+    /// Waits until a row whose cell text contains <paramref name="contains"/> appears in
+    /// the given grid. WPF data grids expose rows as <c>DataItem</c> control types.
+    /// </summary>
+    public static bool WaitForGridRow(Window mainWindow, string gridAutomationId, string contains, TimeSpan timeout)
+    {
+        var grid = mainWindow.FindFirstDescendant(cf => cf.ByAutomationId(gridAutomationId));
+        if (grid == null) return false;
+
+        var deadline = DateTime.UtcNow.Add(timeout);
+        while (DateTime.UtcNow < deadline)
+        {
+            try
+            {
+                var rows = grid.FindAllDescendants(cf => cf.ByControlType(ControlType.DataItem));
+                foreach (var row in rows)
+                {
+                    var cells = row.FindAllDescendants(cf => cf.ByControlType(ControlType.Text).Or(cf.ByControlType(ControlType.Edit)));
+                    foreach (var cell in cells)
+                    {
+                        var txt = ReadCellText(cell);
+                        if (!string.IsNullOrEmpty(txt) && txt.Contains(contains, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+            catch { }
+            Thread.Sleep(200);
+        }
+        return false;
+    }
+
+    private static string ReadCellText(AutomationElement cell)
+    {
+        try
+        {
+            var txt = cell.AsLabel()?.Text ?? cell.AsTextBox()?.Text ?? cell.Name ?? string.Empty;
+            if (string.IsNullOrEmpty(txt) && cell.Patterns.Value.IsSupported)
+            {
+                txt = cell.Patterns.Value.Pattern.Value ?? string.Empty;
+            }
+            return (txt ?? string.Empty).Trim();
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
     public static bool TryOpenToolbarOverflow(Window mainWindow, ITestOutputHelper? output = null)
     {
         try
