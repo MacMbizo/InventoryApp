@@ -11,6 +11,7 @@
         mc:Ignorable="d"
         Title="Kitchen Inventory" Height="700" Width="1100"
         MinHeight="600" MinWidth="960"
+        Icon="Assets/app.ico"
         Validation.Error="OnValidationError">
     <!-- Converters -->
     <Window.Resources>

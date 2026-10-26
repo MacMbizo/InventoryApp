@@ -6,6 +6,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <!-- The taskbar and Explorer icon. A crate in the app's own primary palette, so the
+         running app is recognisable in the taskbar instead of showing the generic executable. -->
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -32,6 +35,8 @@
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <!-- Same file, embedded as a WPF resource so the window itself can show it. -->
+    <Resource Include="Assets\app.ico" />
   </ItemGroup>
 
 </Project>
