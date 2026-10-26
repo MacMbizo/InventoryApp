@@ -55,7 +55,7 @@ namespace KitchenInventory.Desktop
                 }
                 Categories.Clear();
                 foreach (var c in cats) Categories.Add(c);
-                _logger.LogInformation("Loaded {Count} categories", Categories.Count);
+                _logger.LogInformation("Loaded {Count} {Noun}", Categories.Count, PluralText.Noun(Categories.Count, "category", "categories"));
             }
             catch (Exception ex)
             {

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using KitchenInventory.Desktop.Utilities;
 
 namespace KitchenInventory.Desktop.Services
 {
@@ -48,7 +49,7 @@ namespace KitchenInventory.Desktop.Services
             return MinimalPdf.Render(table.Title, body);
         }
 
-        private static string RowCountText(int count) => count == 1 ? "1 row" : $"{count} rows";
+        private static string RowCountText(int count) => PluralText.Count(count, "row", "rows");
 
         private static string Cell(IReadOnlyList<string>? row, int index)
             => row != null && index < row.Count && row[index] != null ? row[index] : string.Empty;

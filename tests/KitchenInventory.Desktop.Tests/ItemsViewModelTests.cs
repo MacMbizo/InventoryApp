@@ -534,7 +534,8 @@ public class ItemsViewModelTests : IDisposable
         RunCommand(vm.ImportItemsCsvCommand);
         await WaitUntilAsync(() => DbHasItem("Imported Sugar"));
 
-        Assert.Contains("Imported", vm.StatusText);
+        // One row imported, so the noun must be singular: "Imported 1 item: ...".
+        Assert.Contains("Imported 1 item:", vm.StatusText);
         using var db = _factory.CreateDbContext();
         Assert.True(db.StockMovements.Any(m => m.Reason == "Import add"));
     }

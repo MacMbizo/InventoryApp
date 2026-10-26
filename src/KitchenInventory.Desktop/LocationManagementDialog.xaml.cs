@@ -51,7 +51,7 @@ namespace KitchenInventory.Desktop
 
                 Locations.Clear();
                 foreach (var l in locs) Locations.Add(l);
-                _logger.LogInformation("Loaded {Count} locations", Locations.Count);
+                _logger.LogInformation("Loaded {Count} {Noun}", Locations.Count, PluralText.Noun(Locations.Count, "location", "locations"));
             }
             catch (Exception ex)
             {

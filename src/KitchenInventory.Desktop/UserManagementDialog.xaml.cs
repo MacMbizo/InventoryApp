@@ -68,7 +68,7 @@ namespace KitchenInventory.Desktop
                     });
                 }
                 OnPropertyChanged(nameof(Users));
-                _logger.LogInformation("Loaded {Count} users", Users.Count);
+                _logger.LogInformation("Loaded {Count} {Noun}", Users.Count, PluralText.Noun(Users.Count, "user", "users"));
             }
             catch (Exception ex)
             {

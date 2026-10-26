@@ -424,7 +424,7 @@ public class ItemsViewModel : INotifyPropertyChanged
     private void UpdateStatus()
     {
         var baseText = string.IsNullOrWhiteSpace(FilterText)
-            ? Plural(TotalCount, "item")
+            ? PluralText.Count(TotalCount, "item", "items")
             : $"{FilteredCount}/{TotalCount} items, showing '{FilterText.Trim()}'";
         var needsText = NeedsAttentionCount switch
         {
@@ -435,11 +435,6 @@ public class ItemsViewModel : INotifyPropertyChanged
         var savedText = LastSavedAtLocal.HasValue ? $" · Saved {LastSavedAtLocal:HH:mm}" : string.Empty;
         StatusText = baseText + needsText + savedText;
     }
-
-    private static string Plural(int count, string noun) => $"{count} {PluralNoun(count, noun)}";
-
-    /// <summary>The noun alone, singular or plural, for messages that keep the number separate.</summary>
-    private static string PluralNoun(int count, string noun) => count == 1 ? noun : $"{noun}s";
 
     private bool AreItemsValid()
     {
@@ -481,7 +476,7 @@ public class ItemsViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(Items));
             ItemsView?.Refresh();
             UpdateCounts();
-            _logger.LogInformation("Loaded {Count} {Noun}", Items.Count, PluralNoun(Items.Count, "item"));
+            _logger.LogInformation("Loaded {Count} {Noun}", Items.Count, PluralText.Noun(Items.Count, "item", "items"));
             CommandManager.InvalidateRequerySuggested();
 
             // Refresh movement panels
@@ -737,7 +732,7 @@ public class ItemsViewModel : INotifyPropertyChanged
             return;
         }
 
-        _logger.LogInformation("Saving {Count} {Noun}", Items.Count, PluralNoun(Items.Count, "item"));
+        _logger.LogInformation("Saving {Count} {Noun}", Items.Count, PluralText.Noun(Items.Count, "item", "items"));
         try
         {
             using var db = await _dbFactory.CreateDbContextAsync();
@@ -1124,7 +1119,7 @@ public class ItemsViewModel : INotifyPropertyChanged
             ApplyFilter();
             UpdateCounts();
 
-            StatusText = $"Imported {Plural(parsed.Count, "item")}: {addedCount} new, {updatedCount} updated.";
+            StatusText = $"Imported {PluralText.Count(parsed.Count, "item", "items")}: {addedCount} new, {updatedCount} updated.";
         }
         catch (Exception ex)
         {
