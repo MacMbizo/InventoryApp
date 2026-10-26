@@ -436,7 +436,10 @@ public class ItemsViewModel : INotifyPropertyChanged
         StatusText = baseText + needsText + savedText;
     }
 
-    private static string Plural(int count, string noun) => count == 1 ? $"1 {noun}" : $"{count} {noun}s";
+    private static string Plural(int count, string noun) => $"{count} {PluralNoun(count, noun)}";
+
+    /// <summary>The noun alone, singular or plural, for messages that keep the number separate.</summary>
+    private static string PluralNoun(int count, string noun) => count == 1 ? noun : $"{noun}s";
 
     private bool AreItemsValid()
     {
@@ -478,7 +481,7 @@ public class ItemsViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(Items));
             ItemsView?.Refresh();
             UpdateCounts();
-            _logger.LogInformation("Loaded {Count} items", Items.Count);
+            _logger.LogInformation("Loaded {Count} {Noun}", Items.Count, PluralNoun(Items.Count, "item"));
             CommandManager.InvalidateRequerySuggested();
 
             // Refresh movement panels
@@ -734,7 +737,7 @@ public class ItemsViewModel : INotifyPropertyChanged
             return;
         }
 
-        _logger.LogInformation("Saving {Count} items", Items.Count);
+        _logger.LogInformation("Saving {Count} {Noun}", Items.Count, PluralNoun(Items.Count, "item"));
         try
         {
             using var db = await _dbFactory.CreateDbContextAsync();
@@ -1121,7 +1124,7 @@ public class ItemsViewModel : INotifyPropertyChanged
             ApplyFilter();
             UpdateCounts();
 
-            StatusText = $"Imported {parsed.Count} items: {addedCount} new, {updatedCount} updated.";
+            StatusText = $"Imported {Plural(parsed.Count, "item")}: {addedCount} new, {updatedCount} updated.";
         }
         catch (Exception ex)
         {
