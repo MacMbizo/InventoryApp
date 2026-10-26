@@ -17,6 +17,13 @@
         <conv:HideZeroIdConverter x:Key="HideZeroIdConverter" />
         <conv:MovementTypeConverter x:Key="MovementTypeConverter" />
         <conv:MovementItemNameConverter x:Key="MovementItemNameConverter" />
+        <!-- Numbers and dates as a reader says them: "10" not "10.00", "30 Nov 2026" not
+             "2026-11-30", "in 6 days" when that is the question, and stored UTC shown on the
+             reader's own clock without the seconds. -->
+        <conv:QuantityDisplayConverter x:Key="QuantityDisplayConverter" />
+        <conv:FriendlyDateConverter x:Key="FriendlyDateConverter" />
+        <conv:FriendlyDateConverter x:Key="RelativeDateConverter" Mode="Relative" />
+        <conv:FriendlyDateConverter x:Key="LocalTimeConverter" Mode="LocalTime" />
     </Window.Resources>
     <Window.CommandBindings>
         <CommandBinding Command="{x:Static local:MainWindow.FocusSearchCommand}" Executed="FocusSearch_Executed" />
@@ -191,7 +198,7 @@
 
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Item" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="2*"/>
-                    <DataGridTextColumn Header="Quantity" Binding="{Binding Quantity, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}" Width="*">
+                    <DataGridTextColumn Header="Quantity" Binding="{Binding Quantity, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource QuantityDisplayConverter}}" Width="*">
                         <DataGridTextColumn.EditingElementStyle>
                             <!-- Quantities are the only numeric column, so the typing guard and the
                                  paste conversion are attached here rather than to every cell. -->
@@ -226,7 +233,23 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellEditingTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="Expiry date" Binding="{Binding ExpiryDate, UpdateSourceTrigger=PropertyChanged, StringFormat=yyyy-MM-dd}" Width="*"/>
+                    <DataGridTemplateColumn Header="Expiry date" Width="*">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <!-- The date as it would be said out loud, with the distance to
+                                     it ("in 6 days") on the tooltip. -->
+                                <TextBlock Text="{Binding ExpiryDate, Converter={StaticResource FriendlyDateConverter}}"
+                                           ToolTip="{Binding ExpiryDate, Converter={StaticResource RelativeDateConverter}}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                        <DataGridTemplateColumn.CellEditingTemplate>
+                            <DataTemplate>
+                                <!-- Editing stays in the unambiguous yyyy-MM-dd the CSV import and
+                                     export use, so a typed date cannot be misread. -->
+                                <TextBox Text="{Binding ExpiryDate, UpdateSourceTrigger=PropertyChanged, StringFormat=yyyy-MM-dd}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellEditingTemplate>
+                    </DataGridTemplateColumn>
                     <!-- Location column -->
                     <DataGridTemplateColumn Header="Location" Width="*">
                         <DataGridTemplateColumn.CellTemplate>
@@ -372,7 +395,7 @@
                                 <ListView Grid.Row="1" ItemsSource="{Binding SelectedMovements}">
                                     <ListView.View>
                                         <GridView>
-                                            <GridViewColumn Header="When" Width="120" DisplayMemberBinding="{Binding TimestampUtc, StringFormat=yyyy-MM-dd HH:mm}" />
+                                            <GridViewColumn Header="When" Width="120" DisplayMemberBinding="{Binding TimestampUtc, Converter={StaticResource LocalTimeConverter}}" />
                                             <GridViewColumn Header="What happened" Width="110">
                                                 <GridViewColumn.CellTemplate>
                                                     <DataTemplate>
@@ -380,7 +403,7 @@
                                                     </DataTemplate>
                                                 </GridViewColumn.CellTemplate>
                                             </GridViewColumn>
-                                            <GridViewColumn Header="Amount" Width="70" DisplayMemberBinding="{Binding Quantity, StringFormat='#,0.###'}" />
+                                            <GridViewColumn Header="Amount" Width="70" DisplayMemberBinding="{Binding Quantity, Converter={StaticResource QuantityDisplayConverter}}" />
                                             <GridViewColumn Header="Note" Width="140" DisplayMemberBinding="{Binding Reason}" />
                                             <GridViewColumn Header="By" Width="100" DisplayMemberBinding="{Binding User}" />
                                         </GridView>
@@ -405,7 +428,7 @@
                                 <ListView Grid.Row="1" ItemsSource="{Binding RecentMovements}">
                                     <ListView.View>
                                         <GridView>
-                                            <GridViewColumn Header="When" Width="120" DisplayMemberBinding="{Binding TimestampUtc, StringFormat=yyyy-MM-dd HH:mm}" />
+                                            <GridViewColumn Header="When" Width="120" DisplayMemberBinding="{Binding TimestampUtc, Converter={StaticResource LocalTimeConverter}}" />
                                             <GridViewColumn Header="Item" Width="130">
                                                 <GridViewColumn.CellTemplate>
                                                     <DataTemplate>
@@ -427,7 +450,7 @@
                                                     </DataTemplate>
                                                 </GridViewColumn.CellTemplate>
                                             </GridViewColumn>
-                                            <GridViewColumn Header="Amount" Width="70" DisplayMemberBinding="{Binding Quantity, StringFormat='#,0.###'}" />
+                                            <GridViewColumn Header="Amount" Width="70" DisplayMemberBinding="{Binding Quantity, Converter={StaticResource QuantityDisplayConverter}}" />
                                             <GridViewColumn Header="Note" Width="140" DisplayMemberBinding="{Binding Reason}" />
                                             <GridViewColumn Header="By" Width="100" DisplayMemberBinding="{Binding User}" />
                                         </GridView>

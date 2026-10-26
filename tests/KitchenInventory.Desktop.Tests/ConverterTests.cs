@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.Windows;
+using System.Windows.Data;
 using FluentAssertions;
 using KitchenInventory.Desktop.Converters;
 using Xunit;
@@ -162,4 +163,104 @@ public sealed class ConverterTests
     [Fact]
     public void InverseBoolean_ConvertBack_NonBool_ReturnsTrue()
         => InverseConv.ConvertBack(123, typeof(bool), null!, Inv).Should().Be(true);
+
+    // ---------- QuantityDisplayConverter ----------
+
+    private static readonly QuantityDisplayConverter QtyConv = new();
+
+    [Theory]
+    [InlineData(10d, "10")]
+    [InlineData(0d, "0")]
+    [InlineData(2.5d, "2.5")]
+    [InlineData(0.25d, "0.25")]
+    [InlineData(-2.5d, "-2.5")]
+    public void QuantityDisplay_TrimsTrailingZeros(double value, string expected)
+        => QtyConv.Convert((decimal)value, typeof(string), null!, Inv).Should().Be(expected);
+
+    [Fact]
+    public void QuantityDisplay_KeepsThousandsSeparator()
+        => QtyConv.Convert(1234.5m, typeof(string), null!, Inv).Should().Be("1,234.5");
+
+    [Fact]
+    public void QuantityDisplay_Null_RendersNothing()
+        => QtyConv.Convert(null!, typeof(string), null!, Inv).Should().BeNull();
+
+    [Fact]
+    public void QuantityDisplay_UnreadableValue_PassesThrough()
+        => QtyConv.Convert("two", typeof(string), null!, Inv).Should().Be("two");
+
+    [Fact]
+    public void QuantityDisplay_ConvertBack_Decimal_PassesThrough()
+        => QtyConv.ConvertBack(2.5m, typeof(decimal), null!, Inv).Should().Be(2.5m);
+
+    [Fact]
+    public void QuantityDisplay_ConvertBack_ParsesTheLocalConvention()
+        => QtyConv.ConvertBack("1.5", typeof(decimal), null!, Inv).Should().Be(1.5m);
+
+    [Fact]
+    public void QuantityDisplay_ConvertBack_UnreadableInput_LeavesTheValueAlone()
+        => QtyConv.ConvertBack("abc", typeof(decimal), null!, Inv).Should().Be(Binding.DoNothing);
+
+    // ---------- FriendlyDateConverter ----------
+
+    private static readonly FriendlyDateConverter DateConv = new();
+    private static readonly FriendlyDateConverter RelConv = new() { Mode = FriendlyDateMode.Relative };
+    private static readonly FriendlyDateConverter TimeConv = new() { Mode = FriendlyDateMode.LocalTime };
+
+    [Fact]
+    public void FriendlyDate_ReadsAsSpoken()
+        => DateConv.Convert(new DateTime(2026, 11, 30), typeof(string), null!, Inv).Should().Be("30 Nov 2026");
+
+    [Fact]
+    public void FriendlyDate_NonEnglishMachineCulture_StillReadsAsEnglish()
+        => DateConv.Convert(new DateTime(2026, 11, 30), typeof(string), null!, new CultureInfo("de-DE"))
+            .Should().Be("30 Nov 2026");
+
+    [Fact]
+    public void FriendlyDate_ParsesAnIsoString()
+        => DateConv.Convert("2026-11-30", typeof(string), null!, Inv).Should().Be("30 Nov 2026");
+
+    [Fact]
+    public void FriendlyDate_Null_RendersNothing()
+        => DateConv.Convert(null!, typeof(string), null!, Inv).Should().BeNull();
+
+    [Fact]
+    public void FriendlyDate_UnreadableValue_RendersNothing()
+        => DateConv.Convert(new object(), typeof(string), null!, Inv).Should().BeNull();
+
+    [Theory]
+    [InlineData(0, "today")]
+    [InlineData(1, "tomorrow")]
+    [InlineData(-1, "yesterday")]
+    [InlineData(6, "in 6 days")]
+    [InlineData(-3, "3 days ago")]
+    public void FriendlyDate_Relative_SpellsOutTheDistance(int offsetDays, string expected)
+        => RelConv.Convert(DateTime.Today.AddDays(offsetDays), typeof(string), null!, Inv).Should().Be(expected);
+
+    [Fact]
+    public void FriendlyDate_LocalTime_ShowsTheReadersClockWithoutSeconds()
+    {
+        var utc = DateTime.SpecifyKind(new DateTime(2026, 11, 30, 21, 4, 5), DateTimeKind.Utc);
+
+        TimeConv.Convert(utc, typeof(string), null!, Inv).Should().BeOfType<string>()
+            .Which.Should().MatchRegex(@"^\d{1,2} [A-Z][a-z]{2} \d{4} at \d{2}:\d{2}$");
+    }
+
+    [Fact]
+    public void FriendlyDate_LocalTime_TreatsAValueWithoutAKindAsUtc()
+    {
+        // What SQLite hands back for a UTC column: the instant is right, the Kind is not stated.
+        var stored = new DateTime(2026, 11, 30, 21, 4, 0);
+        var expected = DateTime.SpecifyKind(stored, DateTimeKind.Utc)
+            .ToLocalTime()
+            .ToString("d MMM yyyy 'at' HH:mm", Inv);
+
+        TimeConv.Convert(stored, typeof(string), null!, Inv).Should().Be(expected);
+    }
+
+    [Fact]
+    public void FriendlyDate_ConvertBack_Throws()
+        => FluentActions
+            .Invoking(() => DateConv.ConvertBack("30 Nov 2026", typeof(DateTime), null!, Inv))
+            .Should().Throw<NotSupportedException>();
 }
