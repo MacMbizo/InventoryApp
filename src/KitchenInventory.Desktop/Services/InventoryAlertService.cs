@@ -47,6 +47,20 @@ namespace KitchenInventory.Desktop.Services
             AlertKind.Expired => "Out of date",
             _ => Kind.ToString()
         };
+
+        /// <summary>
+        /// The problem as a sentence about the item, which is how someone would say it out loud:
+        /// "Sugar has expired" rather than a row of enum values. Used as the heading of the card in
+        /// the Problems tab, with <see cref="Message"/> underneath saying how far gone it is.
+        /// </summary>
+        public string Headline => Kind switch
+        {
+            AlertKind.Expired => $"{Name} has expired",
+            AlertKind.OutOfStock => $"{Name} is out of stock",
+            AlertKind.ExpiringSoon => $"{Name} is going out of date",
+            AlertKind.LowStock => $"{Name} is running low",
+            _ => Name
+        };
     }
 
     /// <summary>

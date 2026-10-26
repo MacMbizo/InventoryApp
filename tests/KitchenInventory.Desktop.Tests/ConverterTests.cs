@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Data;
 using FluentAssertions;
 using KitchenInventory.Desktop.Converters;
+using KitchenInventory.Desktop.Services;
 using Xunit;
 
 namespace KitchenInventory.Desktop.Tests;
@@ -262,5 +263,77 @@ public sealed class ConverterTests
     public void FriendlyDate_ConvertBack_Throws()
         => FluentActions
             .Invoking(() => DateConv.ConvertBack("30 Nov 2026", typeof(DateTime), null!, Inv))
+            .Should().Throw<NotSupportedException>();
+
+    // ---------- ItemStatusConverter (IMultiValueConverter) ----------
+
+    private static readonly ItemStatusConverter StatusConv = new();
+
+    private static ItemStatus StatusOf(decimal quantity, DateTime? expiry, string unit = "kg",
+        decimal threshold = 5m, int soonDays = 7)
+        => (ItemStatus)StatusConv.Convert(
+            new object[] { quantity, expiry!, threshold, soonDays, unit }, typeof(ItemStatus), null!, Inv);
+
+    [Fact]
+    public void ItemStatus_AHealthyRow_SaysOK()
+    {
+        var status = StatusOf(10m, null);
+
+        status.Text.Should().Be("OK");
+        status.Tone.Should().Be(ItemStatusTone.Ok);
+    }
+
+    [Fact]
+    public void ItemStatus_RunningLow_Watches_AndKeepsTheUnit()
+        => StatusOf(2m, null).Should().Be(new ItemStatus("Low stock (2 kg)", ItemStatusTone.Watch));
+
+    [Fact]
+    public void ItemStatus_ItemExpiringSoon_Watches()
+    {
+        var status = StatusOf(10m, DateTime.Today.AddDays(2));
+
+        status.Tone.Should().Be(ItemStatusTone.Watch);
+        status.Text.Should().Be("Expires in 2 days");
+    }
+
+    [Fact]
+    public void ItemStatus_ItemAlreadyExpired_IsUrgent()
+        => StatusOf(10m, DateTime.Today.AddDays(-3)).Tone.Should().Be(ItemStatusTone.Urgent);
+
+    [Fact]
+    public void ItemStatus_UsesTheCallersThresholdsRatherThanItsOwn()
+        => StatusOf(4m, null, threshold: 3m).Tone.Should().Be(ItemStatusTone.Ok);
+
+    [Fact]
+    public void ItemStatus_HandlesDoubleValues()
+        => ((ItemStatus)StatusConv.Convert(
+            new object[] { 1.5d, null!, 5.0d, 7, "kg" }, typeof(ItemStatus), null!, Inv))
+            .Tone.Should().Be(ItemStatusTone.Watch);
+
+    [Fact]
+    public void ItemStatus_ParsesStringValues()
+        => ((ItemStatus)StatusConv.Convert(
+            new object[] { "2", "2099-01-01", "5", "7", "kg" }, typeof(ItemStatus), null!, Inv))
+            .Tone.Should().Be(ItemStatusTone.Watch);
+
+    [Fact]
+    public void ItemStatus_NoValuesAtAll_SaysOK()
+        => ((ItemStatus)StatusConv.Convert(new object[0], typeof(ItemStatus), null!, Inv))
+            .Tone.Should().Be(ItemStatusTone.Ok);
+
+    [Fact]
+    public void ItemStatus_UnreadableQuantity_SaysNothingRatherThanOutOfStock()
+    {
+        // A cell mid-edit must not accuse the item of being out of stock.
+        var status = (ItemStatus)StatusConv.Convert(
+            new object[] { "nonsense", null!, 5m, 7, "kg" }, typeof(ItemStatus), null!, Inv);
+
+        status.Tone.Should().Be(ItemStatusTone.Ok);
+    }
+
+    [Fact]
+    public void ItemStatus_ConvertBack_Throws()
+        => FluentActions
+            .Invoking(() => StatusConv.ConvertBack(new ItemStatus("OK", ItemStatusTone.Ok), new[] { typeof(decimal) }, null!, Inv))
             .Should().Throw<NotSupportedException>();
 }

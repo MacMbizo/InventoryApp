@@ -229,4 +229,98 @@ public sealed class InventoryAlertTests
             conn.Dispose();
         }
     }
+
+    // ----- the sentence a problem card leads with -----
+
+    [Theory]
+    [InlineData(AlertKind.LowStock, "Rice is running low")]
+    [InlineData(AlertKind.OutOfStock, "Rice is out of stock")]
+    [InlineData(AlertKind.Expired, "Rice has expired")]
+    [InlineData(AlertKind.ExpiringSoon, "Rice is going out of date")]
+    public void Headline_NamesTheItemAndWhatHappenedToIt(AlertKind kind, string expected)
+    {
+        var alert = new InventoryAlert(1, "Rice", "Grains", "Dry store", kind, AlertSeverity.Warning, "Expires in 3 days", 3);
+
+        alert.Headline.Should().Be(expected);
+    }
+
+    // ----- the one line a list can show about an item -----
+
+    [Fact]
+    public void Status_HealthyItem_SaysOKOutLoud()
+    {
+        var status = ItemStatusService.Evaluate(MakeItem("Rice", quantity: 10m), 5m, 7, Today);
+
+        status.Text.Should().Be("OK");
+        status.Tone.Should().Be(ItemStatusTone.Ok);
+        status.NeedsAttention.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Status_RunningLow_Watches()
+    {
+        var status = ItemStatusService.Evaluate(MakeItem("Flour", quantity: 2m, unit: "kg"), 5m, 7, Today);
+
+        status.Text.Should().Be("Low stock (2 kg)");
+        status.Tone.Should().Be(ItemStatusTone.Watch);
+        status.NeedsAttention.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Status_OutOfStock_IsUrgent()
+    {
+        var status = ItemStatusService.Evaluate(MakeItem("Rice", quantity: 0m), 5m, 7, Today);
+
+        status.Tone.Should().Be(ItemStatusTone.Urgent);
+        status.Text.Should().Be("Out of stock");
+    }
+
+    [Fact]
+    public void Status_Expired_LeadsWithTheExpiryRatherThanTheStock()
+    {
+        // Both wrong, and one line has to choose: the expiry is the thing to act on.
+        var status = ItemStatusService.Evaluate(MakeItem("Butter", quantity: 0m, expiry: Today.AddDays(-2)), 5m, 7, Today);
+
+        status.Tone.Should().Be(ItemStatusTone.Urgent);
+        status.Text.Should().Be("Expired 2 days ago");
+    }
+
+    [Fact]
+    public void Status_WordsItExactlyAsTheProblemsTabDoes()
+    {
+        var item = MakeItem("Cheese", quantity: 1m, unit: "kg", expiry: Today.AddDays(3));
+
+        var status = ItemStatusService.Evaluate(item, 5m, 7, Today);
+
+        status.Text.Should().Be(InventoryAlertService.Evaluate(new[] { item }, 5m, 7, Today)[0].Message);
+    }
+
+    [Fact]
+    public void Status_FromLooseValues_ReachesTheSameAnswerAsFromTheItem()
+    {
+        // What a grid cell holds: the values on screen, and no entity behind them.
+        var status = ItemStatusService.Evaluate(2m, Today.AddDays(3), 5m, 7, Today, "kg");
+
+        status.Text.Should().Be(ItemStatusService.Evaluate(MakeItem("Cheese", quantity: 2m, unit: "kg", expiry: Today.AddDays(3)), 5m, 7, Today).Text);
+        status.Text.Should().Be("Expires in 3 days");
+    }
+
+    [Fact]
+    public void Status_ThresholdsFromTheCallerDecideTheTone()
+    {
+        var watch = ItemStatusService.Evaluate(4m, null, 5m, 7, Today, "kg");
+        var allWell = ItemStatusService.Evaluate(4m, null, 3m, 7, Today, "kg");
+
+        watch.Tone.Should().Be(ItemStatusTone.Watch);
+        allWell.Tone.Should().Be(ItemStatusTone.Ok);
+    }
+
+    [Fact]
+    public void Status_NoItem_HasNothingWrongWithIt()
+    {
+        var status = ItemStatusService.Evaluate((Item?)null, 5m, 7, Today);
+
+        status.Text.Should().Be(ItemStatusService.AllWell);
+        status.NeedsAttention.Should().BeFalse();
+    }
 }

@@ -6,6 +6,7 @@
         xmlns:vm="clr-namespace:KitchenInventory.Desktop.ViewModels"
         xmlns:val="clr-namespace:KitchenInventory.Desktop.Validations"
         xmlns:conv="clr-namespace:KitchenInventory.Desktop.Converters"
+        xmlns:svc="clr-namespace:KitchenInventory.Desktop.Services"
         xmlns:local="clr-namespace:KitchenInventory.Desktop"
         mc:Ignorable="d"
         Title="Kitchen Inventory" Height="700" Width="1100"
@@ -24,6 +25,9 @@
         <conv:FriendlyDateConverter x:Key="FriendlyDateConverter" />
         <conv:FriendlyDateConverter x:Key="RelativeDateConverter" Mode="Relative" />
         <conv:FriendlyDateConverter x:Key="LocalTimeConverter" Mode="LocalTime" />
+        <!-- What a row should say about its item. The rules are ItemStatusService's, which is the
+             same place the Problems tab reads them from. -->
+        <conv:ItemStatusConverter x:Key="ItemStatusConverter" />
     </Window.Resources>
     <Window.CommandBindings>
         <CommandBinding Command="{x:Static local:MainWindow.FocusSearchCommand}" Executed="FocusSearch_Executed" />
@@ -145,7 +149,7 @@
                       CurrentCellChanged="DataGrid_CurrentCellChanged"
                       HorizontalAlignment="Stretch"
                       VerticalAlignment="Stretch"
-                      MinColumnWidth="100"
+                      MinColumnWidth="90"
                       ColumnWidth="*"
                       AutomationProperties.AutomationId="ItemsDataGrid">
                 <DataGrid.RowStyle>
@@ -208,7 +212,72 @@
                             </Style>
                         </DataGridTextColumn.EditingElementStyle>
                     </DataGridTextColumn>
-                    <DataGridTextColumn Header="Unit" Binding="{Binding Unit, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
+                    <!-- A unit is a word or two ("kg", "pcs"), so it takes what it needs rather than
+                         a full share of the width; the Status column beside it has more to say. -->
+                    <DataGridTextColumn Header="Unit" Binding="{Binding Unit, UpdateSourceTrigger=PropertyChanged}" Width="Auto"/>
+                    <!-- Status. The row tint is the same message in colour alone, which is no message
+                         at all to a colour-blind eye; this says what and how bad, in words, with an
+                         icon so it survives being read in greyscale. The full sentence is on the
+                         tooltip, because the column is narrow. -->
+                    <DataGridTemplateColumn Header="Status" Width="1.4*">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <ContentControl VerticalAlignment="Center">
+                                    <ContentControl.Content>
+                                        <MultiBinding Converter="{StaticResource ItemStatusConverter}">
+                                            <Binding Path="Quantity"/>
+                                            <Binding Path="ExpiryDate"/>
+                                            <Binding RelativeSource="{RelativeSource AncestorType=DataGrid}" Path="DataContext.LowStockThreshold"/>
+                                            <Binding RelativeSource="{RelativeSource AncestorType=DataGrid}" Path="DataContext.ExpiringSoonDays"/>
+                                            <Binding Path="Unit"/>
+                                        </MultiBinding>
+                                    </ContentControl.Content>
+                                    <ContentControl.ContentTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal"
+                                                        ToolTip="{Binding Text}">
+                                                <!-- The default look is set in a Style, not on the
+                                                     element: a local value would outrank the triggers
+                                                     below and nothing would ever turn amber or red. -->
+                                                <Path x:Name="StatusIcon" StrokeThickness="1.8"
+                                                      StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                      Width="14" Height="14" Stretch="Uniform" Margin="0,0,6,0"
+                                                      VerticalAlignment="Center">
+                                                    <Path.Style>
+                                                        <Style TargetType="Path">
+                                                            <Setter Property="Data" Value="{StaticResource Icon.Check}" />
+                                                            <Setter Property="Stroke" Value="{StaticResource Brush.Success}" />
+                                                        </Style>
+                                                    </Path.Style>
+                                                </Path>
+                                                <TextBlock x:Name="StatusWords" Text="{Binding Text}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </StackPanel>
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding Tone}" Value="{x:Static svc:ItemStatusTone.Watch}">
+                                                    <Setter TargetName="StatusIcon" Property="Data" Value="{StaticResource Icon.Warning}" />
+                                                    <Setter TargetName="StatusIcon" Property="Stroke" Value="{StaticResource Brush.Warning}" />
+                                                    <Setter TargetName="StatusWords" Property="Foreground" Value="{StaticResource Brush.WarningStrong}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Tone}" Value="{x:Static svc:ItemStatusTone.Urgent}">
+                                                    <Setter TargetName="StatusIcon" Property="Data" Value="{StaticResource Icon.Warning}" />
+                                                    <Setter TargetName="StatusIcon" Property="Stroke" Value="{StaticResource Brush.Danger}" />
+                                                    <Setter TargetName="StatusWords" Property="Foreground" Value="{StaticResource Brush.Danger}" />
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </DataTemplate>
+                                    </ContentControl.ContentTemplate>
+                                </ContentControl>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                     <!-- Insert Category column -->
                     <DataGridTemplateColumn Header="Category" Width="*">
                         <DataGridTemplateColumn.CellTemplate>
@@ -349,17 +418,71 @@
                                         <Run Text="  Urgent: " /><Run Text="{Binding CriticalAlertsCount, Mode=OneWay}" FontWeight="Bold" />
                                     </TextBlock>
                                 </StackPanel>
-                                <ListView Grid.Row="1" ItemsSource="{Binding Alerts}" AutomationProperties.AutomationId="AlertsList">
-                                    <ListView.View>
-                                        <GridView>
-                                            <GridViewColumn Header="Level" Width="80" DisplayMemberBinding="{Binding SeverityText}" />
-                                            <GridViewColumn Header="Problem" Width="100" DisplayMemberBinding="{Binding KindText}" />
-                                            <GridViewColumn Header="Item" Width="140" DisplayMemberBinding="{Binding Name}" />
-                                            <GridViewColumn Header="Details" Width="180" DisplayMemberBinding="{Binding Message}" />
-                                            <GridViewColumn Header="Location" Width="100" DisplayMemberBinding="{Binding Location}" />
-                                        </GridView>
-                                    </ListView.View>
-                                </ListView>
+                                <!-- One card per problem rather than five fixed-width columns in a
+                                     panel narrower than their total. Cards reflow at any width, and
+                                     each one can lead with the sentence a person would say. The words
+                                     are the same ones the Status column shows, so the two cannot tell
+                                     the reader different things. -->
+                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled">
+                                    <ItemsControl ItemsSource="{Binding Alerts}" AutomationProperties.AutomationId="AlertsList">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border x:Name="CardBorder" Margin="0,0,0,8"
+                                                        AutomationProperties.AutomationId="AlertCard">
+                                                    <!-- Card's own look in a Style, so the severity
+                                                         triggers below can override it. -->
+                                                    <Border.Style>
+                                                        <Style TargetType="Border" BasedOn="{StaticResource Card}">
+                                                            <Setter Property="Background" Value="{StaticResource Brush.Surface}" />
+                                                            <Setter Property="BorderBrush" Value="{StaticResource Brush.WarningBorder}" />
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <StackPanel>
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <Path x:Name="CardIcon"
+                                                                  StrokeThickness="1.8"
+                                                                  StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                                  Width="16" Height="16" Stretch="Uniform" Margin="0,0,8,0"
+                                                                  VerticalAlignment="Center">
+                                                                <Path.Style>
+                                                                    <Style TargetType="Path">
+                                                                        <Setter Property="Data" Value="{StaticResource Icon.Warning}" />
+                                                                        <Setter Property="Stroke" Value="{StaticResource Brush.Warning}" />
+                                                                    </Style>
+                                                                </Path.Style>
+                                                            </Path>
+                                                            <TextBlock x:Name="CardTitle" Text="{Binding Headline}"
+                                                                       FontWeight="SemiBold"
+                                                                       TextWrapping="Wrap" VerticalAlignment="Center">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Foreground" Value="{StaticResource Brush.WarningStrong}" />
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </StackPanel>
+                                                        <TextBlock Style="{StaticResource CaptionText}" Margin="24,6,0,0"
+                                                                   Text="{Binding Message}" />
+                                                        <TextBlock x:Name="CardWhere" Style="{StaticResource CaptionText}"
+                                                                   Margin="24,2,0,0"
+                                                                   Text="{Binding Location, StringFormat='Stored in {0}'}" />
+                                                    </StackPanel>
+                                                </Border>
+                                                <DataTemplate.Triggers>
+                                                    <DataTrigger Binding="{Binding Severity}" Value="{x:Static svc:AlertSeverity.Critical}">
+                                                        <Setter TargetName="CardBorder" Property="BorderBrush" Value="{StaticResource Brush.DangerBorder}" />
+                                                        <Setter TargetName="CardIcon" Property="Stroke" Value="{StaticResource Brush.Danger}" />
+                                                        <Setter TargetName="CardTitle" Property="Foreground" Value="{StaticResource Brush.Danger}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Location}" Value="">
+                                                        <Setter TargetName="CardWhere" Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </DataTemplate.Triggers>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
 
                                 <!-- All clear. Five empty columns say nothing; the good news is
                                      worth saying outright. -->
