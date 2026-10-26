@@ -18,7 +18,13 @@ namespace KitchenInventory.Desktop
         public List<Location> Locations { get; }
         public AddItemViewModel Vm { get; }
 
-        public AddItemDialog(List<Category> categories, List<Location>? locations = null)
+        /// <summary>
+        /// Zero when the dialog is adding something new, or the id of the item being changed.
+        /// The caller uses it to tell the two apart, and the item that comes back carries it.
+        /// </summary>
+        public int EditedItemId { get; }
+
+        public AddItemDialog(List<Category> categories, List<Location>? locations = null, Item? editTarget = null)
         {
             InitializeComponent();
             Categories = categories;
@@ -26,6 +32,22 @@ namespace KitchenInventory.Desktop
             Vm = new AddItemViewModel(categories, Locations);
             DataContext = Vm;
             Vm.ErrorsChanged += Vm_ErrorsChanged;
+
+            if (editTarget != null)
+            {
+                // The same dialog and the same validation, opened on an existing item. Changing
+                // an item in place through the grid looked applied but was not saved until some
+                // other button was pressed; here the dialog is the only way in.
+                EditedItemId = editTarget.Id;
+                Title = "Edit item";
+                ConfirmAddButton.Content = "_Save";
+                Vm.ItemName = editTarget.Name;
+                Vm.Quantity = editTarget.Quantity;
+                Vm.Unit = string.IsNullOrWhiteSpace(editTarget.Unit) ? "pcs" : editTarget.Unit;
+                Vm.SelectedCategoryId = editTarget.CategoryId ?? 0;
+                Vm.SelectedLocationId = editTarget.LocationId ?? 0;
+                Vm.ExpiryDate = editTarget.ExpiryDate;
+            }
         }
 
         private void Vm_ErrorsChanged(object? sender, System.ComponentModel.DataErrorsChangedEventArgs e)
@@ -44,6 +66,7 @@ namespace KitchenInventory.Desktop
 
             var item = new Item
             {
+                Id = EditedItemId,
                 Name = Vm.ItemName.Trim(),
                 Quantity = Vm.Quantity,
                 Unit = string.IsNullOrWhiteSpace(Vm.Unit) ? "pcs" : Vm.Unit.Trim(),

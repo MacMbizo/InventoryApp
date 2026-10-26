@@ -11,7 +11,7 @@ Key Practices
 1) Prefer AutomationId over Name
    - Assign stable AutomationIds in the app (Buttons, MenuItems, TextBoxes).
    - Test selectors should try AutomationId first, then Name. Use:
-     - UiTestHelpers.WaitForAndClickButtonByIdOrName(mainWindow, "SaveChangesButton")
+     - UiTestHelpers.WaitForAndClickButtonByIdOrName(mainWindow, "RefreshButton")
      - UiTestHelpers.ClickActionByName(mainWindow, "Manage Categories", _output)
 
 2) Always maximize the main window

@@ -246,7 +246,7 @@ public sealed class MovementTests
     }
 
     [StaFact]
-    public async Task Save_Sets_LastSavedAt_And_StatusText_Shows_Timestamp()
+    public async Task Save_Sets_LastSavedAt_And_StatusText_States_Changes_Are_Saved()
     {
         var (factory, conn, options) = CreateInMemoryFactory();
         try
@@ -259,8 +259,9 @@ public sealed class MovementTests
             await InvokePrivateAsync(vm, "SaveChangesAsync");
 
             vm.LastSavedAtLocal.Should().NotBeNull();
-            var expected = $"Saved {vm.LastSavedAtLocal:HH:mm}";
-            vm.StatusText.Should().Contain(expected);
+            // The status bar carries ambient truth rather than a timestamp: the toolbar
+            // says what just changed, the status bar says saving is continuous.
+            vm.StatusText.Should().Contain("Everything you change is saved straight away");
         }
         finally
         {

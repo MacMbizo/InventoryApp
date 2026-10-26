@@ -15,7 +15,6 @@
     <!-- Converters -->
     <Window.Resources>
         <conv:NeedsAttentionConverter x:Key="NeedsAttentionConverter" />
-        <conv:HideZeroIdConverter x:Key="HideZeroIdConverter" />
         <conv:MovementTypeConverter x:Key="MovementTypeConverter" />
         <conv:MovementItemNameConverter x:Key="MovementItemNameConverter" />
         <!-- Numbers and dates as a reader says them: "10" not "10.00", "30 Nov 2026" not
@@ -38,7 +37,6 @@
     <Window.InputBindings>
         <KeyBinding Key="N" Modifiers="Control" Command="{Binding AddItemCommand}" />
         <KeyBinding Key="F" Modifiers="Control" Command="{x:Static local:MainWindow.FocusSearchCommand}" />
-        <KeyBinding Key="S" Modifiers="Control" Command="{Binding SaveChangesCommand}" />
         <KeyBinding Key="R" Modifiers="Control" Command="{Binding RefreshCommand}" />
         <KeyBinding Key="F5" Command="{Binding RefreshCommand}" />
         <KeyBinding Key="F2" Command="{x:Static local:MainWindow.EditSelectedItemCommand}" />
@@ -101,8 +99,31 @@
                         <Button x:Name="MoreButton" Style="{StaticResource ToolbarButton}"
                                 Content="More" Tag="{StaticResource Icon.More}"
                                 Margin="8,0,8,4" Click="MoreActions_Click"
-                                ToolTip="The occasional jobs: saving, reloading, spreadsheets, categories, locations, the unit converter and reports"
+                                ToolTip="The occasional jobs: reloading, spreadsheets, categories, locations and the unit converter"
                                 AutomationProperties.AutomationId="OverflowButton" />
+
+                        <!-- Feedback beside the buttons rather than only in the status bar at the
+                             far edge of the window: while something is running the toolbar says
+                             so, and for a few seconds afterwards it says what changed. The status
+                             bar keeps the ambient truth about saving. -->
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,8,4">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                                        Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                        AutomationProperties.AutomationId="ToolbarBusyIndicator">
+                                <ProgressBar IsIndeterminate="True" Width="64" Height="4" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <TextBlock Text="Working&#8230;" Style="{StaticResource CaptionText}" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                                        Visibility="{Binding HasActionMessage, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                        AutomationProperties.AutomationId="ToolbarActionMessage">
+                                <Path Data="{StaticResource Icon.Check}"
+                                      Stroke="{StaticResource Brush.Success}" StrokeThickness="1.8"
+                                      StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      Width="14" Height="14" Stretch="Uniform" Margin="0,0,6,0"
+                                      VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding ActionMessage}" Style="{StaticResource CaptionText}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </StackPanel>
                     </WrapPanel>
 
                     <!-- The occasional actions, as real buttons rather than a pop-up menu: they
@@ -114,16 +135,14 @@
                             BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
                             CornerRadius="{StaticResource Radius.Sm}">
                         <WrapPanel Orientation="Horizontal">
-                            <Button Style="{StaticResource ToolbarButton}" Content="Save changes" Tag="{StaticResource Icon.Save}" Command="{Binding SaveChangesCommand}" ToolTip="Save the changes you have made in the table (Ctrl+S)" AutomationProperties.AutomationId="SaveChangesButton"/>
                             <Button Style="{StaticResource ToolbarButton}" Content="Refresh" Tag="{StaticResource Icon.Refresh}" Command="{Binding RefreshCommand}" ToolTip="Reload the list from the saved data (Ctrl+R or F5)" AutomationProperties.AutomationId="RefreshButton" />
                             <Button Style="{StaticResource ToolbarButton}" Content="Import items (CSV)" Tag="{StaticResource Icon.Import}" Command="{Binding ImportItemsCsvCommand}" ToolTip="Bring in a list of items from a spreadsheet file" AutomationProperties.AutomationId="ImportItemsCsvButton" />
                             <Button Style="{StaticResource ToolbarButton}" Content="Export items (CSV)" Tag="{StaticResource Icon.Export}" Command="{Binding ExportItemsCsvCommand}" ToolTip="Save the list as a spreadsheet file" AutomationProperties.AutomationId="ExportItemsCsvButton" />
                             <Button Style="{StaticResource ToolbarButton}" Content="Manage categories" Tag="{StaticResource Icon.Category}" Command="{Binding ManageCategoriesCommand}" AutomationProperties.AutomationId="ManageCategoriesButton" />
                             <Button Style="{StaticResource ToolbarButton}" Content="Manage locations" Tag="{StaticResource Icon.Location}" Command="{Binding ManageLocationsCommand}" AutomationProperties.AutomationId="ManageLocationsButton" />
                             <Button Style="{StaticResource ToolbarButton}" Content="Unit converter" Tag="{StaticResource Icon.Convert}" Click="Open_UnitConverter_Click" ToolTip="Convert between kg/g/mg and l/ml/cl/dl" AutomationProperties.AutomationId="UnitConverterButton" />
-                            <Button Style="{StaticResource ToolbarButton}" Content="Reports" Tag="{StaticResource Icon.Reports}" Click="Open_Reports_Click" ToolTip="Generate and export inventory reports" AutomationProperties.AutomationId="ReportsButton" />
-                            <!-- Last and on its own, because deleting is the one action here that
-                                 cannot be undone by pressing Save again. -->
+                            <!-- Last and on its own: removing is the one action here that does not
+                                 simply change a row, and it is the one the undo strip is for. -->
                             <Button Style="{StaticResource ToolbarButton}" Content="Remove item" Tag="{StaticResource Icon.Remove}" Command="{Binding DeleteItemCommand}" ToolTip="Take something off the list (Delete)" AutomationProperties.AutomationId="DeleteItemButton" />
                         </WrapPanel>
                     </Border>
@@ -175,16 +194,21 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Items grid -->
+            <!-- Items grid. Read-only on purpose: editing a cell in place means a stray
+                 keystroke changes a quantity that looks applied but is not until some other
+                 button is pressed. Double-clicking a row (or F2) opens the item dialog, which
+                 is where the validation already lives, and the change is saved straight away. -->
             <DataGrid Grid.Column="0"
                       x:Name="ItemsGrid"
                       ItemsSource="{Binding ItemsView}"
                       AutoGenerateColumns="False"
                       CanUserAddRows="False"
+                      IsReadOnly="True"
                       SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
                       Margin="8,8,4,8"
                       SelectionChanged="DataGrid_SelectionChanged"
                       CurrentCellChanged="DataGrid_CurrentCellChanged"
+                      MouseDoubleClick="DataGrid_MouseDoubleClick"
                       HorizontalAlignment="Stretch"
                       VerticalAlignment="Stretch"
                       MinColumnWidth="90"
@@ -215,44 +239,13 @@
                         </Style.Triggers>
                     </Style>
                 </DataGrid.RowStyle>
-                <DataGrid.Resources>
-                    <!-- Based on the shared text-box style so an edited cell keeps the same
-                         border and padding; only the error presentation is added here. -->
-                    <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
-                        <Setter Property="Validation.ErrorTemplate">
-                            <Setter.Value>
-                                <ControlTemplate>
-                                    <DockPanel LastChildFill="True">
-                                        <TextBlock Style="{StaticResource DangerText}" Margin="5,0,0,0"
-                                                   Text="{Binding ElementName=adornedElementPlaceholder, Path=AdornedElement.(Validation.Errors)[0].ErrorContent}"/>
-                                        <AdornedElementPlaceholder Name="adornedElementPlaceholder"/>
-                                    </DockPanel>
-                                </ControlTemplate>
-                            </Setter.Value>
-                        </Setter>
-                        <Style.Triggers>
-                            <Trigger Property="Validation.HasError" Value="True">
-                                <Setter Property="ToolTip" Value="{Binding RelativeSource={RelativeSource Self}, Path=(Validation.Errors)[0].ErrorContent}"/>
-                            </Trigger>
-                        </Style.Triggers>
-                    </Style>
-                </DataGrid.Resources>
 
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Item" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="2*"/>
-                    <DataGridTextColumn Header="Quantity" Binding="{Binding Quantity, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource QuantityDisplayConverter}}" Width="*">
-                        <DataGridTextColumn.EditingElementStyle>
-                            <!-- Quantities are the only numeric column, so the typing guard and the
-                                 paste conversion are attached here rather than to every cell. -->
-                            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
-                                <EventSetter Event="PreviewTextInput" Handler="Quantity_PreviewTextInput"/>
-                                <EventSetter Event="DataObject.Pasting" Handler="Quantity_Pasting"/>
-                            </Style>
-                        </DataGridTextColumn.EditingElementStyle>
-                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="Item" Binding="{Binding Name}" Width="2*"/>
+                    <DataGridTextColumn Header="Quantity" Binding="{Binding Quantity, Converter={StaticResource QuantityDisplayConverter}}" Width="*"/>
                     <!-- A unit is a word or two ("kg", "pcs"), so it takes what it needs rather than
                          a full share of the width; the Status column beside it has more to say. -->
-                    <DataGridTextColumn Header="Unit" Binding="{Binding Unit, UpdateSourceTrigger=PropertyChanged}" Width="Auto"/>
+                    <DataGridTextColumn Header="Unit" Binding="{Binding Unit}" Width="Auto"/>
                     <!-- Status. The row tint is the same message in colour alone, which is no message
                          at all to a colour-blind eye; this says what and how bad, in words, with an
                          icon so it survives being read in greyscale. The full sentence is on the
@@ -323,22 +316,6 @@
                                 <TextBlock Text="{Binding Category.Name}" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
-                        <DataGridTemplateColumn.CellEditingTemplate>
-                            <DataTemplate>
-                                <ComboBox
-                                    ItemsSource="{Binding DataContext.Categories, RelativeSource={RelativeSource AncestorType=Window}}"
-                                    SelectedValuePath="Id"
-                                    DisplayMemberPath="Name"
-                                    SelectedValue="{Binding CategoryId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                    >
-                                    <ComboBox.ItemContainerStyle>
-                                        <Style TargetType="ComboBoxItem">
-                                            <Setter Property="Visibility" Value="{Binding Id, Converter={StaticResource HideZeroIdConverter}}"/>
-                                        </Style>
-                                    </ComboBox.ItemContainerStyle>
-                                </ComboBox>
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellEditingTemplate>
                     </DataGridTemplateColumn>
                     <DataGridTemplateColumn Header="Expiry date" Width="*">
                         <DataGridTemplateColumn.CellTemplate>
@@ -349,13 +326,6 @@
                                            ToolTip="{Binding ExpiryDate, Converter={StaticResource RelativeDateConverter}}" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
-                        <DataGridTemplateColumn.CellEditingTemplate>
-                            <DataTemplate>
-                                <!-- Editing stays in the unambiguous yyyy-MM-dd the CSV import and
-                                     export use, so a typed date cannot be misread. -->
-                                <TextBox Text="{Binding ExpiryDate, UpdateSourceTrigger=PropertyChanged, StringFormat=yyyy-MM-dd}" />
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellEditingTemplate>
                     </DataGridTemplateColumn>
                     <!-- Location column -->
                     <DataGridTemplateColumn Header="Location" Width="*">
@@ -364,22 +334,6 @@
                                 <TextBlock Text="{Binding Location.Name}" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
-                        <DataGridTemplateColumn.CellEditingTemplate>
-                            <DataTemplate>
-                                <ComboBox
-                                    ItemsSource="{Binding DataContext.Locations, RelativeSource={RelativeSource AncestorType=Window}}"
-                                    SelectedValuePath="Id"
-                                    DisplayMemberPath="Name"
-                                    SelectedValue="{Binding LocationId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                    >
-                                    <ComboBox.ItemContainerStyle>
-                                        <Style TargetType="ComboBoxItem">
-                                            <Setter Property="Visibility" Value="{Binding Id, Converter={StaticResource HideZeroIdConverter}}"/>
-                                        </Style>
-                                    </ComboBox.ItemContainerStyle>
-                                </ComboBox>
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellEditingTemplate>
                     </DataGridTemplateColumn>
                 </DataGrid.Columns>
             </DataGrid>

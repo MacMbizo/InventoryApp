@@ -238,6 +238,80 @@ public class ItemsViewModel : INotifyPropertyChanged
         private set { _lastSavedAtLocal = value; OnPropertyChanged(); UpdateStatus(); }
     }
 
+    private bool _isBusy;
+    /// <summary>
+    /// True while something is actually running. The toolbar shows a busy state next to the
+    /// buttons, so a slow import or reload reads as work in progress rather than a freeze.
+    /// </summary>
+    public bool IsBusy
+    {
+        get => _isBusy;
+        private set { if (_isBusy != value) { _isBusy = value; OnPropertyChanged(); } }
+    }
+
+    private string _actionMessage = string.Empty;
+    /// <summary>
+    /// A short-lived confirmation about what just happened, shown beside the actions rather
+    /// than only in the status bar at the far edge of the window. The status bar keeps the
+    /// ambient truth about saving instead of repeating this.
+    /// </summary>
+    public string ActionMessage
+    {
+        get => _actionMessage;
+        private set
+        {
+            if (_actionMessage != value)
+            {
+                _actionMessage = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasActionMessage));
+            }
+        }
+    }
+
+    /// <summary>True while <see cref="ActionMessage"/> has something to say.</summary>
+    public bool HasActionMessage => !string.IsNullOrEmpty(_actionMessage);
+
+    /// <summary>
+    /// How many operations are in flight. Nested work (a save that reloads, an import that
+    /// saves) must not clear the busy state early, so the flag follows the outer-most one.
+    /// </summary>
+    private int _busyDepth;
+
+    private void EnterBusy()
+    {
+        _busyDepth++;
+        IsBusy = true;
+    }
+
+    private void ExitBusy()
+    {
+        if (--_busyDepth <= 0)
+        {
+            _busyDepth = 0;
+            IsBusy = false;
+        }
+    }
+
+    private DispatcherTimer? _actionMessageTimer;
+
+    /// <summary>
+    /// Says what just happened, beside the actions, for a few seconds. Short-lived on purpose:
+    /// it reads as feedback about one action, not as a permanent banner.
+    /// </summary>
+    private void ShowActionMessage(string message)
+    {
+        ActionMessage = message;
+        _actionMessageTimer?.Stop();
+        _actionMessageTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(6) };
+        _actionMessageTimer.Tick += (_, _) =>
+        {
+            _actionMessageTimer?.Stop();
+            ActionMessage = string.Empty;
+        };
+        _actionMessageTimer.Start();
+    }
+
     private bool _hasValidationErrors;
     public bool HasValidationErrors
     {
@@ -482,7 +556,9 @@ public class ItemsViewModel : INotifyPropertyChanged
             1 => " · 1 needs attention",
             _ => $" · {NeedsAttentionCount} need attention"
         };
-        var savedText = LastSavedAtLocal.HasValue ? $" · Saved {LastSavedAtLocal:HH:mm}" : string.Empty;
+        // The status bar carries ambient truth, not the last thing that happened. Because every
+        // change is written as it is made, saying so is more use than a saved-at timestamp.
+        var savedText = LastSavedAtLocal.HasValue ? " · Everything you change is saved straight away" : string.Empty;
         StatusText = baseText + needsText + savedText;
     }
 
@@ -497,6 +573,21 @@ public class ItemsViewModel : INotifyPropertyChanged
     }
 
     public async Task LoadAsync()
+    {
+        // Reloading is the one long job the user can start from the toolbar itself, so it
+        // shows the busy state while it runs.
+        EnterBusy();
+        try
+        {
+            await LoadCoreAsync();
+        }
+        finally
+        {
+            ExitBusy();
+        }
+    }
+
+    private async Task LoadCoreAsync()
     {
         _logger.LogInformation("Loading items from database...");
         try
@@ -581,12 +672,54 @@ public class ItemsViewModel : INotifyPropertyChanged
                 CommandManager.InvalidateRequerySuggested();
 
                 await SaveChangesAsync();
+                ShowActionMessage($"\u201c{newItem.Name}\u201d was added.");
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to add item via dialog");
             StatusText = $"Could not add that item: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Opens the selected item in the item dialog and writes the change straight away. F2 and
+    /// double-clicking a row both land here; the grid itself stays read-only, so a stray
+    /// keystroke can never change a quantity that only looks applied.
+    /// </summary>
+    public async Task EditSelectedItemAsync()
+    {
+        if (_dialogs == null || SelectedItem == null)
+        {
+            return;
+        }
+
+        var target = SelectedItem;
+
+        try
+        {
+            var catList = Categories.Where(c => c.Id > 0).OrderBy(c => c.Name).ToList();
+            var locList = Locations.Where(l => l.Id > 0).OrderBy(l => l.Name).ToList();
+            var result = await _dialogs.ShowAsync(new AddItemDialog(catList, locList, target));
+            if (result is not Item edited)
+            {
+                return;
+            }
+
+            target.Name = edited.Name;
+            target.Quantity = edited.Quantity;
+            target.Unit = edited.Unit;
+            target.CategoryId = edited.CategoryId;
+            target.LocationId = edited.LocationId;
+            target.ExpiryDate = edited.ExpiryDate;
+
+            await SaveChangesAsync();
+            ShowActionMessage($"\u201c{DisplayName(target)}\u201d was updated.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to edit item via dialog");
+            StatusText = $"Could not save that change: {ex.Message}";
         }
     }
 
@@ -783,6 +916,7 @@ public class ItemsViewModel : INotifyPropertyChanged
         }
 
         _logger.LogInformation("Saving {Count} {Noun}", Items.Count, PluralText.Noun(Items.Count, "item", "items"));
+        EnterBusy();
         try
         {
             using var db = await _dbFactory.CreateDbContextAsync();
@@ -870,6 +1004,10 @@ public class ItemsViewModel : INotifyPropertyChanged
             _logger.LogError(ex, "Failed to save changes");
             StatusText = $"Could not save your changes: {ex.Message}";
             return;
+        }
+        finally
+        {
+            ExitBusy();
         }
     }
 
@@ -1009,6 +1147,9 @@ public class ItemsViewModel : INotifyPropertyChanged
     // Import CSV methods
     private async Task ImportItemsCsvAsync()
     {
+        // Reading a spreadsheet and writing every row is the longest job here, so it gets the
+        // busy state rather than a window that looks stuck.
+        EnterBusy();
         try
         {
             var text = await _fileOpen.OpenTextFileAsync("CSV Files|*.csv|All Files|*.*");
@@ -1170,11 +1311,16 @@ public class ItemsViewModel : INotifyPropertyChanged
             UpdateCounts();
 
             StatusText = $"Imported {PluralText.Count(parsed.Count, "item", "items")}: {addedCount} new, {updatedCount} updated.";
+            ShowActionMessage(StatusText);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to import items from CSV");
             StatusText = $"Could not import that file: {ex.Message}";
+        }
+        finally
+        {
+            ExitBusy();
         }
     }
 
@@ -1208,7 +1354,9 @@ public class ItemsViewModel : INotifyPropertyChanged
                 CommandManager.InvalidateRequerySuggested();
                 
                 // Update status to show operation completed
-                StatusText = $"{operationType} recorded for {itemName}.";
+                var message = $"{operationType} recorded for {itemName}.";
+                StatusText = message;
+                ShowActionMessage(message);
                 
                 _logger.LogInformation("Stock operation '{Operation}' completed for item '{ItemName}'", 
                     operationType, itemName);

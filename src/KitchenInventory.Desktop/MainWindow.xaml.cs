@@ -4,9 +4,9 @@ using System.Windows.Controls;
 using KitchenInventory.Desktop.ViewModels;
 using KitchenInventory.Desktop.Services;
 using KitchenInventory.Domain.Constants;
-using System.Globalization;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -151,51 +151,52 @@ namespace KitchenInventory.Desktop
             SearchBox.SelectAll();
         }
 
-        private void EditSelectedItem_Executed(object sender, ExecutedRoutedEventArgs e)
+        private async void EditSelectedItem_Executed(object sender, ExecutedRoutedEventArgs e)
         {
-            if (ItemsGrid.SelectedItem is null || ItemsGrid.Columns.Count == 0)
+            if (ItemsGrid.SelectedItem is null)
             {
                 return;
             }
 
-            // Put the caret in the first cell of the selected row, which is what the user
-            // would have double-clicked to get here.
-            ItemsGrid.CurrentCell = new DataGridCellInfo(ItemsGrid.SelectedItem, ItemsGrid.Columns[0]);
-            ItemsGrid.Focus();
-            ItemsGrid.BeginEdit();
+            await _viewModel.EditSelectedItemAsync();
+        }
+
+        /// <summary>
+        /// Double-clicking a row opens it for editing, the same as F2. The cells are read-only,
+        /// so without this the gesture would simply do nothing.
+        /// </summary>
+        private async void DataGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (ItemsGrid.SelectedItem is null || !IsWithinRow(e.OriginalSource as DependencyObject))
+            {
+                return;
+            }
+
+            await _viewModel.EditSelectedItemAsync();
+        }
+
+        /// <summary>
+        /// True when the double-click landed on a row rather than on a column header or the
+        /// empty space below the last item.
+        /// </summary>
+        private static bool IsWithinRow(DependencyObject? source)
+        {
+            while (source != null)
+            {
+                if (source is DataGridRow)
+                {
+                    return true;
+                }
+
+                source = VisualTreeHelper.GetParent(source);
+            }
+
+            return false;
         }
 
         private void DataGrid_CurrentCellChanged(object? sender, EventArgs e)
         {
             CommandManager.InvalidateRequerySuggested();
-        }
-
-        private void Quantity_PreviewTextInput(object sender, TextCompositionEventArgs e)
-        {
-            var tb = (TextBox)sender;
-            var proposed = tb.Text.Remove(tb.SelectionStart, tb.SelectionLength).Insert(tb.SelectionStart, e.Text);
-            e.Handled = !QuantityText.IsValidTyping(proposed, CultureInfo.CurrentCulture);
-        }
-
-        private void Quantity_Pasting(object sender, DataObjectPastingEventArgs e)
-        {
-            if (!e.DataObject.GetDataPresent(DataFormats.Text))
-            {
-                e.CancelCommand();
-                return;
-            }
-
-            // Take over the paste so that an amount copied from a spreadsheet or another locale
-            // arrives in this machine's convention instead of being dropped without a word.
-            e.CancelCommand();
-            var pasted = QuantityText.NormalizePasted((string?)e.DataObject.GetData(DataFormats.Text), CultureInfo.CurrentCulture);
-            var tb = (TextBox)sender;
-            var proposed = tb.Text.Remove(tb.SelectionStart, tb.SelectionLength).Insert(tb.SelectionStart, pasted);
-            if (QuantityText.IsValidTyping(proposed, CultureInfo.CurrentCulture))
-            {
-                tb.Text = proposed;
-                tb.CaretIndex = proposed.Length;
-            }
         }
 
         private void Open_Reports_Click(object sender, RoutedEventArgs e)

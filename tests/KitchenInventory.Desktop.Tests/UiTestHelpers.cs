@@ -225,11 +225,11 @@ public static class UiTestHelpers
     {
         // The "More" drawer toggles open and closed on each press, so opening it twice
         // would leave it shut. Collapsed WPF elements are absent from the automation
-        // tree, so the drawer's own "Save changes" button being present means it is
-        // already open and there is nothing to do.
+        // tree, so one of the drawer's own buttons being present means it is already
+        // open and there is nothing to do.
         try
         {
-            if (mainWindow.FindFirstDescendant(cf => cf.ByAutomationId("SaveChangesButton")) != null)
+            if (mainWindow.FindFirstDescendant(cf => cf.ByAutomationId("RefreshButton")) != null)
             {
                 return true;
             }
@@ -337,10 +337,6 @@ public static class UiTestHelpers
     public static AutomationElement? TryFindActionElement(Window mainWindow, string actionName, ITestOutputHelper? output = null)
     {
         var candidates = new List<string> { actionName };
-        if (actionName.Equals("Save", StringComparison.OrdinalIgnoreCase))
-        {
-            candidates.Add("Save Changes");
-        }
 
         foreach (var name in candidates)
         {
@@ -364,8 +360,6 @@ public static class UiTestHelpers
 
         var idMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            { "Save", "SaveChangesButton" },
-            { "Save Changes", "SaveChangesButton" },
             { "Add", "AddItemButton" },
             { "Add item", "AddItemButton" },
             { "Delete", "DeleteItemButton" },

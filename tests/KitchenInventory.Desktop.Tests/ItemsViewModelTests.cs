@@ -478,6 +478,65 @@ public class ItemsViewModelTests : IDisposable
 
         Assert.True(DbHasItem("From Dialog"));
         Assert.DoesNotContain("Could not add", vm.StatusText);
+        Assert.Contains("was added", vm.ActionMessage);
+    }
+
+    [StaFact]
+    public async Task EditSelectedItemAsync_WritesTheEditedItem_AndSaysSo()
+    {
+        var dialogs = new FakeDialogService
+        {
+            Result = new Item { Name = "Rice", Quantity = 5m, Unit = "kg", ExpiryDate = DateTime.Today.AddDays(30) }
+        };
+        var vm = Create(dialogs: dialogs);
+        await vm.LoadAsync();
+        vm.SelectedItem = vm.Items.First(i => i.Name == "Rice");
+
+        await vm.EditSelectedItemAsync();
+
+        // The row is updated in place and the change is written straight away, which is the
+        // whole point of routing editing through the dialog: nothing is left looking applied.
+        Assert.Equal(5m, vm.SelectedItem!.Quantity);
+        Assert.True(vm.HasActionMessage);
+        Assert.Contains("was updated", vm.ActionMessage);
+
+        using var db = _factory.CreateDbContext();
+        Assert.Equal(5m, db.Items.AsNoTracking().Single(i => i.Id == _riceId).Quantity);
+    }
+
+    [StaFact]
+    public async Task EditSelectedItemAsync_LeavesTheItemAlone_WhenTheDialogIsDismissed()
+    {
+        var dialogs = new FakeDialogService { Result = null };
+        var vm = Create(dialogs: dialogs);
+        await vm.LoadAsync();
+        vm.SelectedItem = vm.Items.First(i => i.Name == "Rice");
+
+        await vm.EditSelectedItemAsync();
+
+        Assert.Equal(10m, vm.SelectedItem!.Quantity);
+        Assert.False(vm.HasActionMessage);
+
+        using var db = _factory.CreateDbContext();
+        Assert.Equal(10m, db.Items.AsNoTracking().Single(i => i.Id == _riceId).Quantity);
+    }
+
+    [Fact]
+    public async Task LoadAsync_RaisesIsBusy_AndClearsItWhenDone()
+    {
+        var vm = Create();
+        var busyStates = new List<bool>();
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ItemsViewModel.IsBusy)) busyStates.Add(vm.IsBusy);
+        };
+
+        Assert.False(vm.IsBusy);
+        await vm.LoadAsync();
+
+        // The toolbar says so while the work is in flight, and is usable again when it is not.
+        Assert.Contains(true, busyStates);
+        Assert.False(vm.IsBusy);
     }
 
     [Fact]
