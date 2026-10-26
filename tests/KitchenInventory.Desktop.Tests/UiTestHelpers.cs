@@ -223,6 +223,19 @@ public static class UiTestHelpers
 
     public static bool TryOpenToolbarOverflow(Window mainWindow, ITestOutputHelper? output = null)
     {
+        // The "More" drawer toggles open and closed on each press, so opening it twice
+        // would leave it shut. Collapsed WPF elements are absent from the automation
+        // tree, so the drawer's own "Save changes" button being present means it is
+        // already open and there is nothing to do.
+        try
+        {
+            if (mainWindow.FindFirstDescendant(cf => cf.ByAutomationId("SaveChangesButton")) != null)
+            {
+                return true;
+            }
+        }
+        catch { }
+
         try
         {
             var directOverflow = mainWindow.FindFirstDescendant(cf => cf.ByAutomationId("OverflowButton"))?.AsButton();
@@ -353,7 +366,6 @@ public static class UiTestHelpers
         {
             { "Save", "SaveChangesButton" },
             { "Save Changes", "SaveChangesButton" },
-            { "Save changes", "SaveChangesButton" },
             { "Add", "AddItemButton" },
             { "Add item", "AddItemButton" },
             { "Delete", "DeleteItemButton" },
@@ -364,8 +376,7 @@ public static class UiTestHelpers
             { "Take out stock", "ConsumeStockButton" },
             { "Adjust Stock", "AdjustStockButton" },
             { "Recount", "AdjustStockButton" },
-            { "Manage Categories", "ManageCategoriesButton" },
-            { "Manage categories", "ManageCategoriesButton" }
+            { "Manage Categories", "ManageCategoriesButton" }
         };
 
         foreach (var name in candidates)

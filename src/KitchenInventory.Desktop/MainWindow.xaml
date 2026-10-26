@@ -66,41 +66,79 @@
                     <MenuItem Header="_Diagnostics" Click="Help_Diagnostics_Click"/>
                 </MenuItem>
             </Menu>
-            <!-- Toolbar: a wrapping panel keeps every action visible and clickable at any
-                 window width. A ToolBar holding a single Grid moves that whole child into
-                 its overflow popup, which left every action unreachable at the default size. -->
-            <Border Padding="{StaticResource Spacing.Sm}" BorderThickness="0,0,0,1"
+            <!-- Actions. Thirteen equal buttons meant none of them was a next step and Remove
+                 sat one mis-click from its neighbours. Now there is one primary action, the
+                 three stock actions that act on the selected row, and everything occasional
+                 behind "More". Changing the stock and narrowing the list are different jobs,
+                 so the filters get their own bar underneath rather than trailing the actions. -->
+            <Border DockPanel.Dock="Top" Padding="{StaticResource Spacing.Sm}" BorderThickness="0,0,0,1"
                     Background="{StaticResource Brush.SurfaceAlt}"
                     BorderBrush="{StaticResource Brush.Border}">
+                <StackPanel>
+                    <WrapPanel Orientation="Horizontal">
+                        <Button Style="{StaticResource ToolbarPrimaryButton}" Content="Add item" Tag="{StaticResource Icon.Add}" Command="{Binding AddItemCommand}" ToolTip="Add something new to the store (Ctrl+N)" AutomationProperties.AutomationId="AddItemButton" />
+
+                        <!-- These three change the stock of whichever row is selected. The label
+                             names that condition, so they are not simply three dead buttons. -->
+                        <Border Width="1" Height="22" VerticalAlignment="Center" Margin="4,0,12,4"
+                                Background="{StaticResource Brush.Border}" />
+                        <TextBlock VerticalAlignment="Center" Margin="0,0,8,4">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource CaptionText}">
+                                    <Setter Property="Text" Value="On the selected item:" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedItem}" Value="{x:Null}">
+                                            <Setter Property="Text" Value="Pick an item in the list:" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <Button Style="{StaticResource ToolbarButton}" Content="Take in stock" Tag="{StaticResource Icon.StockIn}" Command="{Binding AddStockCommand}" ToolTip="Record stock arriving in the store" AutomationProperties.AutomationId="AddStockButton" />
+                        <Button Style="{StaticResource ToolbarButton}" Content="Take out stock" Tag="{StaticResource Icon.StockOut}" Command="{Binding ConsumeStockCommand}" ToolTip="Record stock used from the store" AutomationProperties.AutomationId="ConsumeStockButton" />
+                        <Button Style="{StaticResource ToolbarButton}" Content="Recount" Tag="{StaticResource Icon.Recount}" Command="{Binding AdjustStockCommand}" ToolTip="Set the stock to what you actually counted" AutomationProperties.AutomationId="AdjustStockButton" />
+
+                        <Button x:Name="MoreButton" Style="{StaticResource ToolbarButton}"
+                                Content="More" Tag="{StaticResource Icon.More}"
+                                Margin="8,0,8,4" Click="MoreActions_Click"
+                                ToolTip="The occasional jobs: saving, reloading, spreadsheets, categories, locations, the unit converter and reports"
+                                AutomationProperties.AutomationId="OverflowButton" />
+                    </WrapPanel>
+
+                    <!-- The occasional actions, as real buttons rather than a pop-up menu: they
+                         keep their names and stay reachable with the keyboard, and pressing
+                         "More" again closes the drawer. -->
+                    <Border x:Name="MorePanel" Visibility="Collapsed" Margin="0,4,0,0"
+                            Padding="{StaticResource Spacing.Xs}"
+                            Background="{StaticResource Brush.SurfaceSunken}"
+                            BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
+                            CornerRadius="{StaticResource Radius.Sm}">
+                        <WrapPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource ToolbarButton}" Content="Save changes" Tag="{StaticResource Icon.Save}" Command="{Binding SaveChangesCommand}" ToolTip="Save the changes you have made in the table (Ctrl+S)" AutomationProperties.AutomationId="SaveChangesButton"/>
+                            <Button Style="{StaticResource ToolbarButton}" Content="Refresh" Tag="{StaticResource Icon.Refresh}" Command="{Binding RefreshCommand}" ToolTip="Reload the list from the saved data (Ctrl+R or F5)" AutomationProperties.AutomationId="RefreshButton" />
+                            <Button Style="{StaticResource ToolbarButton}" Content="Import items (CSV)" Tag="{StaticResource Icon.Import}" Command="{Binding ImportItemsCsvCommand}" ToolTip="Bring in a list of items from a spreadsheet file" AutomationProperties.AutomationId="ImportItemsCsvButton" />
+                            <Button Style="{StaticResource ToolbarButton}" Content="Export items (CSV)" Tag="{StaticResource Icon.Export}" Command="{Binding ExportItemsCsvCommand}" ToolTip="Save the list as a spreadsheet file" AutomationProperties.AutomationId="ExportItemsCsvButton" />
+                            <Button Style="{StaticResource ToolbarButton}" Content="Manage categories" Tag="{StaticResource Icon.Category}" Command="{Binding ManageCategoriesCommand}" AutomationProperties.AutomationId="ManageCategoriesButton" />
+                            <Button Style="{StaticResource ToolbarButton}" Content="Manage locations" Tag="{StaticResource Icon.Location}" Command="{Binding ManageLocationsCommand}" AutomationProperties.AutomationId="ManageLocationsButton" />
+                            <Button Style="{StaticResource ToolbarButton}" Content="Unit converter" Tag="{StaticResource Icon.Convert}" Click="Open_UnitConverter_Click" ToolTip="Convert between kg/g/mg and l/ml/cl/dl" AutomationProperties.AutomationId="UnitConverterButton" />
+                            <Button Style="{StaticResource ToolbarButton}" Content="Reports" Tag="{StaticResource Icon.Reports}" Click="Open_Reports_Click" ToolTip="Generate and export inventory reports" AutomationProperties.AutomationId="ReportsButton" />
+                            <!-- Last and on its own, because deleting is the one action here that
+                                 cannot be undone by pressing Save again. -->
+                            <Button Style="{StaticResource ToolbarButton}" Content="Remove item" Tag="{StaticResource Icon.Remove}" Command="{Binding DeleteItemCommand}" ToolTip="Take something off the list (Delete)" AutomationProperties.AutomationId="DeleteItemButton" />
+                        </WrapPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- Filters. Their own bar, on the plain surface, so it is plain at a glance that
+                 these narrow the list rather than change the stock. -->
+            <Border DockPanel.Dock="Top" Padding="{StaticResource Spacing.Sm}" BorderThickness="0,0,0,1"
+                    Background="{StaticResource Brush.Surface}"
+                    BorderBrush="{StaticResource Brush.Border}">
                 <WrapPanel Orientation="Horizontal">
-                    <Button Style="{StaticResource ToolbarButton}" Content="Refresh" Tag="{StaticResource Icon.Refresh}" Command="{Binding RefreshCommand}" ToolTip="Reload the list from the saved data (Ctrl+R or F5)" AutomationProperties.AutomationId="RefreshButton" />
-                    <Button Style="{StaticResource ToolbarButton}" Content="Add item" Tag="{StaticResource Icon.Add}" Command="{Binding AddItemCommand}" ToolTip="Add something new to the store (Ctrl+N)" AutomationProperties.AutomationId="AddItemButton" />
-                    <Button Style="{StaticResource ToolbarButton}" Content="Remove item" Tag="{StaticResource Icon.Remove}" Command="{Binding DeleteItemCommand}" ToolTip="Take something off the list (Delete)" AutomationProperties.AutomationId="DeleteItemButton" />
-                    <Button Style="{StaticResource ToolbarButton}" Content="Save changes" Tag="{StaticResource Icon.Save}" Command="{Binding SaveChangesCommand}" Margin="0,0,16,4" ToolTip="Save the changes you have made in the table (Ctrl+S)" AutomationProperties.AutomationId="SaveChangesButton"/>
-
-                    <!-- Stock Operations -->
-                    <Button Style="{StaticResource ToolbarButton}" Content="Take in stock" Tag="{StaticResource Icon.StockIn}" Command="{Binding AddStockCommand}" ToolTip="Record stock arriving in the store" AutomationProperties.AutomationId="AddStockButton" />
-                    <Button Style="{StaticResource ToolbarButton}" Content="Take out stock" Tag="{StaticResource Icon.StockOut}" Command="{Binding ConsumeStockCommand}" ToolTip="Record stock used from the store" AutomationProperties.AutomationId="ConsumeStockButton" />
-                    <Button Style="{StaticResource ToolbarButton}" Content="Recount" Tag="{StaticResource Icon.Recount}" Command="{Binding AdjustStockCommand}" Margin="0,0,16,4" ToolTip="Set the stock to what you actually counted" AutomationProperties.AutomationId="AdjustStockButton" />
-
-                    <Button Style="{StaticResource ToolbarButton}" Content="Import items (CSV)" Tag="{StaticResource Icon.Import}" Command="{Binding ImportItemsCsvCommand}" ToolTip="Bring in a list of items from a spreadsheet file" AutomationProperties.AutomationId="ImportItemsCsvButton" />
-                    <Button Style="{StaticResource ToolbarButton}" Content="Export items (CSV)" Tag="{StaticResource Icon.Export}" Command="{Binding ExportItemsCsvCommand}" Margin="0,0,16,4" ToolTip="Save the list as a spreadsheet file" AutomationProperties.AutomationId="ExportItemsCsvButton" />
-
-                    <!-- Manage Categories -->
-                    <Button Style="{StaticResource ToolbarButton}" Content="Manage categories" Tag="{StaticResource Icon.Category}" Command="{Binding ManageCategoriesCommand}" AutomationProperties.AutomationId="ManageCategoriesButton" />
-
-                    <!-- Manage Locations -->
-                    <Button Style="{StaticResource ToolbarButton}" Content="Manage locations" Tag="{StaticResource Icon.Location}" Command="{Binding ManageLocationsCommand}" AutomationProperties.AutomationId="ManageLocationsButton" />
-
-                    <!-- Unit Converter -->
-                    <Button Style="{StaticResource ToolbarButton}" Content="Unit converter" Tag="{StaticResource Icon.Convert}" Click="Open_UnitConverter_Click" ToolTip="Convert between kg/g/mg and l/ml/cl/dl" AutomationProperties.AutomationId="UnitConverterButton" />
-
-                    <!-- Reports -->
-                    <Button Style="{StaticResource ToolbarButton}" Content="Reports" Tag="{StaticResource Icon.Reports}" Click="Open_Reports_Click" ToolTip="Generate and export inventory reports" AutomationProperties.AutomationId="ReportsButton" />
-
                     <!-- Category Filter -->
-                    <TextBlock Text="Category:" VerticalAlignment="Center" Margin="8,0,6,4" />
-                    <ComboBox Width="180" Margin="0,0,0,4"
+                    <TextBlock Text="Category:" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <ComboBox Width="180"
                               ItemsSource="{Binding Categories}"
                               SelectedValuePath="Id"
                               DisplayMemberPath="Name"
@@ -108,8 +146,8 @@
                               AutomationProperties.AutomationId="CategoryFilterCombo"/>
 
                     <!-- Location Filter -->
-                    <TextBlock Text="Location:" VerticalAlignment="Center" Margin="8,0,6,4" />
-                    <ComboBox Width="180" Margin="0,0,0,4"
+                    <TextBlock Text="Location:" VerticalAlignment="Center" Margin="16,0,6,0" />
+                    <ComboBox Width="180"
                               ItemsSource="{Binding Locations}"
                               SelectedValuePath="Id"
                               DisplayMemberPath="Name"
@@ -117,12 +155,12 @@
                               AutomationProperties.AutomationId="LocationFilterCombo"/>
 
                     <!-- Search -->
-                    <TextBlock Text="Search:" VerticalAlignment="Center" Margin="16,0,6,4" />
-                    <TextBox x:Name="SearchBox" Width="240" Margin="0,0,0,4"
+                    <TextBlock Text="Search:" VerticalAlignment="Center" Margin="16,0,6,0" />
+                    <TextBox x:Name="SearchBox" Width="240"
                              Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
                              ToolTip="Type part of an item's name to narrow the list (Ctrl+F)"
                              AutomationProperties.AutomationId="SearchBox"/>
-                    <CheckBox Content="Problems only" Margin="8,0,0,4" VerticalAlignment="Center"
+                    <CheckBox Content="Problems only" Margin="16,0,0,0" VerticalAlignment="Center"
                               ToolTip="Show only items that are low, out of stock or going out of date"
                               IsChecked="{Binding ShowNeedsAttentionOnly}"
                               AutomationProperties.AutomationId="NeedsAttentionOnlyCheckBox"/>

@@ -191,6 +191,68 @@
         </Setter>
     </Style>
 
+    <!-- The toolbar's one primary action. It is laid out exactly like every other toolbar
+         button — icon, then word — but it cannot borrow that button's template: the shared
+         one paints its hover the pale blue of a *neutral* action, which under white text is
+         unreadable. So the same arrangement is repeated here in the primary palette. -->
+    <Style x:Key="ToolbarPrimaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="Margin" Value="0,0,8,4" />
+        <Setter Property="Background" Value="{StaticResource Brush.Primary}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Primary}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextOnPrimary}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd"
+                            CornerRadius="{StaticResource Radius.Md}"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            Padding="{TemplateBinding Padding}"
+                            SnapsToDevicePixels="True">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Path x:Name="Icon"
+                                  Data="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}"
+                                  Stroke="{TemplateBinding Foreground}"
+                                  StrokeThickness="1.6"
+                                  StrokeLineJoin="Round"
+                                  StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round"
+                                  Width="{StaticResource Metric.IconSize}"
+                                  Height="{StaticResource Metric.IconSize}"
+                                  Stretch="Uniform"
+                                  Margin="0,0,7,0"
+                                  VerticalAlignment="Center" />
+                            <ContentPresenter VerticalAlignment="Center" RecognizesAccessKey="True" />
+                        </StackPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Tag" Value="{x:Null}">
+                            <Setter TargetName="Icon" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource Brush.PrimaryHover}" />
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Brush.PrimaryHover}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource Brush.PrimaryHover}" />
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Brush.PrimaryHover}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Brush.PrimarySurfaceStrong}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{StaticResource Brush.DisabledText}" />
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource Brush.DisabledSurface}" />
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ==================== Text entry ==================== -->
     <ControlTemplate x:Key="TextBox.Template" TargetType="TextBox">
         <Border x:Name="Bd"

@@ -92,6 +92,19 @@ namespace KitchenInventory.Desktop
             _alertsTimer.Start();
         }
 
+        /// <summary>
+        /// Shows and hides the occasional toolbar actions. They are ordinary buttons in the
+        /// window rather than a pop-up menu, so they keep their names — reachable with the
+        /// keyboard, readable to a screen reader, and clickable by the UI tests that address
+        /// them by name.
+        /// </summary>
+        private void MoreActions_Click(object sender, RoutedEventArgs e)
+        {
+            MorePanel.Visibility = MorePanel.Visibility == Visibility.Visible
+                ? Visibility.Collapsed
+                : Visibility.Visible;
+        }
+
         private void Open_UnitConverter_Click(object sender, RoutedEventArgs e)
         {
             try

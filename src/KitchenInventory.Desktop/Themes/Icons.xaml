@@ -70,4 +70,7 @@
     <PathGeometry x:Key="Icon.Warning"
                   Figures="M12 3.5l9 16H3z M12 10v4.5 M12 17.6h.01" />
 
+    <!-- More: a chevron, the "there is more under here" mark. -->
+    <PathGeometry x:Key="Icon.More" Figures="M6 9l6 6 6-6" />
+
 </ResourceDictionary>
