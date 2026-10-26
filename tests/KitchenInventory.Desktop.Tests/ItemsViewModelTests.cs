@@ -639,4 +639,124 @@ public class ItemsViewModelTests : IDisposable
 
         Assert.Equal(firstTotal, vm.TotalCount);
     }
+
+    // ---- view states (empty / no results / all clear) ----------------------
+
+    [Fact]
+    public async Task ViewState_WithDataAndAnAlert_ShowsNoOverlay()
+    {
+        var vm = Create();
+        await vm.LoadAsync();
+
+        // Milk is out of stock, so there is both data and something to report.
+        Assert.False(vm.IsEmpty);
+        Assert.False(vm.HasNoMatches);
+        Assert.False(vm.IsAllClear);
+    }
+
+    [Fact]
+    public async Task IsEmpty_IsTrueWhenThereAreNoItemsAtAll()
+    {
+        using (var db = _factory.CreateDbContext())
+        {
+            db.StockMovements.RemoveRange(db.StockMovements.ToList());
+            db.Items.RemoveRange(db.Items.ToList());
+            db.SaveChanges();
+        }
+
+        var vm = Create();
+        await vm.LoadAsync();
+
+        Assert.True(vm.IsEmpty);
+        Assert.False(vm.HasNoMatches);
+        Assert.Equal(0, vm.TotalCount);
+    }
+
+    [Fact]
+    public async Task IsAllClear_IsTrueWhenNothingNeedsAttention()
+    {
+        using (var db = _factory.CreateDbContext())
+        {
+            db.Items.Remove(db.Items.Single(i => i.Name == "Milk"));
+            db.SaveChanges();
+        }
+
+        var vm = Create();
+        await vm.LoadAsync();
+
+        Assert.Equal(0, vm.AlertsCount);
+        Assert.True(vm.IsAllClear);
+        Assert.False(vm.IsEmpty);
+        Assert.False(vm.HasNoMatches);
+    }
+
+    [Fact]
+    public async Task HasNoMatches_IsTrueWhenTheFilterHidesEveryItem()
+    {
+        var vm = Create();
+        await vm.LoadAsync();
+
+        vm.FilterText = "zzz";
+
+        Assert.True(vm.HasNoMatches);
+        Assert.False(vm.IsEmpty);
+        Assert.Equal("No items match \u201czzz\u201d.", vm.NoMatchesMessage);
+    }
+
+    [Fact]
+    public async Task NoMatchesMessage_QuotesTheTermOrFallsBackToTheFilters()
+    {
+        var vm = Create();
+        await vm.LoadAsync();
+
+        vm.FilterText = "zzz";
+        Assert.Equal("No items match \u201czzz\u201d.", vm.NoMatchesMessage);
+
+        // Whitespace is not a search term, so nothing is quoted back.
+        vm.FilterText = "   ";
+        Assert.Equal("Nothing matches the filters you have set.", vm.NoMatchesMessage);
+    }
+
+    [Fact]
+    public async Task ViewState_ReannouncesWhenTheFilterChanges()
+    {
+        var vm = Create();
+        await vm.LoadAsync();
+
+        var seen = new List<string?>();
+        vm.PropertyChanged += (_, e) => seen.Add(e.PropertyName);
+
+        vm.FilterText = "zzz";
+
+        Assert.Contains(nameof(ItemsViewModel.HasNoMatches), seen);
+        Assert.Contains(nameof(ItemsViewModel.NoMatchesMessage), seen);
+        Assert.Contains(nameof(ItemsViewModel.IsEmpty), seen);
+    }
+
+    [Fact]
+    public async Task ClearFiltersCommand_ShowsEverythingAgain_AndClearsSavedChoices()
+    {
+        var prefs = new FakePreferences();
+        var vm = Create(prefs: prefs);
+        await vm.LoadAsync();
+
+        vm.FilterText = "zzz";
+        vm.SelectedCategoryId = 1;
+        vm.SelectedLocationId = 1;
+        vm.ShowNeedsAttentionOnly = true;
+        Assert.True(vm.HasNoMatches);
+
+        RunCommand(vm.ClearFiltersCommand);
+
+        Assert.Equal(string.Empty, vm.FilterText);
+        Assert.Null(vm.SelectedCategoryId);
+        Assert.Null(vm.SelectedLocationId);
+        Assert.False(vm.ShowNeedsAttentionOnly);
+        Assert.False(vm.HasNoMatches);
+        Assert.Equal(vm.TotalCount, vm.FilteredCount);
+        // The saved choices are cleared too, or the next launch would reopen the empty list.
+        Assert.Equal(0, prefs.Values["ui.selectedCategoryId"]);
+        Assert.Equal(0, prefs.Values["ui.selectedLocationId"]);
+        Assert.Equal(false, prefs.Values["ui.showNeedsAttentionOnly"]);
+    }
 }

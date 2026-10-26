@@ -196,6 +196,27 @@ public class ItemsViewModel : INotifyPropertyChanged
         private set { _statusText = value; OnPropertyChanged(); }
     }
 
+    /// <summary>
+    /// True when there is nothing in the database at all. This is a different situation from
+    /// <see cref="HasNoMatches"/>: there is no filter to clear, so the only useful next step is
+    /// to add the first item.
+    /// </summary>
+    public bool IsEmpty => TotalCount == 0;
+
+    /// <summary>True when items exist but the current filter is hiding every one of them.</summary>
+    public bool HasNoMatches => TotalCount > 0 && FilteredCount == 0;
+
+    /// <summary>True when nothing is running low, out of stock or going out of date.</summary>
+    public bool IsAllClear => AlertsCount == 0;
+
+    /// <summary>
+    /// What the no-results overlay says. Naming the search term is what makes it obvious that the
+    /// filter rather than the data is hiding things — the two cases used to look identical.
+    /// </summary>
+    public string NoMatchesMessage => string.IsNullOrWhiteSpace(FilterText)
+        ? "Nothing matches the filters you have set."
+        : $"No items match \u201c{FilterText.Trim()}\u201d.";
+
     /// <summary>Banner text shown after a removal ("Rice was removed."); empty when there is nothing to undo.</summary>
     public string UndoMessage
     {
@@ -266,6 +287,7 @@ public class ItemsViewModel : INotifyPropertyChanged
     }
 
     public ICommand RefreshCommand { get; }
+    public ICommand ClearFiltersCommand { get; }
     public ICommand AddItemCommand { get; }
     public ICommand DeleteItemCommand { get; }
     public ICommand UndoRemoveCommand { get; }
@@ -319,6 +341,7 @@ public class ItemsViewModel : INotifyPropertyChanged
         _crashReportingEnabled = _preferences?.Get<bool>("privacy.errorReportingEnabled", false) ?? false;
 
         RefreshCommand = new AsyncRelayCommand(LoadAsync);
+        ClearFiltersCommand = new RelayCommand(ClearFilters);
         AddItemCommand = _dialogs != null
             ? new AsyncRelayCommand(AddItemAsync, () => HasRole(Roles.Admin, Roles.Manager))
             : new RelayCommand(AddItem, () => HasRole(Roles.Admin, Roles.Manager));
@@ -395,12 +418,38 @@ public class ItemsViewModel : INotifyPropertyChanged
         CommandManager.InvalidateRequerySuggested();
     }
 
+    /// <summary>
+    /// Puts the list back to showing everything. The no-results state offers this as its single
+    /// action, and it has to clear the saved category and location choices as well — leaving
+    /// either in place would keep the list empty and make the button look broken.
+    /// </summary>
+    private void ClearFilters()
+    {
+        FilterText = string.Empty;
+        SelectedCategoryId = null;
+        SelectedLocationId = null;
+        ShowNeedsAttentionOnly = false;
+        ApplyFilter();
+    }
+
     private void UpdateCounts()
     {
         TotalCount = Items.Count;
         FilteredCount = ItemsView?.Cast<object>().Count() ?? Items.Count;
         NeedsAttentionCount = Items.Count(IsNeedsAttention);
         RefreshAlerts();
+    }
+
+    /// <summary>
+    /// The three states the shell draws an overlay for are all derived, so a change to any count
+    /// has to announce them or the overlay would disagree with the grid beside it.
+    /// </summary>
+    private void RaiseViewStateChanged()
+    {
+        OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(HasNoMatches));
+        OnPropertyChanged(nameof(IsAllClear));
+        OnPropertyChanged(nameof(NoMatchesMessage));
     }
 
     /// <summary>
@@ -419,6 +468,7 @@ public class ItemsViewModel : INotifyPropertyChanged
         LowStockCount = alerts.Count(a => a.Kind == AlertKind.LowStock || a.Kind == AlertKind.OutOfStock);
         ExpiringSoonCount = alerts.Count(a => a.Kind == AlertKind.ExpiringSoon);
         ExpiredCount = alerts.Count(a => a.Kind == AlertKind.Expired);
+        RaiseViewStateChanged();
     }
 
     private void UpdateStatus()

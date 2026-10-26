@@ -254,6 +254,49 @@
                 </DataGrid.Columns>
             </DataGrid>
 
+            <!-- Empty state. The grid stays underneath so selection and the keyboard shortcuts
+                 keep working, but on day one there is nothing to read and something to say. -->
+            <Border Grid.Column="0" Margin="8,8,4,8" Padding="24"
+                    Background="{StaticResource Brush.Surface}"
+                    BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
+                    CornerRadius="{StaticResource Radius.Md}"
+                    Visibility="{Binding IsEmpty, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="440">
+                    <TextBlock Style="{StaticResource SectionHeading}" HorizontalAlignment="Center"
+                               Text="Nothing in the kitchen yet" />
+                    <TextBlock Style="{StaticResource CaptionText}" TextWrapping="Wrap" TextAlignment="Center"
+                               Margin="0,12,0,0"
+                               Text="Add the first thing you keep track of — rice, cooking oil, floor cleaner — and this list will show you what is running low." />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,20,0,0">
+                        <Button Style="{StaticResource PrimaryButton}" Content="Add your first item"
+                                Command="{Binding AddItemCommand}"
+                                AutomationProperties.AutomationId="EmptyStateAddButton" />
+                        <Button Content="Import a spreadsheet" Margin="8,0,0,0"
+                                Command="{Binding ImportItemsCsvCommand}"
+                                AutomationProperties.AutomationId="EmptyStateImportButton" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- No results. Distinct from the state above: there is something here, the filter is
+                 just hiding it — so the action is to clear the filter, not to add an item. -->
+            <Border Grid.Column="0" Margin="8,8,4,8" Padding="24"
+                    Background="{StaticResource Brush.Surface}"
+                    BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
+                    CornerRadius="{StaticResource Radius.Md}"
+                    Visibility="{Binding HasNoMatches, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="440">
+                    <TextBlock Style="{StaticResource SectionHeading}" HorizontalAlignment="Center"
+                               Text="{Binding NoMatchesMessage}" TextWrapping="Wrap" TextAlignment="Center" />
+                    <TextBlock Style="{StaticResource CaptionText}" TextWrapping="Wrap" TextAlignment="Center"
+                               Margin="0,12,0,0"
+                               Text="Your items are still here — the search and filters are hiding them." />
+                    <Button Style="{StaticResource PrimaryButton}" HorizontalAlignment="Center" Margin="0,20,0,0"
+                            Content="Show everything" Command="{Binding ClearFiltersCommand}"
+                            AutomationProperties.AutomationId="ClearFiltersButton" />
+                </StackPanel>
+            </Border>
+
             <!-- Audit/Movements side panel -->
             <Border Grid.Column="1" Margin="4,8,8,8" Padding="12"
                     Background="{StaticResource Brush.SurfaceAlt}"
@@ -294,6 +337,22 @@
                                         </GridView>
                                     </ListView.View>
                                 </ListView>
+
+                                <!-- All clear. Five empty columns say nothing; the good news is
+                                     worth saying outright. -->
+                                <Border Grid.Row="1" Padding="16" VerticalAlignment="Top"
+                                        Background="{StaticResource Brush.SuccessSurface}"
+                                        BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
+                                        CornerRadius="{StaticResource Radius.Md}"
+                                        Visibility="{Binding IsAllClear, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                        AutomationProperties.AutomationId="AllClearPanel">
+                                    <StackPanel>
+                                        <TextBlock Text="Nothing needs your attention" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource Brush.Success}" />
+                                        <TextBlock Style="{StaticResource CaptionText}" TextWrapping="Wrap" Margin="0,6,0,0"
+                                                   Text="No stock is running low and nothing is close to its use-by date. This tab will fill up on its own when that changes." />
+                                    </StackPanel>
+                                </Border>
                             </Grid>
                         </TabItem>
                         <TabItem Header="Item history">
