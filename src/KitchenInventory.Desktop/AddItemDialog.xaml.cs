@@ -42,7 +42,10 @@ namespace KitchenInventory.Desktop
                 Title = "Edit item";
                 ConfirmAddButton.Content = "_Save";
                 Vm.ItemName = editTarget.Name;
-                Vm.Quantity = editTarget.Quantity;
+                // A stored amount comes back with the scale it was written with ("10.0"), which
+                // the box shows as it is while the grid, which formats, says "10". Dropping the
+                // stored scale here is what keeps the two readings of the same amount alike.
+                Vm.Quantity = QuantityText.WithoutStoredScale(editTarget.Quantity);
                 Vm.Unit = string.IsNullOrWhiteSpace(editTarget.Unit) ? "pcs" : editTarget.Unit;
                 Vm.SelectedCategoryId = editTarget.CategoryId ?? 0;
                 Vm.SelectedLocationId = editTarget.LocationId ?? 0;

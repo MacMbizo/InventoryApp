@@ -21,6 +21,9 @@ public static class QuantityText
     /// <summary>How many digits are allowed after the decimal separator.</summary>
     public const int MaxDecimalPlaces = 3;
 
+    /// <summary>The amount written out with no trailing zeros, whatever scale it was stored with.</summary>
+    private const string PlainFormat = "0.############################";
+
     // Characters that are only ever thousands separators in a number: spaces (including the
     // non-breaking and narrow no-break spaces used by fr-FR and de-DE) and the Swiss apostrophe.
     private static readonly char[] GroupSpaces = { '\u00A0', '\u202F', '\u2009', '\u2019', '\'' };
@@ -49,6 +52,18 @@ public static class QuantityText
 
         return pattern.IsMatch(proposed);
     }
+
+    /// <summary>
+    /// The same amount with no scale it did not need. A decimal remembers how many places it was
+    /// written with, so an amount kept as 10.0 arrives reading "10.0" and a text box, which shows
+    /// the amount as it is, says so — while the grid, which formats what it shows, says "10". Use
+    /// this where a stored amount is put in front of someone to read or to edit.
+    /// </summary>
+    public static decimal WithoutStoredScale(decimal value)
+        => decimal.Parse(
+            value.ToString(PlainFormat, CultureInfo.InvariantCulture),
+            NumberStyles.Number,
+            CultureInfo.InvariantCulture);
 
     /// <summary>
     /// Rewrites a pasted value so that it uses <paramref name="culture"/>'s separators, returning

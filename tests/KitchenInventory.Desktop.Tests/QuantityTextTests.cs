@@ -49,6 +49,33 @@ public class QuantityTextTests
     }
 
     [Theory]
+    [InlineData("10.0")]
+    [InlineData("10.00")]
+    [InlineData("10.000")]
+    public void WithoutStoredScale_DropsThePlacesTheAmountWasWrittenWith(string stored)
+    {
+        // A quantity read back from the database carries the scale it was stored with, which is
+        // what made the edit dialog read "10.0" while the grid read "10".
+        var value = decimal.Parse(stored, CultureInfo.InvariantCulture);
+
+        QuantityText.WithoutStoredScale(value).Should().Be(10m);
+        QuantityText.WithoutStoredScale(value).ToString(CultureInfo.InvariantCulture).Should().Be("10");
+    }
+
+    [Theory]
+    [InlineData("2.5", "2.5")]
+    [InlineData("0.25", "0.25")]
+    [InlineData("1234.5", "1234.5")]
+    [InlineData("0.0", "0")]
+    [InlineData("1000000", "1000000")]
+    public void WithoutStoredScale_KeepsAmountsThatNeedTheirPlaces(string stored, string expected)
+    {
+        var value = decimal.Parse(stored, CultureInfo.InvariantCulture);
+
+        QuantityText.WithoutStoredScale(value).ToString(CultureInfo.InvariantCulture).Should().Be(expected);
+    }
+
+    [Theory]
     [InlineData("1,5", "1.5")]      // a comma decimal from a continental keyboard
     [InlineData("1,500", "1500")]   // thousands grouping, not a decimal
     [InlineData("1,500.25", "1500.25")]

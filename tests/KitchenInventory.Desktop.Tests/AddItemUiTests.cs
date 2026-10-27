@@ -262,6 +262,53 @@ public class AddItemUiTests
         }
     }
 
+    /// <summary>
+    /// The edit dialog used to show an amount with the scale it happened to be stored with: a
+    /// quantity kept in the database as 10.0 appeared in the box as "10.0" while the grid, which
+    /// formats what it shows, said "10". The two readings of the same amount now agree.
+    /// </summary>
+    [StaFact(DisplayName = "EditDialog_ShowsTheQuantityTheWayTheGridDoes")]
+    public void EditDialog_ShowsTheQuantityTheWayTheGridDoes()
+    {
+        var connection = UiTestHelpers.CreateIsolatedSqliteConnectionString();
+        using var process = UiTestHelpers.LaunchApp(connection);
+
+        try
+        {
+            try { process.WaitForInputIdle(10000); } catch { }
+
+            using var automation = new UIA3Automation();
+            var mainWindow = UiTestHelpers.CompleteStartupGating(automation, process);
+
+            try { mainWindow.Focus(); } catch { }
+            try { mainWindow.SetForeground(); } catch { }
+
+            var itemName = $"Amount-{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+            UiTestHelpers.AddItem(mainWindow, itemName, "10", "kg");
+            Assert.True(UiTestHelpers.WaitForGridRow(mainWindow, "ItemsDataGrid", itemName, TimeSpan.FromSeconds(15)),
+                "The item never appeared in the grid.");
+
+            Assert.True(UiTestHelpers.ChooseFromRowMenu(mainWindow, itemName, "EditItemMenuItem"),
+                "The row menu's 'Edit item' entry could not be reached.");
+
+            var dialog = WaitForDialog(mainWindow, "Edit item", TimeSpan.FromSeconds(15));
+            Assert.NotNull(dialog);
+
+            var quantityBox = dialog!.FindFirstDescendant(cf => cf.ByAutomationId("QuantityTextBox"))?.AsTextBox();
+            Assert.NotNull(quantityBox);
+            Assert.Equal("10", (quantityBox!.Text ?? string.Empty).Trim());
+
+            var cancel = dialog.FindFirstDescendant(cf => cf.ByAutomationId("CancelAddItemButton"));
+            Assert.NotNull(cancel);
+            UiTestHelpers.TryInvokeWithFallback(cancel!);
+            Thread.Sleep(250);
+        }
+        finally
+        {
+            UiTestHelpers.KillIfRunning(process);
+        }
+    }
+
     [StaFact(DisplayName = "AddItemDialog_DisablesAdd_WhenInvalid_And_ShowsInlineError_Then_EnablesWhenValid")]
     [Trait("Category", "UI")] 
     [Trait("Subcategory", "Validation")]

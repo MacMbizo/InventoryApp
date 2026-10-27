@@ -221,6 +221,112 @@ public static class UiTestHelpers
         }
     }
 
+    /// <summary>
+    /// Right-clicks the grid row containing <paramref name="rowContains"/> and invokes one of
+    /// the entries in the menu that opens. A ContextMenu is shown in its own popup window rather
+    /// than inside the window's tree, so the menu is looked for in the window first and then
+    /// across the process. Returns false when the row or the menu could not be reached.
+    /// </summary>
+    public static bool ChooseFromRowMenu(
+        Window mainWindow,
+        string rowContains,
+        string menuItemAutomationId,
+        string gridAutomationId = "ItemsDataGrid",
+        ITestOutputHelper? output = null)
+    {
+        try { mainWindow.Focus(); } catch { }
+        try { mainWindow.SetForeground(); } catch { }
+
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            var row = FindGridRow(mainWindow, gridAutomationId, rowContains);
+            if (row == null)
+            {
+                Thread.Sleep(400);
+                continue;
+            }
+
+            try
+            {
+                Mouse.MoveTo(row.GetClickablePoint());
+                Mouse.Click(MouseButton.Right);
+            }
+            catch (Exception ex)
+            {
+                output?.WriteLine($"Right-clicking the row failed: {ex.Message}");
+                Thread.Sleep(400);
+                continue;
+            }
+
+            var menu = WaitForRowMenu(mainWindow, output);
+            var entry = menu?.FindFirstDescendant(cf => cf.ByAutomationId(menuItemAutomationId));
+            if (entry == null)
+            {
+                output?.WriteLine($"Row menu entry '{menuItemAutomationId}' did not appear.");
+                Thread.Sleep(400);
+                continue;
+            }
+
+            TryInvokeWithFallback(entry);
+            Thread.Sleep(300);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static AutomationElement? FindGridRow(Window mainWindow, string gridAutomationId, string contains)
+    {
+        try
+        {
+            var grid = mainWindow.FindFirstDescendant(cf => cf.ByAutomationId(gridAutomationId));
+            if (grid == null) return null;
+
+            foreach (var row in grid.FindAllDescendants(cf => cf.ByControlType(ControlType.DataItem)))
+            {
+                var cells = row.FindAllDescendants(cf => cf.ByControlType(ControlType.Text).Or(cf.ByControlType(ControlType.Edit)));
+                foreach (var cell in cells)
+                {
+                    var text = ReadCellText(cell);
+                    if (!string.IsNullOrEmpty(text) && text.Contains(contains, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return row;
+                    }
+                }
+            }
+        }
+        catch { }
+
+        return null;
+    }
+
+    /// <summary>The row menu while it is up, or null while it is not.</summary>
+    private static AutomationElement? WaitForRowMenu(Window mainWindow, ITestOutputHelper? output)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (DateTime.UtcNow < deadline)
+        {
+            try
+            {
+                var inWindow = mainWindow.FindFirstDescendant(cf => cf.ByAutomationId("ItemsContextMenu"));
+                if (inWindow != null) return inWindow;
+
+                var desktop = mainWindow.Automation.GetDesktop();
+                var pid = mainWindow.Properties.ProcessId.ValueOrDefault;
+                var onDesktop = desktop.FindFirstDescendant(cf => cf.ByProcessId(pid).And(cf.ByAutomationId("ItemsContextMenu")));
+                if (onDesktop != null) return onDesktop;
+            }
+            catch (Exception ex)
+            {
+                output?.WriteLine($"Looking for the row menu failed: {ex.Message}");
+            }
+
+            Thread.Sleep(150);
+        }
+
+        return null;
+    }
+
     public static bool TryOpenToolbarOverflow(Window mainWindow, ITestOutputHelper? output = null)
     {
         // The "More" drawer toggles open and closed on each press, so opening it twice
