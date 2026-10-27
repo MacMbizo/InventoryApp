@@ -39,7 +39,6 @@ public class StockOperationUiTests : IDisposable
     // UiTestHelpers.DebugAllButtons(mainWindow, _output);
     // var el = UiTestHelpers.TryFindActionElement(mainWindow, "Take in stock", _output);
     // UiTestHelpers.ClickActionByName(mainWindow, "Take in stock", _output);
-    // UiTestHelpers.WaitForAndClickButtonByIdOrName(mainWindow, "SaveChangesButton", TimeSpan.FromSeconds(10), _output);
 
     /// <summary>
     /// Regression guard: ShowStockOperationDialogAsync read SelectedItem.Name *after*
@@ -107,7 +106,7 @@ public class StockOperationUiTests : IDisposable
 
             var qty = dialog!.FindFirstDescendant(cf => cf.ByAutomationId("QuantityTextBox"))?.AsTextBox();
             Assert.NotNull(qty);
-            qty!.Enter("10");
+            UiTestHelpers.SetText(qty, "10", _output);
             Thread.Sleep(250);
 
             var execute = dialog.FindFirstDescendant(cf => cf.ByAutomationId("ExecuteButton"));
@@ -202,12 +201,12 @@ public class StockOperationUiTests : IDisposable
             // delta must be -15.
             var qty = dialog!.FindFirstDescendant(cf => cf.ByAutomationId("QuantityTextBox"))?.AsTextBox();
             Assert.NotNull(qty);
-            qty!.Enter("5");
+            UiTestHelpers.SetText(qty, "5", _output);
             Thread.Sleep(200);
 
             var reason = dialog.FindFirstDescendant(cf => cf.ByAutomationId("ReasonTextBox"))?.AsTextBox();
             Assert.True(reason != null, "The Reason box was not found (required for an adjustment).");
-            reason!.Enter("Stock take");
+            UiTestHelpers.SetText(reason, "Stock take", _output);
             Thread.Sleep(250);
 
             var execute = dialog.FindFirstDescendant(cf => cf.ByAutomationId("ExecuteButton"));

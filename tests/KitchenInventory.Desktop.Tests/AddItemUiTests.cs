@@ -16,24 +16,10 @@ public class AddItemUiTests
     private static Window? WaitForDialog(Window parentWindow, string titleContains, TimeSpan timeout) => UiTestHelpers.WaitForDialog(parentWindow, titleContains, timeout);
 
     /// <summary>
-    /// Puts text into a box through the UI Automation value pattern rather than by typing it.
-    /// Real keystrokes are only delivered to the window that actually holds focus, which a
-    /// headless/CI session cannot guarantee, and a swallowed keystroke is indistinguishable
-    /// from the validation under test having broken. Falls back to typing when the control
-    /// has no value pattern.
+    /// Puts text into a box through the shared UI Automation value-pattern setter rather than by
+    /// typing it. See <see cref="UiTestHelpers.SetText"/> for why keystrokes are the fragile path.
     /// </summary>
-    private static void SetText(TextBox box, string text)
-    {
-        try
-        {
-            box.Focus();
-            box.Text = text;
-        }
-        catch
-        {
-            box.Enter(text);
-        }
-    }
+    private static void SetText(TextBox box, string text) => UiTestHelpers.SetText(box, text);
 
     [StaFact]
     public void Desktop_Open_AddItemDialog_Then_CloseDialog()
@@ -125,12 +111,9 @@ public class AddItemUiTests
             Assert.NotNull(qtyBox);
             Assert.NotNull(unitBox);
 
-            nameBox!.Enter(itemName);
-            Thread.Sleep(100);
-            qtyBox!.Enter("2");
-            Thread.Sleep(100);
-            unitBox!.Enter("pcs");
-            Thread.Sleep(100);
+            SetText(nameBox!, itemName);
+            SetText(qtyBox!, "2");
+            SetText(unitBox!, "pcs");
 
             // Click Add
             var addBtn2 = dialog.FindFirstDescendant(cf => cf.ByAutomationId("ConfirmAddItemButton"))

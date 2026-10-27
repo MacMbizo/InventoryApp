@@ -8,6 +8,11 @@ on:
       - feature/*
       - hotfix/*
       - release/*
+    tags:
+      # A release tag is what the release-guard job below checks against VersionPrefix, and what
+      # package-msix waits for. Without this, pushing a tag would not start the workflow at all.
+      - 'v*'
+      - '[0-9]*'
   pull_request:
     branches:
       - main
@@ -31,6 +36,34 @@ jobs:
       - name: Echo context
         run: |
           echo "event=${{ github.event_name }} ref=${{ github.ref }} sha=${{ github.sha }} workflow=${{ github.workflow }} run_id=${{ github.run_id }} on $(date)"
+
+  release-guard:
+    # The tag names the release; VersionPrefix is the version the installer writes into the MSI,
+    # and it is what Windows Installer compares to decide whether a package is an upgrade of the
+    # one already installed. If the two disagree, the download is named one thing and installs as
+    # another, and the "upgrade" built from it can refuse to apply — silently, on a user's machine.
+    # Failing the build here is the only cheap place to catch that.
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Tag must match VersionPrefix
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME#v}"
+          version=$(grep -oP '(?<=<VersionPrefix>)[^<]+' Directory.Build.props | head -n1 | tr -d '[:space:]')
+          echo "tag='${GITHUB_REF_NAME}' (compared as '${tag}') VersionPrefix='${version}'"
+          if [ -z "${version}" ]; then
+            echo "::error::No <VersionPrefix> found in Directory.Build.props."
+            exit 1
+          fi
+          if [ "${tag}" != "${version}" ]; then
+            echo "::error::Tag '${GITHUB_REF_NAME}' does not match VersionPrefix '${version}'. Bump VersionPrefix in Directory.Build.props before tagging, or tag '${version}'."
+            exit 1
+          fi
+          echo "Tag and VersionPrefix agree on ${version}."
 
   build-test-windows:
     runs-on: windows-latest

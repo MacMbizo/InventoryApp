@@ -12,6 +12,7 @@ using KitchenInventory.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -74,10 +75,11 @@ public class ItemsViewModelTests : IDisposable
         IFileOpenService? open = null,
         IDialogService? dialogs = null,
         ISessionService? session = null,
-        IConfiguration? config = null)
+        IConfiguration? config = null,
+        ILogger<ItemsViewModel>? logger = null)
         => new(
             _factory,
-            NullLogger<ItemsViewModel>.Instance,
+            logger ?? NullLogger<ItemsViewModel>.Instance,
             save ?? new FakeFileSave(),
             open ?? new FakeFileOpen(),
             new CsvImportService(),
@@ -85,6 +87,26 @@ public class ItemsViewModelTests : IDisposable
             prefs ?? new FakePreferences(),
             dialogs,
             session);
+
+    /// <summary>Keeps the records a test needs to see, and passes everything else through.</summary>
+    private sealed class RecordingLogger : ILogger<ItemsViewModel>
+    {
+        public List<(LogLevel Level, string Message, Exception? Error)> Entries { get; } = new();
+
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+            => Entries.Add((logLevel, formatter(state, exception), exception));
+
+        private sealed class NullScope : IDisposable
+        {
+            public static readonly NullScope Instance = new();
+            public void Dispose() { }
+        }
+    }
 
     private static async Task WaitUntilAsync(Func<bool> condition, int timeoutMs = 8000)
     {
@@ -295,6 +317,26 @@ public class ItemsViewModelTests : IDisposable
         Assert.Equal(vm.AlertsCount, vm.Alerts.Count);
         Assert.True(vm.CriticalAlertsCount <= vm.AlertsCount);
         Assert.True(vm.LowStockCount >= 1);
+    }
+
+    [Fact]
+    public async Task RefreshAlerts_RecordsAFailureInsteadOfSwallowingIt()
+    {
+        var logger = new RecordingLogger();
+        var vm = Create(logger: logger);
+        await vm.LoadAsync();
+
+        // Anything thrown while the alert list is rebuilt — a handler on the collection, a
+        // data-bound view — used to vanish into an empty catch, leaving the panels stale with no
+        // trace of why. It is recorded now.
+        vm.Alerts.CollectionChanged += (_, _) =>
+            throw new InvalidOperationException("alert rebuild blew up");
+
+        vm.RefreshAlerts();
+
+        var failure = Assert.Single(logger.Entries.Where(e => e.Level == LogLevel.Error));
+        Assert.Contains("alert", failure.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.IsType<InvalidOperationException>(failure.Error);
     }
 
     [Fact]

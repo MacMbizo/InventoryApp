@@ -156,12 +156,9 @@ public static class UiTestHelpers
         Assert.True(nameBox != null && qtyBox != null && unitBox != null,
             "Could not locate the Add Item dialog text boxes.");
 
-        nameBox!.Enter(name);
-        Thread.Sleep(100);
-        qtyBox!.Enter(quantity);
-        Thread.Sleep(100);
-        unitBox!.Enter(unit);
-        Thread.Sleep(150);
+        SetText(nameBox, name, output);
+        SetText(qtyBox, quantity, output);
+        SetText(unitBox, unit, output);
 
         var addBtn = dialog.FindFirstDescendant(cf => cf.ByAutomationId("ConfirmAddItemButton"))
                   ?? dialog.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Add")));
@@ -1055,6 +1052,15 @@ public static class UiTestHelpers
         output?.WriteLine($"Clicking dialog button: Name='{btn!.Name}' Id='{btn.AutomationId}'");
         TryInvokeWithFallback(btn!);
     }
+
+    /// <summary>
+    /// Puts text into a box through the UI Automation value pattern rather than by typing it.
+    /// Real keystrokes are only delivered to the window that actually holds focus, which a
+    /// headless/CI session cannot guarantee, and a swallowed keystroke is indistinguishable from
+    /// the validation under test having broken.
+    /// </summary>
+    public static void SetText(AutomationElement? el, string value, ITestOutputHelper? output = null)
+        => SetTextValue(el, value, output);
 
     private static void SetTextValue(AutomationElement? el, string value, ITestOutputHelper? output)
     {

@@ -533,19 +533,29 @@ public class ItemsViewModel : INotifyPropertyChanged
     /// <summary>
     /// Rebuilds the alerts collection from the currently loaded items.
     /// Exposed publicly so a background timer can refresh day-based alerts (e.g. across midnight).
+    /// A failure here leaves the alert panels quietly stale, which looks exactly like "nothing
+    /// needs attention", so it is logged rather than swallowed.
     /// </summary>
     public void RefreshAlerts()
     {
-        var alerts = InventoryAlertService.Evaluate(Items, _lowStockThreshold, _expiringSoonDays, DateTime.Today);
+        try
+        {
+            var alerts = InventoryAlertService.Evaluate(Items, _lowStockThreshold, _expiringSoonDays, DateTime.Today);
 
-        Alerts.Clear();
-        foreach (var a in alerts) Alerts.Add(a);
+            Alerts.Clear();
+            foreach (var a in alerts) Alerts.Add(a);
 
-        AlertsCount = alerts.Count;
-        CriticalAlertsCount = alerts.Count(a => a.Severity == AlertSeverity.Critical);
-        LowStockCount = alerts.Count(a => a.Kind == AlertKind.LowStock || a.Kind == AlertKind.OutOfStock);
-        ExpiringSoonCount = alerts.Count(a => a.Kind == AlertKind.ExpiringSoon);
-        ExpiredCount = alerts.Count(a => a.Kind == AlertKind.Expired);
+            AlertsCount = alerts.Count;
+            CriticalAlertsCount = alerts.Count(a => a.Severity == AlertSeverity.Critical);
+            LowStockCount = alerts.Count(a => a.Kind == AlertKind.LowStock || a.Kind == AlertKind.OutOfStock);
+            ExpiringSoonCount = alerts.Count(a => a.Kind == AlertKind.ExpiringSoon);
+            ExpiredCount = alerts.Count(a => a.Kind == AlertKind.Expired);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to refresh inventory alerts; the alert list may now be stale");
+        }
+
         RaiseViewStateChanged();
     }
 

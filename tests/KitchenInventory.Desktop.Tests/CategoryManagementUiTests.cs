@@ -107,7 +107,7 @@ public class CategoryManagementUiTests
             var categoryName = $"E2E-{Guid.NewGuid().ToString("N").Substring(0, 8)}";
             var input = prompt!.FindFirstDescendant(cf => cf.ByControlType(ControlType.Edit).And(cf.ByAutomationId("Input")))?.AsTextBox();
             Assert.NotNull(input);
-            input!.Enter(categoryName);
+            UiTestHelpers.SetText(input, categoryName);
 
             // Click OK
             var ok = prompt.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("OK")));

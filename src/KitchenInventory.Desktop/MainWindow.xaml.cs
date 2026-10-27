@@ -37,12 +37,9 @@ namespace KitchenInventory.Desktop
             Loaded += MainWindow_OnLoaded;
 
             // Periodically re-evaluate alerts so day-based alerts (expiring/expired) stay current.
+            // RefreshAlerts records its own failures, so there is nothing to catch here.
             _alertsTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(5) };
-            _alertsTimer.Tick += (_, __) =>
-            {
-                try { _viewModel.RefreshAlerts(); }
-                catch { /* alerts refresh is best-effort */ }
-            };
+            _alertsTimer.Tick += (_, __) => _viewModel.RefreshAlerts();
             Closed += (_, __) => _alertsTimer.Stop();
         }
 

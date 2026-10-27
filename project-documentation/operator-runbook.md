@@ -210,5 +210,46 @@ Change reference
 - CI validates headless start, import success, and missing-file exit code 11 in .github/workflows/dotnet.yml
 - Exit codes are defined centrally in the application and enforced in headless flows
 
+Release checks that need a person
+- Three things cannot be settled by the automated suites. They are listed here so a release is not called done without them.
+
+1. The two gestures only a hand can drive
+   The desktop suite addresses controls through UI Automation, which is what lets it run in a headless session. Two routes into the edit dialog have no such handle, so they are walked by hand each release:
+   - **F2 with the item list focused** opens the edit dialog for the selected row.
+     - Put a few items in the list, click one row so it is selected, press F2, and confirm a dialog titled *Edit item* opens seeded with that row.
+   - **Double-clicking a row** opens the same dialog.
+     - Double-click anywhere on a row (not the header) and confirm the same dialog opens for that row.
+   - In both cases change the quantity, save, and confirm the toolbar says `"…" was updated.` and the grid shows the new amount.
+   - *Why by hand:* synthetic keystrokes and double-clicks are delivered to whichever window holds focus at that instant, which a test session cannot promise. A swallowed F2 looks exactly like a broken feature, so a green automated run would prove nothing here either way.
+
+2. The MSI on a clean machine (Gate 2)
+   An installer's whole job is to behave on a machine that has never had this app, and on a developer machine it is easy for it to look fine while being unusable. Two of the defects fixed on 2026-10-27 — a payload that shipped as two files, and no .NET runtime prerequisite — built without a single warning.
+   - [ ] Build the version being released: `dotnet build src/Installer.Msi/Installer.Msi.wixproj -c Release -p:Platform=x64`. Confirm **one** `KitchenInventory-x64.msi` (roughly 60 MB) and **no** `cab1.cab` beside it.
+   - [ ] On a clean Windows 10/11 VM with no .NET installed, install it. Confirm it does not send the user off to download a runtime, and that it completes.
+   - [ ] Launch from the Start Menu. Confirm the privacy prompt, the admin setup and the main window all appear.
+   - [ ] Add an item, close the app, reopen it. The item is still there.
+   - [ ] Confirm the app is under `%LocalAppData%\KitchenInventory` and the stock data under `%LocalAppData%\InventoryApp`. The separation is deliberate: uninstalling must not take the stock records with it.
+   - [ ] Bump `VersionPrefix` in `Directory.Build.props` (1.0.0 → 1.0.1), rebuild, and install over the top. Confirm it *upgrades* rather than refusing, and that the data from the first install is still present.
+   - [ ] Uninstall from Settings → Apps. Confirm the Start Menu shortcut and `%LocalAppData%\KitchenInventory` are gone, and `%LocalAppData%\InventoryApp` is not.
+
+3. Crash reporting actually reaching Sentry (opt-in)
+   The Sentry SDK fails quietly by design: a revoked key, a deleted project or an exhausted quota all look the same as success to the app.
+   - [ ] Check the DSN still accepts an event:
+     ```powershell
+     $env:SENTRY_DSN = "https://<key>@<host>/<project>"
+     dotnet test tests/KitchenInventory.Desktop.Tests/KitchenInventory.Desktop.Tests.csproj -c Release --filter "FullyQualifiedName~CrashReportingDelivery"
+     ```
+     The test posts one event to the configured DSN and requires a 200 back with an event id. With `SENTRY_DSN` unset it does nothing, which is what keeps ordinary runs offline.
+   - [ ] Check the app's own path to it. With crash reporting switched **on** in Settings:
+     ```powershell
+     $env:INVENTORY_CRASH_TEST = "sentry"
+     & "$env:LOCALAPPDATA\KitchenInventory\KitchenInventory.Desktop.exe"
+     ```
+     Expect a non-zero exit code and a log line `DispatcherUnhandledException (Sentry event <not all zeros>)`. An id of `0000…` is positive proof the event was *not* accepted.
+
+Releasing
+- A release is a tag. `VersionPrefix` in `Directory.Build.props` is what the installer writes into the MSI as `ProductVersion`, and Windows Installer compares that to decide whether a package is an upgrade — so a tag and a version that disagree produce a download named one thing that installs as another.
+- Bump `VersionPrefix` first, commit, then tag the commit `v<VersionPrefix>` (a bare `<VersionPrefix>` is accepted too). The `release-guard` CI job fails the build if the two do not match, and the `package-msix` job waits for the tag.
+
 Contact
 - For installer issues (MSI) or CI failures, contact the Desktop/Release Engineering team.
