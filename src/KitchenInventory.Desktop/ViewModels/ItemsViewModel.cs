@@ -364,6 +364,9 @@ public class ItemsViewModel : INotifyPropertyChanged
     public ICommand ClearFiltersCommand { get; }
     public ICommand AddItemCommand { get; }
     public ICommand DeleteItemCommand { get; }
+    /// <summary>Opens the selected item in the dialog. The row menu's "Edit item" entry, and the
+    /// same job the F2 key and a double-click on a row do.</summary>
+    public ICommand EditItemCommand { get; }
     public ICommand UndoRemoveCommand { get; }
     public ICommand SaveChangesCommand { get; }
     public ICommand ImportItemsCsvCommand { get; }
@@ -420,6 +423,7 @@ public class ItemsViewModel : INotifyPropertyChanged
             ? new AsyncRelayCommand(AddItemAsync, () => HasRole(Roles.Admin, Roles.Manager))
             : new RelayCommand(AddItem, () => HasRole(Roles.Admin, Roles.Manager));
         DeleteItemCommand = new AsyncRelayCommand(DeleteSelectedAsync, () => SelectedItem != null && HasRole(Roles.Admin));
+        EditItemCommand = new AsyncRelayCommand(EditSelectedItemAsync, () => _dialogs != null && SelectedItem != null);
         UndoRemoveCommand = new AsyncRelayCommand(UndoRemoveAsync, () => _removedItem != null);
         SaveChangesCommand = new AsyncRelayCommand(SaveChangesAsync, () => Items.Count > 0 && AreItemsValid() && !HasValidationErrors && HasRole(Roles.Admin, Roles.Manager));
         ImportItemsCsvCommand = new AsyncRelayCommand(ImportItemsCsvAsync, () => HasRole(Roles.Admin, Roles.Manager));
@@ -594,6 +598,12 @@ public class ItemsViewModel : INotifyPropertyChanged
         {
             using var db = await _dbFactory.CreateDbContextAsync();
 
+            // The list is rebuilt from fresh instances below, so whatever the user had selected
+            // stops being one of the rows on screen. The id survives the reload, so remember it
+            // and select that item again at the end. Without this, saving anything cleared the
+            // selection and every action that depends on it went dark.
+            var previouslySelectedId = SelectedItem?.Id ?? 0;
+
             // Load categories
             var cats = await db.Categories.AsNoTracking().OrderBy(c => c.Name).ToListAsync();
             Categories.Clear();
@@ -623,6 +633,13 @@ public class ItemsViewModel : INotifyPropertyChanged
             // Refresh movement panels
             await LoadRecentMovementsAsync();
             await LoadSelectedMovementsAsync();
+
+            // Put the selection back on the row the user was working on. Choosing from the
+            // filtered view rather than from Items keeps it honest: a row the search or the
+            // filters are hiding is not on screen, so it cannot stay the selected one.
+            SelectedItem = previouslySelectedId > 0 && ItemsView != null
+                ? ItemsView.Cast<Item>().FirstOrDefault(i => i.Id == previouslySelectedId)
+                : null;
         }
         catch (Exception ex)
         {

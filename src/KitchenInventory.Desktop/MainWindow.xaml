@@ -210,6 +210,8 @@
                       SelectionChanged="DataGrid_SelectionChanged"
                       CurrentCellChanged="DataGrid_CurrentCellChanged"
                       MouseDoubleClick="DataGrid_MouseDoubleClick"
+                      PreviewMouseRightButtonDown="DataGrid_PreviewMouseRightButtonDown"
+                      ContextMenuOpening="DataGrid_ContextMenuOpening"
                       HorizontalAlignment="Stretch"
                       VerticalAlignment="Stretch"
                       MinColumnWidth="90"
@@ -240,6 +242,30 @@
                         </Style.Triggers>
                     </Style>
                 </DataGrid.RowStyle>
+
+                <!-- Right-clicking a row is the visible way into the edit dialog. Until now it
+                     was reachable only by F2 or a double-click, and neither was written down
+                     anywhere, so the feature may as well not have existed. The entries are the
+                     toolbar's actions in the toolbar's order, with the shortcuts named on the
+                     two that have them. -->
+                <DataGrid.ContextMenu>
+                    <ContextMenu AutomationProperties.AutomationId="ItemsContextMenu">
+                        <MenuItem Header="Edit item" InputGestureText="F2"
+                                  Command="{Binding EditItemCommand}"
+                                  AutomationProperties.AutomationId="EditItemMenuItem" />
+                        <Separator />
+                        <MenuItem Header="Take in stock" Command="{Binding AddStockCommand}"
+                                  AutomationProperties.AutomationId="ContextMenuAddStockMenuItem" />
+                        <MenuItem Header="Take out stock" Command="{Binding ConsumeStockCommand}"
+                                  AutomationProperties.AutomationId="ContextMenuConsumeStockMenuItem" />
+                        <MenuItem Header="Recount" Command="{Binding AdjustStockCommand}"
+                                  AutomationProperties.AutomationId="ContextMenuAdjustStockMenuItem" />
+                        <Separator />
+                        <MenuItem Header="Remove item" InputGestureText="Del"
+                                  Command="{Binding DeleteItemCommand}"
+                                  AutomationProperties.AutomationId="ContextMenuDeleteItemMenuItem" />
+                    </ContextMenu>
+                </DataGrid.ContextMenu>
 
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Item" Binding="{Binding Name}" Width="2*"/>

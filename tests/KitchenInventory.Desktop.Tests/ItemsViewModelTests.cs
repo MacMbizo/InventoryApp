@@ -521,6 +521,73 @@ public class ItemsViewModelTests : IDisposable
         Assert.Equal(10m, db.Items.AsNoTracking().Single(i => i.Id == _riceId).Quantity);
     }
 
+    /// <summary>
+    /// Regression guard: loading rebuilds the list from fresh instances, so the object that was
+    /// selected stopped being one of the rows. The grid therefore cleared its selection after
+    /// every save, and "Take in stock", "Take out stock", "Recount" and "Remove item" all went
+    /// dark with it even though the item was still there.
+    /// </summary>
+    [StaFact]
+    public async Task LoadAsync_KeepsTheSelectedRowSelected()
+    {
+        var vm = Create(dialogs: new FakeDialogService());
+        await vm.LoadAsync();
+        vm.SelectedItem = vm.Items.First(i => i.Name == "Rice");
+
+        await vm.LoadAsync();
+
+        Assert.NotNull(vm.SelectedItem);
+        Assert.Equal(_riceId, vm.SelectedItem!.Id);
+        // A live row rather than the detached instance the previous load handed out.
+        Assert.Contains(vm.SelectedItem, vm.Items);
+        Assert.True(vm.EditItemCommand.CanExecute(null));
+    }
+
+    /// <summary>
+    /// The other half of the same rule: a row the search or the filters are hiding is not on
+    /// screen, so it cannot stay the selected one. Otherwise the toolbar would offer to take in
+    /// stock for something the user cannot see.
+    /// </summary>
+    [StaFact]
+    public async Task LoadAsync_DropsTheSelection_WhenTheFiltersHideThatRow()
+    {
+        var vm = Create();
+        await vm.LoadAsync();
+        vm.SelectedItem = vm.Items.First(i => i.Name == "Rice");
+
+        vm.SelectedCategoryId = 2; // Dairy, which hides Rice
+
+        await vm.LoadAsync();
+
+        Assert.Null(vm.SelectedItem);
+    }
+
+    /// <summary>
+    /// The row menu's "Edit item" entry binds to this command, so it has to be a real command
+    /// that does the same job as F2 and the double-click.
+    /// </summary>
+    [StaFact]
+    public async Task EditItemCommand_OpensTheSelectedItemForEditing()
+    {
+        var dialogs = new FakeDialogService
+        {
+            Result = new Item { Name = "Rice", Quantity = 4m, Unit = "kg" }
+        };
+        var vm = Create(dialogs: dialogs);
+        await vm.LoadAsync();
+
+        Assert.False(vm.EditItemCommand.CanExecute(null));
+
+        vm.SelectedItem = vm.Items.First(i => i.Name == "Rice");
+        RunCommand(vm.EditItemCommand);
+        await WaitUntilAsync(() => vm.HasActionMessage);
+
+        Assert.Contains("was updated", vm.ActionMessage);
+
+        using var db = _factory.CreateDbContext();
+        Assert.Equal(4m, db.Items.AsNoTracking().Single(i => i.Id == _riceId).Quantity);
+    }
+
     [Fact]
     public async Task LoadAsync_RaisesIsBusy_AndClearsItWhenDone()
     {

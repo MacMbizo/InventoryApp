@@ -176,23 +176,57 @@ namespace KitchenInventory.Desktop
         }
 
         /// <summary>
-        /// True when the double-click landed on a row rather than on a column header or the
-        /// empty space below the last item.
+        /// Right-clicking a row selects it before its menu opens. Without this the menu would
+        /// act on whichever row happened to be selected before, not the one under the pointer.
         /// </summary>
-        private static bool IsWithinRow(DependencyObject? source)
+        private void DataGrid_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            var row = FindRow(e.OriginalSource as DependencyObject);
+            if (row == null)
+            {
+                return;
+            }
+
+            row.IsSelected = true;
+            row.Focus();
+        }
+
+        /// <summary>
+        /// The row menu acts on the selected item, so with nothing selected it does not open at
+        /// all rather than open as a list of entries that would do nothing.
+        /// </summary>
+        private void DataGrid_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+        {
+            if (ItemsGrid.SelectedItem is null)
+            {
+                e.Handled = true;
+            }
+        }
+
+        /// <summary>
+        /// The row an element belongs to, or null when it is not inside one — the column headers
+        /// and the empty space below the last item are both outside every row.
+        /// </summary>
+        private static DataGridRow? FindRow(DependencyObject? source)
         {
             while (source != null)
             {
-                if (source is DataGridRow)
+                if (source is DataGridRow row)
                 {
-                    return true;
+                    return row;
                 }
 
                 source = VisualTreeHelper.GetParent(source);
             }
 
-            return false;
+            return null;
         }
+
+        /// <summary>
+        /// True when the double-click landed on a row rather than on a column header or the
+        /// empty space below the last item.
+        /// </summary>
+        private static bool IsWithinRow(DependencyObject? source) => FindRow(source) != null;
 
         private void DataGrid_CurrentCellChanged(object? sender, EventArgs e)
         {
