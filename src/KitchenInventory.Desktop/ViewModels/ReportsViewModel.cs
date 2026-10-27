@@ -15,7 +15,15 @@ using Microsoft.Extensions.Logging;
 
 namespace KitchenInventory.Desktop.ViewModels
 {
-    public sealed record ReportOption(ReportKind Kind, string Name);
+    /// <summary>
+    /// One entry in the report picker. <see cref="ToString"/> returns the name because that is
+    /// what the closed picker shows; a record's own ToString would print the whole record
+    /// ("ReportOption { Kind = StockOnHand, Name = Stock on Hand }").
+    /// </summary>
+    public sealed record ReportOption(ReportKind Kind, string Name)
+    {
+        public override string ToString() => Name;
+    }
 
     /// <summary>
     /// Drives the Reports dialog: pick a report, generate it from the database and

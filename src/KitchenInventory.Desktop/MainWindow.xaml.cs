@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using KitchenInventory.Desktop.ViewModels;
@@ -54,6 +55,9 @@ namespace KitchenInventory.Desktop
                 ManageUsersMenuItem.Visibility = string.Equals(session.CurrentRole, Roles.Admin, StringComparison.Ordinal)
                     ? Visibility.Visible
                     : Visibility.Collapsed;
+                SignedInAsText.Text = string.IsNullOrEmpty(session.CurrentUsername)
+                    ? string.Empty
+                    : $"Signed in as {session.CurrentUsername}";
             }
             catch { }
 
@@ -334,6 +338,71 @@ namespace KitchenInventory.Desktop
                 var owner = WindowOwnerHelper.GetSafeOwner(this) ?? this;
                 MessageBox.Show(owner, $"Failed to open Settings: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        /// <summary>
+        /// Hands the app over to the next person: the session is cleared and the app reopens at
+        /// the sign-in screen. Restarting is deliberate, and is the same way the "put a backup
+        /// back" path restarts the app — the sign-in gate is part of startup, and a fresh process
+        /// is the only way to be sure nothing belonging to the previous user (an open database
+        /// connection, a role read once into memory) is still around.
+        /// </summary>
+        private void SignOut_Click(object sender, RoutedEventArgs e)
+        {
+            var confirmed = MessageBox.Show(this,
+                "Sign out of Kitchen Inventory?\n\n" +
+                "Everything you have saved is already stored. The sign-in screen will come back so the next person can sign in.",
+                "Sign out", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+            if (confirmed != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            try
+            {
+                ((App)Application.Current).Services.GetRequiredService<ISessionService>().Clear();
+            }
+            catch
+            {
+                // The sign-in screen at startup does not depend on this having worked.
+            }
+
+            RestartTheApp();
+        }
+
+        /// <summary>
+        /// Closes the app. Identical in effect to the window's X button — everything is saved as
+        /// it is changed — but the X is not an obvious "exit" to everyone.
+        /// </summary>
+        private void Exit_Click(object sender, RoutedEventArgs e)
+        {
+            Application.Current.Shutdown();
+        }
+
+        /// <summary>
+        /// Starts a fresh copy of the app and closes this one. If the new copy cannot be started
+        /// the app still closes, which is better than leaving it running in the old user's session.
+        /// </summary>
+        private static void RestartTheApp()
+        {
+            try
+            {
+                var exe = Environment.ProcessPath;
+                if (!string.IsNullOrWhiteSpace(exe))
+                {
+                    Process.Start(new ProcessStartInfo(exe)
+                    {
+                        UseShellExecute = true,
+                        WorkingDirectory = AppContext.BaseDirectory
+                    });
+                }
+            }
+            catch
+            {
+                // Nothing more to do: the app is closed below and can be opened by hand.
+            }
+
+            Application.Current.Shutdown();
         }
     }
 }

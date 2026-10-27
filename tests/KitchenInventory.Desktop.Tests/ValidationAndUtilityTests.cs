@@ -1,14 +1,48 @@
 using System;
 using System.Globalization;
 using FluentAssertions;
+using KitchenInventory.Desktop.Services;
 using KitchenInventory.Desktop.Utilities;
 using KitchenInventory.Desktop.Validations;
+using KitchenInventory.Desktop.ViewModels;
+using KitchenInventory.Domain.Entities;
 using Xunit;
 
 namespace KitchenInventory.Desktop.Tests;
 
 public sealed class ValidationAndUtilityTests
 {
+    // ---------- Entity text ----------
+    // The closed drop-down shows the selected object by calling ToString() on it, so a filter
+    // displaying "KitchenInventory.Domain.Entities.Category" is what these protect against.
+
+    [Fact]
+    public void Category_ShowsItsName_NotItsTypeName()
+    {
+        var category = new Category { Id = 3, Name = "Dry goods" };
+
+        category.ToString().Should().Be("Dry goods");
+        category.ToString().Should().NotContain("KitchenInventory.Domain.Entities");
+    }
+
+    [Fact]
+    public void Location_ShowsItsName_NotItsTypeName()
+    {
+        var location = new Location { Id = 4, Name = "Store cupboard" };
+
+        location.ToString().Should().Be("Store cupboard");
+        location.ToString().Should().NotContain("KitchenInventory.Domain.Entities");
+    }
+
+    [Fact]
+    public void ReportOption_ShowsItsName_NotTheWholeRecord()
+    {
+        var option = new ReportOption(ReportKind.StockOnHand, "Stock on Hand");
+
+        option.ToString().Should().Be("Stock on Hand");
+        option.ToString().Should().NotContain("ReportOption");
+    }
+
     // ---------- NotEmptyValidationRule ----------
 
     private static readonly NotEmptyValidationRule Rule = new();

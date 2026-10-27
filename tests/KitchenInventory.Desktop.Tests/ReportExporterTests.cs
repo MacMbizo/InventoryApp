@@ -94,9 +94,83 @@ public class ReportExporterTests
     public void ToPlainText_NullTable_Throws()
         => Assert.Throws<ArgumentNullException>(() => ReportExporter.ToPlainText(null!));
 
+    /// <summary>
+    /// Every column starts at the same character offset on every line. That offset is the only
+    /// thing that makes the output read as a table, and it is what was missing from the PDF: the
+    /// padding was there but the font it was drawn in ignored it.
+    /// </summary>
+    [Fact]
+    public void ToPlainText_EveryColumnStartsAtTheSameOffsetOnEveryRow()
+    {
+        var table = new ReportTable("Stock on Hand", new[] { "Id", "Name", "Quantity" },
+            new List<IReadOnlyList<string>>
+            {
+                new[] { "1", "Rice", "10" },
+                new[] { "22", "Long grain white rice", "0.5" }
+            });
+
+        var lines = ReportExporter.ToPlainText(table).Split('\n');
+        var header = lines[1];
+        var firstRow = lines[3];
+        var secondRow = lines[4];
+
+        var nameColumn = header.IndexOf("Name", StringComparison.Ordinal);
+        var quantityColumn = header.IndexOf("Quantity", StringComparison.Ordinal);
+        Assert.True(nameColumn > 0 && quantityColumn > nameColumn, $"Header is not a row of columns: '{header}'");
+
+        Assert.Equal(nameColumn, firstRow.IndexOf("Rice", StringComparison.Ordinal));
+        Assert.Equal(nameColumn, secondRow.IndexOf("Long grain white rice", StringComparison.Ordinal));
+        Assert.Equal(quantityColumn, firstRow.IndexOf("10", StringComparison.Ordinal));
+        Assert.Equal(quantityColumn, secondRow.IndexOf("0.5", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void ToPdf_NullTable_Throws()
         => Assert.Throws<ArgumentNullException>(() => ReportExporter.ToPdf(null!));
+
+    /// <summary>
+    /// The body must be drawn in a font where every character is the same width, or the column
+    /// padding is meaningless and the columns wander. Courier is the monospace base-14 font.
+    /// </summary>
+    [Fact]
+    public void ToPdf_DrawsTheBodyInAMonospaceFont()
+    {
+        var text = Encoding.Latin1.GetString(ReportExporter.ToPdf(Table(new[] { "1", "Rice", "10" })));
+
+        Assert.Contains("/BaseFont /Courier", text);
+        Assert.DoesNotContain("/BaseFont /Helvetica ", text);
+    }
+
+    /// <summary>
+    /// A seven-column report is wider than A4 at 9 pt, so the columns are scaled to fit instead
+    /// of running off the paper. No body line may exceed what the page can print.
+    /// </summary>
+    [Fact]
+    public void ToPdf_WideReport_KeepsEveryBodyLineInsideThePrintableWidth()
+    {
+        var table = new ReportTable("Stock on Hand",
+            new[] { "Id", "Name", "Category", "Location", "Quantity", "Unit", "Expiry Date" },
+            new List<IReadOnlyList<string>>
+            {
+                new[] { "1", "Long grain white rice, brown", "Dry goods and baking", "Store cupboard, top shelf", "1234.567", "kg", "2026-11-30" }
+            });
+
+        var text = Encoding.Latin1.GetString(ReportExporter.ToPdf(table));
+
+        // 95 is MinimalPdf.MaxBodyChars: the printable width (515 pt) divided by Courier's
+        // 5.4 pt advance width at 9 pt.
+        const int printableChars = 95;
+        var bodyLines = Regex.Matches(text, @"\(([^()]*)\) Tj");
+        Assert.NotEmpty(bodyLines);
+        foreach (Match line in bodyLines)
+        {
+            Assert.True(line.Groups[1].Value.Length <= printableChars,
+                $"A line ran off the page ({line.Groups[1].Value.Length} characters): '{line.Groups[1].Value}'");
+        }
+
+        // Squeezed, not thrown away.
+        Assert.Contains("Long grain white", text);
+    }
 
     [Fact]
     public void ToPdf_ProducesWellFormedDocument()

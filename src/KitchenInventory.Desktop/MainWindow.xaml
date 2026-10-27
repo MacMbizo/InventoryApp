@@ -64,6 +64,15 @@
                     <Separator/>
                     <MenuItem Header="_Diagnostics" Click="Help_Diagnostics_Click"/>
                 </MenuItem>
+                <!-- Leaving. "Sign out" hands the app over to the next person and returns to the
+                     sign-in screen; "Exit" closes it. Neither existed, so the only way out was the
+                     window's X button and a real user asked where the logout button was. -->
+                <MenuItem Header="_Sign out" Click="SignOut_Click"
+                          ToolTip="Return to the sign-in screen so someone else can use the app"
+                          AutomationProperties.AutomationId="SignOutMenuItem" />
+                <MenuItem Header="E_xit" Click="Exit_Click"
+                          ToolTip="Close Kitchen Inventory"
+                          AutomationProperties.AutomationId="ExitMenuItem" />
             </Menu>
             <!-- Actions. Thirteen equal buttons meant none of them was a next step and Remove
                  sat one mis-click from its neighbours. Now there is one primary action, the
@@ -630,6 +639,14 @@
                         </StackPanel>
                     </Button>
                 </StackPanel>
+            </StatusBarItem>
+            <!-- Who is signed in. Small and at the end, because it answers a question people ask
+                 only occasionally ("which account am I in?") — but that question is unanswerable
+                 without it, and "Sign out" makes no sense if you cannot see who you are. -->
+            <StatusBarItem>
+                <TextBlock x:Name="SignedInAsText" Style="{StaticResource CaptionText}" Margin="16,0,0,0"
+                           VerticalAlignment="Center"
+                           AutomationProperties.AutomationId="SignedInAsText" />
             </StatusBarItem>
         </StatusBar>
     </Grid>

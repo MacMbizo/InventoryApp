@@ -5,6 +5,9 @@ using System.Threading;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Definitions;
 using FlaUI.UIA3;
+using KitchenInventory.Data;
+using KitchenInventory.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 namespace KitchenInventory.Desktop.Tests;
@@ -117,6 +120,173 @@ public class UiSmokeTests
         finally
         {
             UiTestHelpers.KillIfRunning(process);
+        }
+    }
+
+    /// <summary>
+    /// Choosing a category or a location in the filters narrows the list. Nothing covered the
+    /// filters, and it is the filters that were reported: their closed boxes draw the object they
+    /// hold, which falls back to its ToString() — "KitchenInventory.Domain.Entities.Category".
+    /// That fallback is what <c>Category</c>, <c>Location</c> and <c>ReportOption</c> now answer
+    /// with their name instead; the drawn text itself is not published to automation, so the
+    /// wiring around it is what is asserted here.
+    /// </summary>
+    [StaFact(DisplayName = "Filters_NarrowTheListToTheChosenCategoryAndLocation")]
+    public void Filters_NarrowTheListToTheChosenCategoryAndLocation()
+    {
+        const string categoryName = "Dry goods";
+        const string locationName = "Store cupboard";
+
+        var connection = UiTestHelpers.CreateIsolatedSqliteConnectionString();
+        SeedFilterData(connection, categoryName, locationName);
+
+        using var process = UiTestHelpers.LaunchApp(connection);
+
+        try
+        {
+            try { process.WaitForInputIdle(10000); } catch { }
+
+            using var automation = new UIA3Automation();
+            var window = UiTestHelpers.CompleteStartupGating(automation, process);
+            Assert.NotNull(window);
+
+            try { window.Focus(); } catch { }
+            try { window.SetForeground(); } catch { }
+
+            // Both items are listed before anything is filtered, so an item going away later
+            // means the filter hid it rather than that it was never there.
+            Assert.True(UiTestHelpers.WaitForGridRow(window, "ItemsDataGrid", "Rice", TimeSpan.FromSeconds(15)),
+                "Rice was not listed before filtering.");
+            Assert.True(UiTestHelpers.WaitForGridRow(window, "ItemsDataGrid", "Milk", TimeSpan.FromSeconds(15)),
+                "Milk was not listed before filtering.");
+
+            var categoryCombo = window.FindFirstDescendant(cf => cf.ByAutomationId("CategoryFilterCombo"));
+            Assert.NotNull(categoryCombo);
+            Assert.True(ChooseComboItem(window, categoryCombo!, categoryName),
+                $"'{categoryName}' could not be chosen in the category filter.");
+
+            Assert.True(UiTestHelpers.WaitForGridRow(window, "ItemsDataGrid", "Rice", TimeSpan.FromSeconds(10)),
+                "Rice was filtered out by its own category.");
+            Assert.True(WaitForGridRowToGoAway(window, "ItemsDataGrid", "Milk", TimeSpan.FromSeconds(10)),
+                "Choosing a category did not narrow the list.");
+
+            // Back to everything, then narrow by place instead.
+            Assert.True(ChooseComboItem(window, categoryCombo!, "All"),
+                "'All' could not be chosen in the category filter.");
+            Assert.True(UiTestHelpers.WaitForGridRow(window, "ItemsDataGrid", "Milk", TimeSpan.FromSeconds(10)),
+                "'All' did not bring the rest of the list back.");
+
+            var locationCombo = window.FindFirstDescendant(cf => cf.ByAutomationId("LocationFilterCombo"));
+            Assert.NotNull(locationCombo);
+            Assert.True(ChooseComboItem(window, locationCombo!, locationName),
+                $"'{locationName}' could not be chosen in the location filter.");
+
+            Assert.True(UiTestHelpers.WaitForGridRow(window, "ItemsDataGrid", "Rice", TimeSpan.FromSeconds(10)),
+                "Rice was filtered out by its own location.");
+            Assert.True(WaitForGridRowToGoAway(window, "ItemsDataGrid", "Milk", TimeSpan.FromSeconds(10)),
+                "Choosing a location did not narrow the list.");
+
+            UiTestHelpers.CloseAppWindow(window, process);
+            var exited = process.WaitForExit(TimeSpan.FromSeconds(20));
+            Assert.True(exited, "Desktop process did not exit in allotted time after closing main window.");
+            Assert.Equal(0, process.ExitCode);
+        }
+        finally
+        {
+            UiTestHelpers.KillIfRunning(process);
+        }
+    }
+
+    /// <summary>
+    /// Creates the isolated database up front with a category, a location, one item filed under
+    /// both and one filed under neither, so the filters have something real to narrow. The app
+    /// opens this same file at startup.
+    /// </summary>
+    private static void SeedFilterData(string connectionString, string categoryName, string locationName)
+    {
+        var options = new DbContextOptionsBuilder<KitchenInventoryDbContext>()
+            .UseSqlite(connectionString)
+            .Options;
+
+        using var db = new KitchenInventoryDbContext(options);
+        db.Database.Migrate();
+
+        var category = new Category { Name = categoryName };
+        var location = new Location { Name = locationName };
+        db.Categories.Add(category);
+        db.Locations.Add(location);
+        db.Items.Add(new Item { Name = "Rice", Quantity = 10m, Unit = "kg", Category = category, Location = location });
+        db.Items.Add(new Item { Name = "Milk", Quantity = 5m, Unit = "L" });
+        db.SaveChanges();
+    }
+
+    /// <summary>Waits for a row to stop being listed, which is how a filter hiding it looks.</summary>
+    private static bool WaitForGridRowToGoAway(Window window, string gridAutomationId, string contains, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow.Add(timeout);
+        while (DateTime.UtcNow < deadline)
+        {
+            if (!UiTestHelpers.WaitForGridRow(window, gridAutomationId, contains, TimeSpan.FromMilliseconds(50)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Picks an entry out of a drop-down. Selection goes through the item's selection pattern
+    /// rather than a click, for the same reason the rest of the UI tests avoid keystrokes.
+    /// </summary>
+    private static bool ChooseComboItem(Window window, AutomationElement combo, string itemName)
+    {
+        try
+        {
+            if (combo.Patterns.ExpandCollapse.IsSupported)
+            {
+                combo.Patterns.ExpandCollapse.Pattern.Expand();
+            }
+        }
+        catch { }
+
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (DateTime.UtcNow < deadline)
+        {
+            // The entries hang off the box itself; the window is searched as well in case the
+            // drop-down was published as its own surface.
+            var item = FindListItem(combo, itemName) ?? FindListItem(window, itemName);
+            if (item != null && item.Patterns.SelectionItem.IsSupported)
+            {
+                item.Patterns.SelectionItem.Pattern.Select();
+                Thread.Sleep(250);
+                try
+                {
+                    if (combo.Patterns.ExpandCollapse.IsSupported)
+                    {
+                        combo.Patterns.ExpandCollapse.Pattern.Collapse();
+                    }
+                }
+                catch { }
+                return true;
+            }
+
+            Thread.Sleep(150);
+        }
+
+        return false;
+    }
+
+    private static AutomationElement? FindListItem(AutomationElement root, string name)
+    {
+        try
+        {
+            return root.FindAllDescendants(cf => cf.ByControlType(ControlType.ListItem))
+                .FirstOrDefault(i => string.Equals((i.Name ?? string.Empty).Trim(), name, StringComparison.OrdinalIgnoreCase));
+        }
+        catch
+        {
+            return null;
         }
     }
 }

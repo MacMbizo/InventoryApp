@@ -45,7 +45,9 @@ namespace KitchenInventory.Desktop.Services
             if (table == null) throw new ArgumentNullException(nameof(table));
 
             var body = new List<string> { RowCountText(table.RowCount), string.Empty };
-            body.AddRange(BuildFixedWidth(table, 0));
+            // Squeeze the columns into the width the page can actually print, rather than
+            // letting them run past it and be cut off at the margin.
+            body.AddRange(BuildFixedWidth(table, MinimalPdf.MaxBodyChars));
             return MinimalPdf.Render(table.Title, body);
         }
 
@@ -116,9 +118,12 @@ namespace KitchenInventory.Desktop.Services
         }
 
         /// <summary>
-        /// Minimal, dependency-free PDF 1.4 writer: one Helvetica title plus fixed-width body
-        /// lines, paginated onto A4. Output is encoded as Latin-1 so callers get a byte array
-        /// that opens in any PDF reader.
+        /// Minimal, dependency-free PDF 1.4 writer: one Helvetica-Bold title plus fixed-width
+        /// body lines, paginated onto A4. The body is set in Courier because Courier is the one
+        /// base-14 font whose characters are all the same width — which is the whole point of
+        /// padding the body into columns. In a proportional font (Helvetica) the padding is
+        /// invisible and the columns wander.
+        /// Output is encoded as Latin-1 so callers get a byte array that opens in any PDF reader.
         /// </summary>
         private static class MinimalPdf
         {
@@ -129,7 +134,13 @@ namespace KitchenInventory.Desktop.Services
             private const int BodySize = 9;
             private const int BodyLeading = 11;
             private const int BodyLinesPerPage = 64;
-            private const int MaxBodyChars = 110;
+
+            /// <summary>
+            /// How many Courier characters fit across the page at <see cref="BodySize"/>: the
+            /// printable width (595 − 40 − 40 = 515 pt) divided by the advance width of a Courier
+            /// character (0.6 em, so 5.4 pt at 9 pt) = 95. Report columns are scaled to fit this.
+            /// </summary>
+            public const int MaxBodyChars = 95;
 
             public static byte[] Render(string title, IReadOnlyList<string> bodyLines)
             {
@@ -148,7 +159,7 @@ namespace KitchenInventory.Desktop.Services
                 var kids = string.Join(" ", Enumerable.Range(0, pages.Count).Select(i => $"{pageObjStart + i} 0 R"));
                 AddObject(doc, offsets, $"<< /Type /Pages /Kids [{kids}] /Count {pages.Count} >>");
 
-                AddObject(doc, offsets, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
+                AddObject(doc, offsets, "<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>");
                 AddObject(doc, offsets, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
 
                 for (int i = 0; i < pages.Count; i++)
