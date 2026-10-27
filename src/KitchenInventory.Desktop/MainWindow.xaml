@@ -106,23 +106,26 @@
                         <!-- Feedback beside the buttons rather than only in the status bar at the
                              far edge of the window: while something is running the toolbar says
                              so, and for a few seconds afterwards it says what changed. The status
-                             bar keeps the ambient truth about saving. -->
+                             bar keeps the ambient truth about saving. The two AutomationIds sit on
+                             the words rather than on the StackPanels around them: a StackPanel
+                             publishes no automation peer, so an id on one never reaches the
+                             automation tree and the feedback could not be read back by a test. -->
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,8,4">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
-                                        Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                        AutomationProperties.AutomationId="ToolbarBusyIndicator">
+                                        Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}">
                                 <ProgressBar IsIndeterminate="True" Width="64" Height="4" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                <TextBlock Text="Working&#8230;" Style="{StaticResource CaptionText}" VerticalAlignment="Center" />
+                                <TextBlock Text="Working&#8230;" Style="{StaticResource CaptionText}" VerticalAlignment="Center"
+                                           AutomationProperties.AutomationId="ToolbarBusyText" />
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
-                                        Visibility="{Binding HasActionMessage, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                        AutomationProperties.AutomationId="ToolbarActionMessage">
+                                        Visibility="{Binding HasActionMessage, Converter={StaticResource BooleanToVisibilityConverter}}">
                                 <Path Data="{StaticResource Icon.Check}"
                                       Stroke="{StaticResource Brush.Success}" StrokeThickness="1.8"
                                       StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                       Width="14" Height="14" Stretch="Uniform" Margin="0,0,6,0"
                                       VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding ActionMessage}" Style="{StaticResource CaptionText}" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding ActionMessage}" Style="{StaticResource CaptionText}" VerticalAlignment="Center"
+                                           AutomationProperties.AutomationId="ToolbarActionMessage" />
                             </StackPanel>
                         </StackPanel>
                     </WrapPanel>

@@ -184,6 +184,84 @@ public class AddItemUiTests
         }
     }
 
+    /// <summary>
+    /// The confirmation is announced beside the toolbar rather than only in the status bar at the
+    /// far edge of the window, and it is short-lived on purpose. Both halves are asserted here,
+    /// which only became possible once the id moved off the StackPanel around the words: a
+    /// StackPanel publishes no automation peer, so an id on one never reaches the tree.
+    /// </summary>
+    [StaFact(DisplayName = "Toolbar_SaysWhatWasAdded_ThenGoesQuiet")]
+    public void Toolbar_SaysWhatWasAdded_ThenGoesQuiet()
+    {
+        var connection = UiTestHelpers.CreateIsolatedSqliteConnectionString();
+        using var process = UiTestHelpers.LaunchApp(connection);
+
+        try
+        {
+            try { process.WaitForInputIdle(10000); } catch { }
+
+            using var automation = new UIA3Automation();
+            var mainWindow = UiTestHelpers.CompleteStartupGating(automation, process);
+
+            try { mainWindow.Focus(); } catch { }
+            try { mainWindow.SetForeground(); } catch { }
+
+            var itemName = $"Feedback-{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+            UiTestHelpers.AddItem(mainWindow, itemName, "2", "pcs");
+
+            // The toolbar says what happened, naming the item it happened to.
+            string? said = null;
+            var appearDeadline = DateTime.UtcNow.AddSeconds(10);
+            while (DateTime.UtcNow < appearDeadline)
+            {
+                said = ReadToolbarMessage(mainWindow);
+                if (said != null) break;
+                Thread.Sleep(150);
+            }
+
+            Assert.True(said != null, "The toolbar did not confirm the add within the timeout.");
+            Assert.Contains(itemName, said!, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("was added", said!, StringComparison.OrdinalIgnoreCase);
+
+            // It reports one action rather than staying on screen as a banner.
+            bool cleared = false;
+            var clearDeadline = DateTime.UtcNow.AddSeconds(20);
+            while (DateTime.UtcNow < clearDeadline)
+            {
+                if (ReadToolbarMessage(mainWindow) == null) { cleared = true; break; }
+                Thread.Sleep(250);
+            }
+
+            Assert.True(cleared, "The toolbar confirmation never went away.");
+
+            UiTestHelpers.CloseAppWindow(mainWindow, process);
+            var exited = process.WaitForExit(TimeSpan.FromSeconds(20));
+            Assert.True(exited, "Desktop process did not exit in allotted time after closing main window.");
+            Assert.Equal(0, process.ExitCode);
+        }
+        finally
+        {
+            UiTestHelpers.KillIfRunning(process);
+        }
+    }
+
+    /// <summary>The toolbar's confirmation text, or null while it has nothing to say.</summary>
+    private static string? ReadToolbarMessage(Window mainWindow)
+    {
+        try
+        {
+            var message = mainWindow.FindFirstDescendant(cf => cf.ByAutomationId("ToolbarActionMessage"));
+            if (message == null) return null;
+
+            var text = (message.Name ?? string.Empty).Trim();
+            return text.Length == 0 ? null : text;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     [StaFact(DisplayName = "AddItemDialog_DisablesAdd_WhenInvalid_And_ShowsInlineError_Then_EnablesWhenValid")]
     [Trait("Category", "UI")] 
     [Trait("Subcategory", "Validation")]
