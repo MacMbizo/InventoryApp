@@ -1,8 +1,5 @@
 <Project Sdk="WixToolset.Sdk/4.0.4">
 
-  <!-- Read the product version from the same one place the app does, rather than repeating it. -->
-  <Import Project="..\..\Directory.Build.props" />
-
   <PropertyGroup>
     <OutputName>KitchenInventory-x64</OutputName>
     <Platform>x64</Platform>
@@ -60,7 +57,7 @@
   -->
   <Target Name="PublishApp" BeforeTargets="BeforeBuild;HarvestDirectory">
     <MSBuild Projects="..\KitchenInventory.Desktop\KitchenInventory.Desktop.csproj"
-             Targets="Publish"
+             Targets="Restore;Publish"
              Properties="Configuration=$(Configuration);RuntimeIdentifier=win-x64;SelfContained=true;PublishDir=$(MSBuildThisFileDirectory)..\KitchenInventory.Desktop\bin\$(Configuration)\net8.0-windows\win-x64\publish\" />
   </Target>
 </Project>

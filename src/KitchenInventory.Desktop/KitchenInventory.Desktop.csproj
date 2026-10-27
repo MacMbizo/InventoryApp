@@ -9,6 +9,13 @@
     <!-- The taskbar and Explorer icon. A crate in the app's own primary palette, so the
          running app is recognisable in the taskbar instead of showing the generic executable. -->
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <!-- The app itself is built framework-dependent — it is not published with a runtime unless
+         the installer says so. Listing the identifier here is not a choice to be self-contained;
+         it is what makes a plain `restore` also resolve the runtime-specific assets the
+         installer's self-contained publish needs. Without it, that publish only works if some
+         earlier restore happened to be run with the identifier, and fails on a clean checkout
+         with NETSDK1047 — which is exactly what a build server does. -->
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup>
