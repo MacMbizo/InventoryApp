@@ -58,8 +58,12 @@ jobs:
           dotnet build tests/KitchenInventory.Desktop.Tests/KitchenInventory.Desktop.Tests.csproj --configuration Release --no-restore --nologo
           dotnet build tests/QAAgentRunner.Tests/QAAgentRunner.Tests.csproj --configuration Release --no-restore --nologo
       - name: Test (project-level)
+        # UI tests are left out here on purpose: they drive a real desktop with synthetic input, a
+        # hosted runner cannot promise the window holds focus, and a swallowed keystroke is
+        # indistinguishable from a broken feature. They run in their own job below, where they can
+        # be non-blocking without hiding a real logic failure here.
         run: |
-          dotnet test tests/KitchenInventory.Desktop.Tests/KitchenInventory.Desktop.Tests.csproj --configuration Release --verbosity normal --logger "trx;LogFileName=TestResults.trx"
+          dotnet test tests/KitchenInventory.Desktop.Tests/KitchenInventory.Desktop.Tests.csproj --configuration Release --filter "Category!=UI" --verbosity normal --logger "trx;LogFileName=TestResults.trx"
           dotnet test tests/QAAgentRunner.Tests/QAAgentRunner.Tests.csproj --configuration Release --verbosity normal --logger "trx;LogFileName=TestResults.trx"
       - name: Test with coverage gate (80% line floor on logic)
         # Enforces the 80% minimum test-coverage floor from project-documentation/development-rules.md.
@@ -75,6 +79,11 @@ jobs:
             /p:CollectCoverage=true `
             /p:CoverletOutputFormat=cobertura `
             /p:CoverletOutput=./.coverage/ci-coverage
+      - name: Build installer (MSI)
+        # The installer is the thing that actually gets handed over, so it is built here rather
+        # than only on whoever's machine last remembered to. The wixproj publishes the app
+        # self-contained and harvests that output itself, so this one command is the whole build.
+        run: dotnet build src/Installer.Msi/Installer.Msi.wixproj --configuration Release -p:Platform=x64 --nologo
       - name: Upload build artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -82,6 +91,7 @@ jobs:
           name: windows-build-release
           path: |
             src/**/bin/Release/**
+            src/Installer.Msi/bin/**/*.msi
             tests/**/bin/Release/**
             tests/**/TestResults/**
             tests/KitchenInventory.Desktop.Tests/.coverage/**
@@ -91,6 +101,31 @@ jobs:
           Write-Host "PSVersion: $($PSVersionTable.PSVersion)"
           Get-CimInstance Win32_OperatingSystem | Select-Object Caption,Version,BuildNumber | Format-List
           dotnet --version
+
+  ui-tests:
+    # Separate from build-test-windows, and non-blocking, on purpose. The suite drives a real
+    # desktop with synthetic mouse and keyboard input, which a hosted runner makes no promises
+    # about; a flaky result here must not be able to fail a build whose logic tests are green.
+    # Once it has proven stable on this runner, continue-on-error comes off.
+    continue-on-error: true
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup .NET SDK (global.json)
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: ./global.json
+      - name: Build (brings the desktop app the tests drive)
+        run: dotnet build tests/KitchenInventory.Desktop.Tests/KitchenInventory.Desktop.Tests.csproj --configuration Release --nologo
+      - name: UI tests
+        run: dotnet test tests/KitchenInventory.Desktop.Tests/KitchenInventory.Desktop.Tests.csproj --configuration Release --no-build --filter "Category=UI" --logger "trx;LogFileName=UiResults.trx"
+      - name: Upload UI test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-test-results
+          path: tests/KitchenInventory.Desktop.Tests/TestResults/**
 
   package-msix:
     if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/') }}

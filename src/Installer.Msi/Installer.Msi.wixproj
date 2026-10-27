@@ -1,11 +1,23 @@
 <Project Sdk="WixToolset.Sdk/4.0.4">
+
+  <!-- Read the product version from the same one place the app does, rather than repeating it. -->
+  <Import Project="..\..\Directory.Build.props" />
+
   <PropertyGroup>
     <OutputName>KitchenInventory-x64</OutputName>
     <Platform>x64</Platform>
-    <AppPublishDir>..\KitchenInventory.Desktop\bin\Release\net8.0-windows</AppPublishDir>
-    <DefineConstants>AppPublishDir=$(AppPublishDir)</DefineConstants>
-    <!-- Suppress ICE64: we author recursive uninstall cleanup via util:RemoveFolderEx -->
-    <SuppressIces>ICE64</SuppressIces>
+    <!-- The installer ships the app self-contained. The target machine is a school office PC, and
+         a framework-dependent package installs perfectly well there and then does nothing at all
+         when the .NET 8 Desktop Runtime is absent — with no message saying why. Carrying the
+         runtime costs installer size and buys an install that works on a machine nobody has
+         prepared. This folder is produced by the PublishApp target below, not by hand. -->
+    <AppPublishDir>..\KitchenInventory.Desktop\bin\Release\net8.0-windows\win-x64\publish</AppPublishDir>
+    <DefineConstants>AppPublishDir=$(AppPublishDir);ProductVersion=$(VersionPrefix)</DefineConstants>
+    <!-- Both suppressions are deliberate and both are expected, so they are named here instead of
+         being re-read 530-odd times in the build log: ICE64 because recursive uninstall cleanup is
+         authored by hand via util:RemoveFolderEx, and ICE91 because a perUser package installs into
+         a per-user directory by design. Anything else ICE reports is then visible. -->
+    <SuppressIces>ICE64;ICE91</SuppressIces>
     <!-- Pass -gg to Heat globally as a safety net -->
     <HarvestDirectoryAdditionalOptions>-gg</HarvestDirectoryAdditionalOptions>
     <!-- Force durable GUID generation during harvest and disable '*' GUIDs -->
@@ -39,4 +51,16 @@
       <AdditionalOptions>-gg</AdditionalOptions>
     </HarvestDirectory>
   </ItemGroup>
+
+  <!--
+    The harvest reads the publish output, so that output has to exist before the harvest runs.
+    Publishing here rather than asking whoever builds the installer to remember a separate command
+    is what keeps the MSI and the app the same build; an installer assembled from whatever happened
+    to be left in bin is how a shipped package ends up not matching its source.
+  -->
+  <Target Name="PublishApp" BeforeTargets="BeforeBuild;HarvestDirectory">
+    <MSBuild Projects="..\KitchenInventory.Desktop\KitchenInventory.Desktop.csproj"
+             Targets="Publish"
+             Properties="Configuration=$(Configuration);RuntimeIdentifier=win-x64;SelfContained=true;PublishDir=$(MSBuildThisFileDirectory)..\KitchenInventory.Desktop\bin\$(Configuration)\net8.0-windows\win-x64\publish\" />
+  </Target>
 </Project>

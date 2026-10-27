@@ -75,8 +75,8 @@ This document tracks the implementation phases for the Kitchen Inventory Desktop
 ### Features
 - [x] **Reports**: Stock on hand, low stock, expiring soon, movement history
 - [x] **Export Options**: CSV and PDF output for reports
-- ✅ **MSI Packaging (WiX)**: `Installer.Msi` project with `Product.wxs` present in the solution
-- 🚧 **MSIX Packaging**: `Installer.Msix.wapproj` + `Package.appxmanifest` exist, but local builds fail because the pinned SDK (`.dotnet/sdk/8.0.413`) lacks `Microsoft.DesktopBridge.props`; unsigned dev packaging is unverified and signing hooks are not started
+- ✅ **MSI Packaging (WiX)**: `Installer.Msi` project with `Product.wxs` present in the solution, and now built and shipped as it should be — self-contained, one file, with its version coming from the app's own. See the 2026-10-27 entry below for what was wrong.
+- 🚧 **MSIX Packaging**: `Installer.Msix.wapproj` + `Package.appxmanifest` exist. **Formally declared CI-only** (2026-10-27): a `.wapproj` is a Visual Studio packaging project that needs MSBuild with the DesktopBridge targets, which the dotnet CLI SDK does not carry — which is why the CI job calls `msbuild` and not `dotnet build`. The local `MSB4019` is the expected consequence, not a defect to chase. Unsigned dev packaging is unverified and signing hooks are not started.
 - ❌ **App Distribution**: winget manifest for Microsoft Store or enterprise deployment
 - ❌ **Update Channel**: In-app update notifications or MSIX incremental updates
 
@@ -84,12 +84,13 @@ This document tracks the implementation phases for the Kitchen Inventory Desktop
 - [x] Generate and export stock reports to PDF/CSV
 - [x] Installer projects (WiX MSI + MSIX) exist in the solution
 - [ ] Build produces a verifiable, installable MSI package on a clean machine
-- [ ] Build produces installable MSIX package (prerequisite: local `Microsoft.DesktopBridge.props` or a CI-only MSIX decision)
-- [ ] App installs per-user under %LocalAppData%\InventoryApp
+- [x] MSIX prerequisite resolved by decision: MSIX is CI-only, built by the `package-msix` job via `msbuild`. What remains is exercising that job, not repairing a local SDK
+- [ ] App installs per-user under `%LocalAppData%\KitchenInventory`, with its data under `%LocalAppData%\InventoryApp` (the two are deliberately different folders: it is what lets an uninstall remove the app without taking the school's records with it — and it is why this criterion has to be checked as two paths, not one)
 - [ ] App data persists across updates and uninstalls (unless "Reset" chosen)
 - [ ] Users receive update notifications when new versions available
 
 ### Recent Changes
+- **2026-10-27**: Made the installer actually shipable. Three separate defects, all of which let the MSI build successfully while being unusable or misleading: (a) **it was two files, not one** — WiX v4 leaves the payload in a `cab1.cab` beside the MSI unless told otherwise, so `KitchenInventory-x64.msi` was 617 KB against a 62 MB cab and would have refused to install without it; it is now a single 60 MB MSI (`MediaTemplate EmbedCab="yes"`). (b) **it required a runtime nobody would have installed** — the MSI harvested the framework-dependent build output and had no prerequisite check, so on an unprepared school PC it installed an app that silently did nothing; the wixproj now publishes the app self-contained (`PublishApp` target, `win-x64`, 519 files, ~170 MB on disk) and harvests that. (c) **its version could not change** — `Product.wxs` hard-coded `1.0.0.0`, and since `MajorUpgrade` compares that value, every release would have collided with the last; the version now comes from a new repository-root `Directory.Build.props` (`VersionPrefix`) via the wixproj's `ProductVersion` define, so app and installer cannot disagree. Also: `SuppressIces` extended to `ICE64;ICE91` with the reason stated per code (both expected for a `perUser` package with hand-authored recursive cleanup, and 530-odd repeats of them were burying anything else ICE had to say); CI now builds the installer and uploads it, and `package-msix`'s status is recorded as a decision rather than an outstanding repair. Verified: MSI builds clean (0 errors), `ProductVersion` reads `1.0.0` in the built MSI's Property table, 519 `File` rows, `Media.Cabinet` is the embedded `#cab1.cab`, and the `Wix4RemoveFoldersEx_X64` custom action is present — so the Util extension really did link despite the `WXE0001` probe warning. **Not yet done:** the clean-machine install/upgrade/uninstall pass (Gate 2 item 7), which is what this was in aid of.
 - **2026-10-24**: Added the reports engine and export pipeline: `ReportingService` (stock on hand, low stock, expiring soon, movement history) producing a WPF-free `ReportTable`, `ReportExporter` for CSV/plain-text/dependency-free PDF output, a `Reports` dialog (`ReportsWindow`/`ReportsViewModel`) with threshold, expiry-window and date-range inputs wired from preferences, and a Reports toolbar button + `_Reports` menu item. `IFileSaveService` gained `SaveBytesAsAsync` for binary PDF output; 47 new report tests (270 non-UI tests passing, 86.77% logic line coverage)
 
 ---
@@ -208,9 +209,9 @@ This document tracks the implementation phases for the Kitchen Inventory Desktop
 5. ✅ **Validation and locale polish** — quantity entry now behaves the same everywhere it is typed. `QuantityText` (`KitchenInventory.Desktop.Utilities`) is the single place that decides what may be typed and what a paste means, replacing the two private `QuantityRegex` statics that `StockOperationDialog` and `MainWindow` each kept. **Typing** is guided to the machine's own convention (the box refuses the wrong decimal separator, and allows at most 3 decimal places); **pasting** is converted rather than silently swallowed, so an amount copied from a spreadsheet or a foreign-locale website arrives as `1.5` or `1,5` depending on the machine, with thousands separators (NBSP, narrow NBSP, thin space and the Swiss apostrophe) and a trailing newline stripped. Input that cannot be recognised as a number is left alone, so the existing validation rule reports it instead of the app guessing. Wired into all three quantity entry points: the stock dialog, the grid's inline editor (a new `EditingElementStyle` on the `Quantity` column) and `AddItemDialog`. Covered by 37 `QuantityTextTests` cases (typing guard per culture, paste conversion under en-US/fr-FR/de-DE, thousands detection, non-numeric passthrough), which take over from the `CultureTests` reflection test that reached into `MainWindow`'s now-deleted private regex.
 
 ### Gate 2 — Packaging (only after Gates 0–1)
-6. MSIX package, unsigned dev build first, then signing hooks
-7. MSI verification on a clean machine: install → use → upgrade → uninstall, with data persisting
-8. Fix the local MSIX prerequisite (missing `Microsoft.DesktopBridge.props` in the pinned SDK) or formally declare MSIX CI-only
+6. MSIX package, unsigned dev build first, then signing hooks — **prerequisite decided**: MSIX is CI-only, built by the `package-msix` job with `msbuild`. The remaining work is running that job (`workflow_dispatch`), not repairing a local SDK
+7. MSI verification on a clean machine: install → use → upgrade → uninstall, with data persisting. The pieces it was waiting on are now in place — self-contained (no runtime prerequisite), one file (no cab to lose), and a version that actually changes between releases (so "upgrade" tests an upgrade rather than a reinstall). Needs a clean VM and a second build at a bumped version
+8. ✅ **Resolved by decision (2026-10-27)**: MSIX declared CI-only. A `.wapproj` requires Visual Studio's MSBuild with the DesktopBridge targets, which is precisely why `package-msix` invokes `msbuild` rather than `dotnet`. The pinned CLI SDK lacking `Microsoft.DesktopBridge.props` is the expected consequence of that, not a defect
 
 ### Gate 3 — Distribution (last)
 9. winget manifest

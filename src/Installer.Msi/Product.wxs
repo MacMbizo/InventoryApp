@@ -1,13 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
-  <Package Name="KitchenInventory" Manufacturer="Inventory Co." Version="1.0.0.0" UpgradeCode="{8F0A7621-2C7A-4726-9A03-5C5B9B9D8A5B}" Language="1033" InstallerVersion="500" Scope="perUser">
+  <!-- The version comes from the repository-root Directory.Build.props, by way of the wixproj's
+       ProductVersion define: MajorUpgrade compares it to decide what is an upgrade, so it must not
+       be a second copy that can drift from the app's own version. -->
+  <Package Name="KitchenInventory" Manufacturer="Inventory Co." Version="$(ProductVersion)" UpgradeCode="{8F0A7621-2C7A-4726-9A03-5C5B9B9D8A5B}" Language="1033" InstallerVersion="500" Scope="perUser">
     <StandardDirectory Id="LocalAppDataFolder">
       <Directory Id="INSTALLFOLDER" Name="KitchenInventory" />
     </StandardDirectory>
     <StandardDirectory Id="ProgramMenuFolder">
       <Directory Id="ApplicationProgramsFolder" Name="KitchenInventory" />
     </StandardDirectory>
+
+    <!-- One file to hand over. WiX v4 leaves the payload in a cab beside the MSI unless told
+         otherwise, which is easy to miss because the build still succeeds and the .msi still
+         looks like the deliverable — it just refuses to install without the cab next to it.
+         Whoever installs this has been given a file, not a folder. -->
+    <MediaTemplate EmbedCab="yes" />
 
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed."/>
 

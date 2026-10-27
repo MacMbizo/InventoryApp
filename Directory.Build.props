@@ -1,0 +1,19 @@
+<Project>
+
+  <!--
+    The product version has exactly one home, here.
+
+    Windows Installer compares ProductVersion to decide whether a package is an upgrade of the one
+    already installed, so a version known to the app but not to the installer (or the reverse) is
+    an upgrade that either refuses to apply or silently installs over itself. Keeping the number in
+    one file, read by both, removes the chance for them to disagree.
+
+    Three numeric parts only: Windows Installer rejects a fourth field and any prerelease suffix, so
+    a version like 1.2.3-beta cannot be shipped in an MSI. The assembly's informational version
+    still carries the commit, which is what support needs.
+  -->
+  <PropertyGroup>
+    <VersionPrefix>1.0.0</VersionPrefix>
+  </PropertyGroup>
+
+</Project>
