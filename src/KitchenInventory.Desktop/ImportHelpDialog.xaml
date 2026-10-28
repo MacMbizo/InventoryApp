@@ -1,0 +1,88 @@
+<Window x:Class="KitchenInventory.Desktop.ImportHelpDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Importing from a spreadsheet" Height="580" Width="800"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        WindowStyle="SingleBorderWindow">
+    <!-- Carried by the dialog itself: it is opened straight from the Help menu, so it has to
+         render the same whether or not the shell has put its own resources in place. -->
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/Tokens.xaml"/>
+                <ResourceDictionary Source="Themes/Icons.xaml"/>
+                <ResourceDictionary Source="Themes/Controls.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Margin="20,20,20,12">
+            <TextBlock Text="Items come in from a spreadsheet file"
+                       FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap"
+                       AutomationProperties.AutomationId="ImportHelpHeading"/>
+            <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{StaticResource Brush.TextMuted}"
+                       Text="Save your list as a CSV file — Excel calls it &quot;CSV UTF-8 (Comma delimited)&quot;. The first line has to name the columns and the rows underneath are the items themselves. The order of the columns does not matter, and anything you leave out is simply left at its usual value."/>
+        </StackPanel>
+
+        <Border DockPanel.Dock="Bottom" Margin="0,12,0,0" Padding="20,12"
+                BorderBrush="{StaticResource Brush.Border}" BorderThickness="0,1,0,0"
+                Background="{StaticResource Brush.SurfaceAlt}">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Save a _template..." Width="160" Margin="0,0,10,0"
+                        Click="OnSaveTemplateClick"
+                        AutomationProperties.AutomationId="SaveImportTemplateButton"/>
+                <Button Content="_Close" Width="100" IsCancel="True"
+                        AutomationProperties.AutomationId="ImportHelpCloseButton"/>
+            </StackPanel>
+        </Border>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="20,0,20,0">
+            <StackPanel>
+                <Grid Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="170"/>
+                        <ColumnDefinition Width="90"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Column" FontWeight="SemiBold" Foreground="{StaticResource Brush.TextMuted}"/>
+                    <TextBlock Grid.Column="1" Text="Needed?" FontWeight="SemiBold" Foreground="{StaticResource Brush.TextMuted}"/>
+                    <TextBlock Grid.Column="2" Text="What it is" FontWeight="SemiBold" Foreground="{StaticResource Brush.TextMuted}"/>
+                </Grid>
+
+                <ItemsControl ItemsSource="{Binding Columns}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="170"/>
+                                    <ColumnDefinition Width="90"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding Column}" FontWeight="SemiBold" FontFamily="Consolas"
+                                           TextWrapping="Wrap" VerticalAlignment="Top"/>
+                                <TextBlock Grid.Column="1" Text="{Binding Needed}" TextWrapping="Wrap" VerticalAlignment="Top"/>
+                                <TextBlock Grid.Column="2" Text="{Binding Notes}" TextWrapping="Wrap" VerticalAlignment="Top"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Border Margin="0,6,0,20" Padding="12"
+                        BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
+                        CornerRadius="{StaticResource Radius.Sm}"
+                        Background="{StaticResource Brush.SurfaceAlt}">
+                    <StackPanel>
+                        <TextBlock Text="Two things worth knowing" FontWeight="SemiBold"/>
+                        <TextBlock Margin="0,6,0,0" TextWrapping="Wrap"
+                                   Text="A category or a location is never created here. CategoryName and LocationName have to match one you already have under Manage categories and Manage locations, or that row is left out."/>
+                        <TextBlock Margin="0,6,0,0" TextWrapping="Wrap"
+                                   Text="An item whose name matches one you already have is updated rather than added a second time, which makes it safe to bring the same file in twice."/>
+                        <TextBlock Margin="0,6,0,0" TextWrapping="Wrap"
+                                   Text="A file this app exported also carries Id, CategoryId, LocationId, CreatedAtUtc and UpdatedAtUtc. Those are for its own records — leave them out, because an id only means something on the machine it came from."/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

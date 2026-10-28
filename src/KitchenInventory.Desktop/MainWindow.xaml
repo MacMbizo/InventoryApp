@@ -62,6 +62,11 @@
                 <MenuItem Header="_Help">
                     <MenuItem Header="_About Kitchen Inventory" Click="Help_About_Click" AutomationProperties.AutomationId="AboutMenuItem"/>
                     <Separator/>
+                    <!-- The import has always demanded a particular spreadsheet shape and
+                         never said so anywhere, so this is where the shape is written down
+                         and where a ready-made file can be collected. -->
+                    <MenuItem Header="_Importing from a spreadsheet" Click="Help_ImportingFromSpreadsheet_Click"
+                              AutomationProperties.AutomationId="ImportHelpMenuItem"/>
                     <MenuItem Header="_Diagnostics" Click="Help_Diagnostics_Click"/>
                 </MenuItem>
                 <!-- Leaving. "Sign out" hands the app over to the next person and returns to the

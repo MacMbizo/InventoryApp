@@ -198,6 +198,101 @@ public class UiSmokeTests
     }
 
     /// <summary>
+    /// The import has always wanted its own particular spreadsheet shape and never said so
+    /// anywhere, so the only way to learn it was to feed the import a file and read the
+    /// complaints. This is the page that says it, reached the way a person reaches it, and the
+    /// columns it names are checked against the ones the import reads.
+    /// </summary>
+    [StaFact(DisplayName = "Help_ExplainsWhatTheItemImportExpects")]
+    public void Help_ExplainsWhatTheItemImportExpects()
+    {
+        var connection = UiTestHelpers.CreateIsolatedSqliteConnectionString();
+        using var process = UiTestHelpers.LaunchApp(connection);
+
+        try
+        {
+            try { process.WaitForInputIdle(10000); } catch { }
+
+            using var automation = new UIA3Automation();
+            var window = UiTestHelpers.CompleteStartupGating(automation, process);
+            Assert.NotNull(window);
+
+            try { window.Focus(); } catch { }
+            try { window.SetForeground(); } catch { }
+
+            var menuBar = window.FindFirstDescendant(cf => cf.ByControlType(ControlType.Menu))?.AsMenu();
+            Assert.NotNull(menuBar);
+
+            var helpMenu = FindMenuItem(menuBar!, "Help");
+            Assert.NotNull(helpMenu);
+            helpMenu!.Click();
+            Thread.Sleep(300);
+
+            var importHelpItem = FindMenuItem(helpMenu, "Importing from a spreadsheet");
+            Assert.NotNull(importHelpItem);
+            importHelpItem!.Click();
+
+            var page = UiTestHelpers.WaitForDialog(window, "Importing from a spreadsheet", TimeSpan.FromSeconds(10));
+            Assert.NotNull(page);
+
+            // The page has to name real columns, or following it still produces a file the
+            // import refuses.
+            Assert.True(WaitForText(page!, "CategoryName", TimeSpan.FromSeconds(10)),
+                "The help page does not name the CategoryName column.");
+            Assert.True(WaitForText(page!, "ExpiryDate", TimeSpan.FromSeconds(10)),
+                "The help page does not name the ExpiryDate column.");
+            Assert.True(WaitForText(page!, "Always", TimeSpan.FromSeconds(5)),
+                "The help page does not say which column is the one that is needed.");
+
+            var close = page!.FindFirstDescendant(cf =>
+                cf.ByAutomationId("ImportHelpCloseButton").And(cf.ByControlType(ControlType.Button)));
+            Assert.NotNull(close);
+            UiTestHelpers.TryInvokeWithFallback(close!);
+
+            UiTestHelpers.CloseAppWindow(window, process);
+            var exited = process.WaitForExit(TimeSpan.FromSeconds(20));
+            Assert.True(exited, "Desktop process did not exit in allotted time after closing main window.");
+            Assert.Equal(0, process.ExitCode);
+        }
+        finally
+        {
+            UiTestHelpers.KillIfRunning(process);
+        }
+    }
+
+    /// <summary>Finds a menu entry by what it reads as, ignoring the access-key underscore.</summary>
+    private static MenuItem? FindMenuItem(Menu menu, string header)
+        => menu.Items.FirstOrDefault(i => string.Equals(
+            (i.Properties.Name?.Value ?? string.Empty).Replace("_", string.Empty),
+            header, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Finds a submenu entry by what it reads as, ignoring the access-key underscore.</summary>
+    private static MenuItem? FindMenuItem(MenuItem parent, string header)
+        => parent.Items.FirstOrDefault(i => string.Equals(
+            (i.Properties.Name?.Value ?? string.Empty).Replace("_", string.Empty),
+            header, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Waits for a piece of text to appear anywhere under an element.</summary>
+    private static bool WaitForText(AutomationElement root, string text, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow.Add(timeout);
+        while (DateTime.UtcNow < deadline)
+        {
+            try
+            {
+                var found = root.FindAllDescendants(cf => cf.ByControlType(ControlType.Text))
+                    .Any(e => (e.Name ?? string.Empty).Contains(text, StringComparison.OrdinalIgnoreCase));
+                if (found) return true;
+            }
+            catch { }
+
+            Thread.Sleep(150);
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Creates the isolated database up front with a category, a location, one item filed under
     /// both and one filed under neither, so the filters have something real to narrow. The app
     /// opens this same file at startup.

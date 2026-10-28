@@ -11,9 +11,85 @@ namespace KitchenInventory.Desktop.Services
 {
     public sealed class CsvImportService : ICsvImportService
     {
+        /// <summary>
+        /// The columns a person can fill in, in the order the template writes them, and the
+        /// header everything else is described against. Deliberately without Id: an id belongs
+        /// to one installation's database, so a file exported from one machine and imported on
+        /// another would update whichever item happened to hold that number.
+        /// </summary>
+        public const string TemplateHeader = "Name,Quantity,Unit,CategoryName,LocationName,ExpiryDate";
+
+        /// <summary>
+        /// Every column the parser understands. Only <c>Name</c> is needed, but a first line
+        /// naming any of these is a header, and one naming none of them is not.
+        /// </summary>
+        private static readonly string[] KnownHeaders =
+        {
+            "Id", "Name", "Quantity", "Unit", "CategoryId", "CategoryName",
+            "LocationId", "LocationName", "ExpiryDate", "CreatedAtUtc", "UpdatedAtUtc"
+        };
+
         public async Task<IReadOnlyList<Item>> ParseItemsAsync(string csvContent, List<Category> categories, List<Location>? locations = null)
         {
             return await ParseItemsInternalAsync(csvContent, categories, locations);
+        }
+
+        /// <summary>
+        /// An example of <see cref="TemplateHeader"/> with two rows: one filled in and one
+        /// leaving the optional columns empty, so which ones are optional is visible rather
+        /// than merely stated. The category and location are only used when they already
+        /// exist, because the import refuses a name it cannot match.
+        /// </summary>
+        public static string BuildTemplateCsv(IEnumerable<Category>? categories = null, IEnumerable<Location>? locations = null)
+        {
+            var categoryName = categories?
+                .FirstOrDefault(c => c.Id > 0 && !string.IsNullOrWhiteSpace(c.Name))?.Name ?? string.Empty;
+            var locationName = locations?
+                .FirstOrDefault(l => l.Id > 0 && !string.IsNullOrWhiteSpace(l.Name))?.Name ?? string.Empty;
+            var expiry = DateTime.UtcNow.Date.AddMonths(3).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+            var sb = new StringBuilder();
+            sb.Append(TemplateHeader).Append('\n');
+            sb.Append("Rice,10,kg,").Append(EscapeField(categoryName)).Append(',')
+              .Append(EscapeField(locationName)).Append(',').Append(expiry).Append('\n');
+            sb.Append("Milk,12,L,,,\n");
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Why the first line cannot be read as a header, or null when it can. Without a
+        /// <c>Name</c> column every row is rejected for having no name, which reports a
+        /// problem with the header as though the data were at fault.
+        /// </summary>
+        public static string? DescribeHeaderProblem(string? csvContent)
+        {
+            if (string.IsNullOrWhiteSpace(csvContent)) return "That file is empty.";
+
+            string headerLine;
+            using (var reader = new StringReader(csvContent))
+            {
+                headerLine = reader.ReadLine() ?? string.Empty;
+            }
+
+            var headers = ParseCsvLine(headerLine);
+            if (headers.Any(h => string.Equals(h.Trim(), "Name", StringComparison.OrdinalIgnoreCase))) return null;
+
+            var namesSomething = headers.Any(h => KnownHeaders.Contains(h.Trim(), StringComparer.OrdinalIgnoreCase));
+            return namesSomething
+                ? "The first line of that file names columns, but none of them is called \"Name\", "
+                  + "and every row needs one. See Help > Importing from a spreadsheet for the columns "
+                  + "and for a template you can fill in."
+                : "The first line of that file does not name any of the columns this app reads, so "
+                  + "there is nothing to bring in. The first line has to be the header. See Help > "
+                  + "Importing from a spreadsheet for a template you can fill in.";
+        }
+
+        private static string EscapeField(string? value)
+        {
+            if (string.IsNullOrEmpty(value)) return string.Empty;
+            var needsQuotes = value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r');
+            var escaped = value.Replace("\"", "\"\"");
+            return needsQuotes ? $"\"{escaped}\"" : escaped;
         }
 
         public static async Task<List<Item>> ParseItemsInternalAsync(string csvContent, List<Category> categories, List<Location>? locations = null)

@@ -93,7 +93,7 @@ public sealed class ImportTests
         {
             var logger = CreateLogger();
             var importItems = new List<Item> { new Item { Name = "Sugar", Quantity = 5m, Unit = "kg" } };
-            var vm = new ItemsViewModel(factory, logger, new FakeFileSaveService(), new FakeFileOpenService("dummy"), new FakeCsvImportService(importItems));
+            var vm = new ItemsViewModel(factory, logger, new FakeFileSaveService(), new FakeFileOpenService("Name,Quantity,Unit\nSugar,5,kg"), new FakeCsvImportService(importItems));
 
             await InvokePrivateAsync(vm, "ImportItemsCsvAsync");
 
@@ -132,7 +132,7 @@ public sealed class ImportTests
 
             var logger = CreateLogger();
             var importItems = new List<Item> { new Item { Name = "milk", Quantity = 5m, Unit = "pcs" } }; // case-insensitive name match
-            var vm = new ItemsViewModel(factory, logger, new FakeFileSaveService(), new FakeFileOpenService("dummy"), new FakeCsvImportService(importItems));
+            var vm = new ItemsViewModel(factory, logger, new FakeFileSaveService(), new FakeFileOpenService("Name,Quantity,Unit\nSugar,5,kg"), new FakeCsvImportService(importItems));
             await vm.LoadAsync();
 
             await InvokePrivateAsync(vm, "ImportItemsCsvAsync");
@@ -169,7 +169,7 @@ public sealed class ImportTests
 
             var logger = CreateLogger();
             var importItems = new List<Item> { new Item { Name = "Rice", Quantity = 2m, Unit = "kg" } };
-            var vm = new ItemsViewModel(factory, logger, new FakeFileSaveService(), new FakeFileOpenService("dummy"), new FakeCsvImportService(importItems));
+            var vm = new ItemsViewModel(factory, logger, new FakeFileSaveService(), new FakeFileOpenService("Name,Quantity,Unit\nSugar,5,kg"), new FakeCsvImportService(importItems));
             await vm.LoadAsync();
 
             await InvokePrivateAsync(vm, "ImportItemsCsvAsync");
@@ -194,10 +194,41 @@ public sealed class ImportTests
         {
             var logger = CreateLogger();
             var importItems = Array.Empty<Item>();
-            var vm = new ItemsViewModel(factory, logger, new FakeFileSaveService(), new FakeFileOpenService("dummy"), new FakeCsvImportService(importItems));
+            // A readable header with nothing underneath it, which is the file this test is about.
+            var vm = new ItemsViewModel(factory, logger, new FakeFileSaveService(), new FakeFileOpenService("Name,Quantity,Unit"), new FakeCsvImportService(importItems));
 
             await InvokePrivateAsync(vm, "ImportItemsCsvAsync");
             vm.StatusText.Should().Be("That file had no items in it.");
+        }
+        finally { conn.Dispose(); }
+    }
+
+    /// <summary>
+    /// A first line that names no column this app reads is a dead end, and saying so once is the
+    /// difference between "the header is wrong" and every row being reported as missing a name.
+    /// Nothing at all should be written when that happens.
+    /// </summary>
+    [StaFact]
+    public async Task Import_FirstLineThatIsNotAHeader_SaysWhy_AndWritesNothing()
+    {
+        var (factory, conn, options) = CreateInMemoryFactory();
+        try
+        {
+            var logger = CreateLogger();
+            // The importer is handed items on purpose: a file it cannot read must be refused
+            // before it gets as far as the rows.
+            var importItems = new List<Item> { new Item { Name = "Sugar", Quantity = 5m, Unit = "kg" } };
+            var vm = new ItemsViewModel(factory, logger, new FakeFileSaveService(),
+                new FakeFileOpenService("Item,Qty\nSugar,5"), new FakeCsvImportService(importItems));
+
+            await InvokePrivateAsync(vm, "ImportItemsCsvAsync");
+
+            vm.StatusText.Should().Contain("first line");
+            vm.StatusText.Should().Contain("Importing from a spreadsheet");
+
+            using var verify = new KitchenInventoryDbContext(options);
+            (await verify.Items.AsNoTracking().CountAsync()).Should().Be(0);
+            (await verify.StockMovements.AsNoTracking().CountAsync()).Should().Be(0);
         }
         finally { conn.Dispose(); }
     }

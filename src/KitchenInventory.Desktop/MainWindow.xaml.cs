@@ -260,6 +260,31 @@ namespace KitchenInventory.Desktop
                 "About Kitchen Inventory", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
+        /// <summary>
+        /// What the item import expects. The categories and locations go along so the template
+        /// it hands out names ones that exist, which is the difference between a file that
+        /// imports and a file that comes back with every row rejected.
+        /// </summary>
+        private void Help_ImportingFromSpreadsheet_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var sp = ((App)Application.Current).Services;
+                var fileSave = sp.GetRequiredService<IFileSaveService>();
+                var dialog = new ImportHelpDialog(fileSave, _viewModel.Categories, _viewModel.Locations)
+                {
+                    Owner = WindowOwnerHelper.GetSafeOwner(this) ?? this
+                };
+                dialog.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                var owner = WindowOwnerHelper.GetSafeOwner(this) ?? this;
+                MessageBox.Show(owner, $"Failed to open the importing help: {ex.Message}",
+                    "Importing from a spreadsheet", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private void Help_Diagnostics_Click(object sender, RoutedEventArgs e)
         {
             try

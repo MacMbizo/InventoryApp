@@ -1187,9 +1187,20 @@ public class ItemsViewModel : INotifyPropertyChanged
             // Locations available for parsing (exclude sentinel All with Id=0)
             var availableLocations = Locations.Where(l => l.Id > 0).ToList();
 
+            // A file whose first line is not a header cannot be read at all. Saying so once is
+            // the difference between "the header is wrong" and every row being blamed for it,
+            // which is what the preview used to do. With no dialog to show it in, the status
+            // bar is the only place left to say it.
+            var headerProblem = CsvImportService.DescribeHeaderProblem(text);
+            if (headerProblem != null && _dialogs == null)
+            {
+                StatusText = headerProblem;
+                return;
+            }
+
             // First, parse via ICsvImportService to keep legacy/test behavior
             var parsed = (await _csvImport.ParseItemsAsync(text, availableCategories, availableLocations)).ToList();
-            if (parsed.Count == 0)
+            if (headerProblem == null && parsed.Count == 0)
             {
                 StatusText = "That file had no items in it.";
                 return;
@@ -1209,9 +1220,18 @@ public class ItemsViewModel : INotifyPropertyChanged
                 var previewAnalyzer = new CsvImportPreviewAnalyzer();
                 var preview = await previewAnalyzer.AnalyzeAsync(text, availableCategories, existingItems, availableLocations);
 
-                var previewDialog = new CsvImportPreviewDialog(preview, _fileSave);
+                var previewDialog = new CsvImportPreviewDialog(preview, _fileSave, availableCategories, availableLocations);
                 WindowOwnerHelper.SetSafeOwner(previewDialog, System.Windows.Application.Current.MainWindow);
                 var dialogResult = await _dialogs.ShowAsync(previewDialog);
+
+                // There was nothing to cancel in a file that could not be read, so the preview's
+                // own explanation is what the status bar carries away from here.
+                if (preview.HasHeaderProblem)
+                {
+                    StatusText = preview.HeaderProblem!;
+                    return;
+                }
+
                 if (!(dialogResult is bool b && b))
                 {
                     StatusText = "Import canceled — nothing was changed.";

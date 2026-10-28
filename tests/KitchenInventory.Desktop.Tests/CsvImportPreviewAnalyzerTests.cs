@@ -55,5 +55,39 @@ namespace KitchenInventory.Desktop.Tests
             Assert.False(row.IsValid);
             Assert.Contains(row.Issues, i => i.Field == "CategoryName" && i.Message == "Unknown category name." && i.Value == "NonExistent");
         }
+
+        /// <summary>
+        /// A first line with nothing readable in it used to list every row as "Item name is
+        /// required." — the right complaint about the wrong thing. It is now one statement
+        /// about the file, and no rows, because no row can be judged.
+        /// </summary>
+        [Fact]
+        public async Task AnalyzeAsync_FirstLineThatNamesNoColumns_IsReportedOnce_AndListsNoRows()
+        {
+            var csv = "Item,Qty\nSugar,5\nSalt,2";
+            var analyzer = new CsvImportPreviewAnalyzer();
+
+            var preview = await analyzer.AnalyzeAsync(csv, new List<Category>(), new List<Item>());
+
+            Assert.True(preview.HasHeaderProblem);
+            Assert.NotNull(preview.HeaderProblem);
+            Assert.Contains("first line", preview.HeaderProblem);
+            Assert.Empty(preview.Rows);
+            Assert.Equal(0, preview.Total);
+            Assert.Equal(0, preview.Error);
+        }
+
+        [Fact]
+        public async Task AnalyzeAsync_ReadableHeader_ReportsNoHeaderProblem()
+        {
+            var csv = "Name,Quantity\nSugar,5";
+            var analyzer = new CsvImportPreviewAnalyzer();
+
+            var preview = await analyzer.AnalyzeAsync(csv, new List<Category>(), new List<Item>());
+
+            Assert.False(preview.HasHeaderProblem);
+            Assert.Null(preview.HeaderProblem);
+            Assert.Single(preview.Rows);
+        }
     }
 }

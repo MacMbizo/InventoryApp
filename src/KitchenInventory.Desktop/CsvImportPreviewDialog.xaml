@@ -17,6 +17,30 @@
         </ResourceDictionary>
     </Window.Resources>
     <DockPanel>
+        <!-- Shown only when the file cannot be read at all, because its first line names no
+             "Name" column. Without it every row is listed as "Item name is required.", which
+             blames the rows for a problem with the header. -->
+        <Border DockPanel.Dock="Top" Padding="10"
+                Background="{StaticResource Brush.WarningSurface}"
+                BorderBrush="{StaticResource Brush.WarningBorder}" BorderThickness="0,0,0,1">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding HeaderProblem}" Value="{x:Null}">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <StackPanel>
+                <TextBlock Text="{Binding HeaderProblem}" TextWrapping="Wrap"
+                           AutomationProperties.AutomationId="ImportHeaderProblemText"/>
+                <Button Content="Save a _template..." HorizontalAlignment="Left" Margin="0,8,0,0"
+                        Click="OnSaveTemplateClick"
+                        AutomationProperties.AutomationId="SaveImportTemplateButton"/>
+            </StackPanel>
+        </Border>
+
         <!-- Summary Bar -->
         <Border DockPanel.Dock="Top" Background="{StaticResource Brush.SurfaceAlt}" BorderBrush="{StaticResource Brush.Border}" BorderThickness="0,0,0,1" Padding="10">
             <StackPanel Orientation="Horizontal">
@@ -65,7 +89,7 @@
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,10,10">
             <Button Content="Export _Errors" Width="120" Margin="0,0,10,0" Click="OnExportErrorsClick"/>
             <Button Content="_Cancel" Width="100" Margin="0,0,10,0" IsCancel="True"/>
-            <Button Content="_Import" Width="140" IsDefault="True" Click="OnImportClick"/>
+            <Button Content="_Import" x:Name="ImportButton" Width="140" IsDefault="True" Click="OnImportClick" AutomationProperties.AutomationId="ImportButton"/>
         </StackPanel>
     </DockPanel>
 </Window>

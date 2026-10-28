@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using KitchenInventory.Desktop.Services;
 using KitchenInventory.Desktop.Utilities;
+using KitchenInventory.Domain.Entities;
 
 namespace KitchenInventory.Desktop
 {
@@ -10,17 +12,40 @@ namespace KitchenInventory.Desktop
     {
         public CsvImportPreviewResult Result { get; private set; }
         private readonly IFileSaveService _fileSaveService;
+        private readonly IReadOnlyList<Category> _categories;
+        private readonly IReadOnlyList<Location> _locations;
 
-        public CsvImportPreviewDialog(CsvImportPreviewResult result, IFileSaveService fileSaveService)
+        public CsvImportPreviewDialog(
+            CsvImportPreviewResult result,
+            IFileSaveService fileSaveService,
+            IEnumerable<Category>? categories = null,
+            IEnumerable<Location>? locations = null)
         {
             InitializeComponent();
             Result = result;
             _fileSaveService = fileSaveService;
+            _categories = categories?.ToList() ?? new List<Category>();
+            _locations = locations?.ToList() ?? new List<Location>();
             DataContext = result;
+
+            // Nothing in a file whose first line is unreadable can be brought in, so the button
+            // that would try is off rather than sitting there to be pressed.
+            if (result.HasHeaderProblem)
+            {
+                ImportButton.IsEnabled = false;
+            }
         }
+
+        private async void OnSaveTemplateClick(object sender, RoutedEventArgs e)
+            => await ImportTemplateSaver.SaveAsync(_fileSaveService, this, _categories, _locations);
 
         private void OnImportClick(object sender, RoutedEventArgs e)
         {
+            if (Result.HasHeaderProblem)
+            {
+                return;
+            }
+
             if (Result.Error > 0)
             {
                 var confirm = MessageBoxEx.Confirm($"There are {Result.Error} row(s) with errors. Invalid rows will be skipped. Continue importing valid rows?", owner: this);

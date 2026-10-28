@@ -43,6 +43,111 @@ public sealed class ValidationAndUtilityTests
         option.ToString().Should().NotContain("ReportOption");
     }
 
+    // ---------- The spreadsheet the item import expects ----------
+    // The import has always wanted a particular shape and never said so anywhere, which is only
+    // discovered by feeding it a file and reading the complaints. The template is the shape
+    // written down, so what it says has to be exactly what the import reads.
+
+    private static readonly Category[] NoCategories = Array.Empty<Category>();
+    private static readonly Location[] NoLocations = Array.Empty<Location>();
+
+    [Fact]
+    public void Template_StartsWithItsOwnHeader()
+    {
+        var lines = CsvImportService.BuildTemplateCsv().Split('\n');
+
+        lines[0].Trim().Should().Be(CsvImportService.TemplateHeader);
+        lines[0].Trim().Should().Be("Name,Quantity,Unit,CategoryName,LocationName,ExpiryDate");
+    }
+
+    [Fact]
+    public void Template_IsItselfImportable()
+    {
+        // The strongest statement available about the example: the import would accept it.
+        CsvImportService.DescribeHeaderProblem(CsvImportService.BuildTemplateCsv()).Should().BeNull();
+    }
+
+    [Fact]
+    public void Template_CarriesNoIdColumns_SoAFileFromAnotherMachineCannotMatchTheWrongItem()
+        => CsvImportService.TemplateHeader.Should().NotContain("Id");
+
+    [Fact]
+    public void Template_LeavesTheSecondRowBlankToShowWhichColumnsAreOptional()
+    {
+        var rows = CsvImportService.BuildTemplateCsv().Split('\n');
+
+        // Header, the filled-in example, the one that leaves everything optional out.
+        rows.Should().HaveCountGreaterThanOrEqualTo(3);
+        rows[1].Should().StartWith("Rice,10,kg,");
+        rows[2].Trim().Should().Be("Milk,12,L,,,");
+
+        var expiry = rows[1].Split(',')[5].Trim();
+        DateTime.TryParseExact(expiry, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)
+            .Should().BeTrue($"the example expiry '{expiry}' is not written as yyyy-MM-dd");
+    }
+
+    [Fact]
+    public void Template_NamesACategoryAndLocationThatAlreadyExist()
+    {
+        var categories = new[]
+        {
+            new Category { Id = 0, Name = "All" },      // the filter sentinel, not a real category
+            new Category { Id = 7, Name = "Dry goods" }
+        };
+        var locations = new[]
+        {
+            new Location { Id = 0, Name = "All" },
+            new Location { Id = 9, Name = "Store cupboard" }
+        };
+
+        var row = CsvImportService.BuildTemplateCsv(categories, locations).Split('\n')[1].Split(',');
+
+        // Naming one that does not exist would make every row of the example fail to import.
+        row[3].Should().Be("Dry goods");
+        row[4].Should().Be("Store cupboard");
+    }
+
+    [Fact]
+    public void Template_LeavesCategoryAndLocationEmpty_WhenThereAreNoneYet()
+    {
+        var row = CsvImportService.BuildTemplateCsv(NoCategories, NoLocations).Split('\n')[1].Split(',');
+
+        row[3].Should().BeEmpty();
+        row[4].Should().BeEmpty();
+    }
+
+    [Fact]
+    public void DescribeHeaderProblem_AcceptsAFileThatNamesItsColumns()
+    {
+        CsvImportService.DescribeHeaderProblem("Name,Quantity,Unit\nRice,10,kg").Should().BeNull();
+        CsvImportService.DescribeHeaderProblem("  name , qty \nRice,10").Should().BeNull();
+    }
+
+    [Fact]
+    public void DescribeHeaderProblem_FlagsAFirstLineThatNamesNoKnownColumn()
+    {
+        // What a file saved out of a spreadsheet that was never meant for this app looks like.
+        var problem = CsvImportService.DescribeHeaderProblem("Item,Qty,Notes\nRice,10,plenty");
+
+        problem.Should().NotBeNull();
+        problem.Should().Contain("first line");
+        problem.Should().Contain("Importing from a spreadsheet");
+    }
+
+    [Fact]
+    public void DescribeHeaderProblem_FlagsAHeaderWithNoNameColumn()
+    {
+        var problem = CsvImportService.DescribeHeaderProblem("Quantity,Unit\n10,kg");
+
+        problem.Should().NotBeNull();
+        problem.Should().Contain("Name");
+        problem.Should().Contain("Importing from a spreadsheet");
+    }
+
+    [Fact]
+    public void DescribeHeaderProblem_FlagsAnEmptyFile()
+        => CsvImportService.DescribeHeaderProblem("   ").Should().Be("That file is empty.");
+
     // ---------- NotEmptyValidationRule ----------
 
     private static readonly NotEmptyValidationRule Rule = new();

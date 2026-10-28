@@ -32,6 +32,15 @@ namespace KitchenInventory.Desktop.Services
 
     public sealed class CsvImportPreviewResult
     {
+        /// <summary>
+        /// Set when the file cannot be read at all because its first line names no
+        /// <c>Name</c> column. Nothing is listed in that case: every row would otherwise be
+        /// reported as missing a name, which blames the data for a problem with the header.
+        /// </summary>
+        public string? HeaderProblem { get; set; }
+
+        public bool HasHeaderProblem => !string.IsNullOrEmpty(HeaderProblem);
+
         public List<CsvImportPreviewRow> Rows { get; set; } = new();
         public List<Item> ValidItems => Rows.Where(r => r.IsValid).Select(r => r.ParsedItem).ToList();
         public int Total => Rows.Count;
@@ -65,6 +74,11 @@ namespace KitchenInventory.Desktop.Services
             int idxExpiry = Array.FindIndex(headers, h => string.Equals(h.Trim(), "ExpiryDate", StringComparison.OrdinalIgnoreCase));
             int idxCreated = Array.FindIndex(headers, h => string.Equals(h.Trim(), "CreatedAtUtc", StringComparison.OrdinalIgnoreCase));
             int idxUpdated = Array.FindIndex(headers, h => string.Equals(h.Trim(), "UpdatedAtUtc", StringComparison.OrdinalIgnoreCase));
+
+            // Nothing below can say anything useful about a file whose first line is not a
+            // header, so say that once and stop rather than openly contradicting it per row.
+            result.HeaderProblem = CsvImportService.DescribeHeaderProblem(csvContent);
+            if (result.HeaderProblem != null) return result;
 
             var byId = existingItems.ToDictionary(i => i.Id, i => i);
             var byName = existingItems
